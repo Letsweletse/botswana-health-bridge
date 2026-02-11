@@ -1,4 +1,5 @@
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import { useEffect, useRef } from 'react';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { clinics } from '@/data/mockClinicData';
 
@@ -9,6 +10,39 @@ const statusColors: Record<string, string> = {
 };
 
 const ClinicMap = () => {
+  const mapRef = useRef<L.Map | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    const map = L.map(containerRef.current, { zoomControl: false }).setView([-24.6450, 25.9230], 13);
+    mapRef.current = map;
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    }).addTo(map);
+
+    clinics.forEach((clinic) => {
+      const color = statusColors[clinic.status] || '#888';
+      L.circleMarker([clinic.lat, clinic.lng], {
+        radius: clinic.status === 'critical' ? 10 : 8,
+        fillColor: color,
+        color: color,
+        weight: 2,
+        opacity: 0.9,
+        fillOpacity: 0.6,
+      })
+        .bindPopup(`<div style="font-size:12px"><strong>${clinic.name}</strong><br/>Status: ${clinic.status}</div>`)
+        .addTo(map);
+    });
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
   return (
     <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
@@ -29,40 +63,7 @@ const ClinicMap = () => {
           ))}
         </div>
       </div>
-      <div className="h-[340px]">
-        <MapContainer
-          center={[-24.6450, 25.9230]}
-          zoom={13}
-          className="h-full w-full"
-          zoomControl={false}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          />
-          {clinics.map((clinic) => (
-            <CircleMarker
-              key={clinic.name}
-              center={[clinic.lat, clinic.lng]}
-              radius={clinic.status === 'critical' ? 10 : 8}
-              pathOptions={{
-                fillColor: statusColors[clinic.status],
-                color: statusColors[clinic.status],
-                weight: 2,
-                opacity: 0.9,
-                fillOpacity: 0.6,
-              }}
-            >
-              <Popup>
-                <div className="text-xs">
-                  <p className="font-semibold">{clinic.name}</p>
-                  <p className="capitalize mt-0.5">Status: {clinic.status}</p>
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
-        </MapContainer>
-      </div>
+      <div ref={containerRef} className="h-[340px]" />
     </div>
   );
 };
