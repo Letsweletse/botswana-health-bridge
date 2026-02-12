@@ -2,20 +2,28 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, Map, Package, BarChart3, Settings, LogOut,
+  LayoutDashboard, Map, Package, BarChart3, MessageCircle, Settings, LogOut,
   ChevronLeft, ChevronRight, User
 } from 'lucide-react';
 import logo from '@/assets/ChekaMeds_Logo.png';
 
-const navItems = [
-  { label: 'Dashboard', icon: LayoutDashboard, active: true },
-  { label: 'Map View', icon: Map },
-  { label: 'Inventory', icon: Package },
-  { label: 'Analytics', icon: BarChart3 },
-  { label: 'Settings', icon: Settings },
+export type TabId = 'dashboard' | 'map' | 'inventory' | 'analytics' | 'whatsapp' | 'settings';
+
+const navItems: { label: string; icon: typeof LayoutDashboard; id: TabId }[] = [
+  { label: 'Dashboard', icon: LayoutDashboard, id: 'dashboard' },
+  { label: 'Map View', icon: Map, id: 'map' },
+  { label: 'Inventory', icon: Package, id: 'inventory' },
+  { label: 'Analytics', icon: BarChart3, id: 'analytics' },
+  { label: 'WhatsApp', icon: MessageCircle, id: 'whatsapp' },
+  { label: 'Settings', icon: Settings, id: 'settings' },
 ];
 
-const Sidebar = () => {
+interface SidebarProps {
+  activeTab: TabId;
+  onTabChange: (tab: TabId) => void;
+}
+
+const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
 
@@ -29,7 +37,7 @@ const Sidebar = () => {
       initial={false}
       animate={{ width: collapsed ? 72 : 240 }}
       transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="hidden md:flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen sticky top-0 overflow-hidden"
+      className="hidden md:flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen sticky top-0 overflow-hidden relative"
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-sidebar-border">
@@ -52,9 +60,10 @@ const Sidebar = () => {
       <nav className="flex-1 py-4 space-y-1 px-2">
         {navItems.map(item => (
           <button
-            key={item.label}
+            key={item.id}
+            onClick={() => onTabChange(item.id)}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
-              item.active
+              activeTab === item.id
                 ? 'bg-sidebar-accent text-sidebar-primary font-medium'
                 : 'text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
             }`}
@@ -84,12 +93,7 @@ const Sidebar = () => {
           </div>
           <AnimatePresence>
             {!collapsed && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="overflow-hidden"
-              >
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="overflow-hidden">
                 <p className="text-xs font-medium truncate">Health Operator</p>
                 <p className="text-[10px] text-sidebar-foreground/50 truncate">MoHW · Gaborone</p>
               </motion.div>
