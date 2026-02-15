@@ -1,0 +1,70 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { clinics } from '@/data/mockClinicData';
+
+export interface InventoryItem {
+  id: string;
+  clinic_name: string;
+  med_name: string;
+  category: string;
+  quantity: number;
+  trend: string;
+  updated_at: string;
+}
+
+export function useInventory() {
+  return useQuery({
+    queryKey: ['clinic-inventory'],
+    queryFn: async (): Promise<InventoryItem[]> => {
+      const { data, error } = await supabase
+        .from('clinic_inventory')
+        .select('*')
+        .order('clinic_name');
+
+      if (error) throw error;
+      return (data ?? []) as InventoryItem[];
+    },
+    refetchInterval: 30000, // auto-refresh every 30s
+  });
+}
+
+export function useInventoryStats() {
+  const { data: inventory = [], isLoading } = useInventory();
+
+  const totalClinics = clinics.length;
+  const totalMeds = inventory.length;
+  const criticalCount = inventory.filter(i => i.quantity < 20).length;
+  const healthyCount = inventory.filter(i => i.quantity >= 100).length;
+  const depletingFast = inventory.filter(i => i.trend === 'Depleting Fast').length;
+
+  // Derive clinic statuses from inventory
+  const clinicStatuses = clinics.map(c => {
+    const clinicMeds = inventory.filter(i => i.clinic_name === c.name);
+    const hasCritical = clinicMeds.some(m => m.quantity < 20);
+    const hasWarning = clinicMeds.some(m => m.quantity >= 20 && m.quantity < 50);
+    const status = hasCritical ? 'critical' : hasWarning ? 'warning' : 'stocked';
+    return { ...c, status: status as 'critical' | 'warning' | 'stocked' };
+  });
+
+  const stockedClinics = clinicStatuses.filter(c => c.status === 'stocked').length;
+  const criticalClinics = clinicStatuses.filter(c => c.status === 'critical').length;
+  const stockedPct = totalClinics > 0 ? Math.round((stockedClinics / totalClinics) * 100) : 0;
+
+  return {
+    inventory,
+    isLoading,
+    totalClinics,
+    totalMeds,
+    criticalCount,
+    healthyCount,
+    depletingFast,
+    criticalClinics,
+    stockedPct,
+    clinicStatuses,
+  };
+}
+
+export function useRefreshInventory() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: ['clinic-inventory'] });
+}
