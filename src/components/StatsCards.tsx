@@ -1,5 +1,5 @@
 import { Building2, AlertTriangle, Package, TrendingDown } from 'lucide-react';
-import { clinics, inventoryData } from '@/data/mockClinicData';
+import { useInventoryStats } from '@/hooks/useInventory';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 
@@ -23,11 +23,7 @@ const useAnimatedCount = (target: number, duration = 1200) => {
 };
 
 const StatsCards = () => {
-  const totalClinics = clinics.length;
-  const criticalClinics = clinics.filter(c => c.status === 'critical').length;
-  const totalMeds = inventoryData.length;
-  const depletingFast = inventoryData.filter(i => i.trend === 'Depleting Fast').length;
-  const stockedPct = Math.round((clinics.filter(c => c.status === 'stocked').length / totalClinics) * 100);
+  const { totalClinics, criticalClinics, totalMeds, depletingFast, stockedPct } = useInventoryStats();
 
   const stats = [
     {
@@ -48,7 +44,7 @@ const StatsCards = () => {
       gradient: 'from-critical/10 to-critical/5',
       iconBg: 'bg-critical/15 text-critical',
       barColor: 'bg-critical',
-      barPct: Math.round((criticalClinics / totalClinics) * 100),
+      barPct: totalClinics > 0 ? Math.round((criticalClinics / totalClinics) * 100) : 0,
     },
     {
       label: 'Meds Tracked',
@@ -68,7 +64,7 @@ const StatsCards = () => {
       gradient: 'from-warning/10 to-warning/5',
       iconBg: 'bg-warning/15 text-warning',
       barColor: 'bg-warning',
-      barPct: Math.round((depletingFast / totalMeds) * 100),
+      barPct: totalMeds > 0 ? Math.round((depletingFast / totalMeds) * 100) : 0,
     },
   ];
 

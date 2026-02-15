@@ -1,8 +1,10 @@
 import { AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { inventoryData } from '@/data/mockClinicData';
+import { useInventory } from '@/hooks/useInventory';
 
 const AlertsFeed = () => {
+  const { data: inventoryData = [] } = useInventory();
+
   const criticalItems = inventoryData
     .filter(i => i.quantity < 20)
     .sort((a, b) => a.quantity - b.quantity)

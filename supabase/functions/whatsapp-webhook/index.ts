@@ -1,27 +1,29 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Medicine inventory data (same as frontend mock — will be replaced with DB later)
-const inventoryData = [
-  { clinic_name: 'Princess Marina Hospital', med_name: 'Metformin 500mg', category: 'Chronic', quantity: 12, trend: 'Depleting Fast' },
-  { clinic_name: 'Princess Marina Hospital', med_name: 'Amoxicillin 250mg', category: 'Acute', quantity: 5, trend: 'Depleting Fast' },
-  { clinic_name: 'Gaborone Private Hospital', med_name: 'Amlodipine 5mg', category: 'Chronic', quantity: 340, trend: 'Stable' },
-  { clinic_name: 'Bokamoso Private Hospital', med_name: 'Paracetamol 500mg', category: 'Essential', quantity: 520, trend: 'Restocked' },
-  { clinic_name: 'Sbrana Psychiatric Hospital', med_name: 'Diazepam 5mg', category: 'Acute', quantity: 45, trend: 'Depleting Fast' },
-  { clinic_name: 'Extension 2 Clinic', med_name: 'ARV - TLD', category: 'Chronic', quantity: 8, trend: 'Depleting Fast' },
-  { clinic_name: 'Bontleng Clinic', med_name: 'Ibuprofen 400mg', category: 'Essential', quantity: 200, trend: 'Stable' },
-  { clinic_name: 'Block 6 Clinic', med_name: 'ORS Sachets', category: 'Preventive', quantity: 150, trend: 'Stable' },
-  { clinic_name: 'Phase 2 Clinic', med_name: 'Insulin Glargine', category: 'Chronic', quantity: 30, trend: 'Depleting Fast' },
-  { clinic_name: 'Gaborone Private Hospital', med_name: 'Ciprofloxacin 500mg', category: 'Acute', quantity: 280, trend: 'Stable' },
-  { clinic_name: 'Princess Marina Hospital', med_name: 'Omeprazole 20mg', category: 'Essential', quantity: 90, trend: 'Stable' },
-  { clinic_name: 'Extension 2 Clinic', med_name: 'Cotrimoxazole', category: 'Preventive', quantity: 3, trend: 'Depleting Fast' },
-];
+async function getInventoryData() {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
-function processQuery(message: string): string {
+  const { data, error } = await supabase
+    .from('clinic_inventory')
+    .select('*')
+    .order('clinic_name');
+
+  if (error) {
+    console.error('DB query error:', error);
+    return [];
+  }
+  return data || [];
+}
+
+async function processQuery(message: string): Promise<string> {
   const msg = message.toLowerCase().trim();
 
   // Greeting
@@ -29,45 +31,47 @@ function processQuery(message: string): string {
     return `🏥 *ChekaMeds — Medicine Stock Checker*\n\nDumelang! 👋 I can help you check medicine availability.\n\nSend me:\n📍 A clinic name (e.g. "Princess Marina")\n💊 A medicine name (e.g. "Metformin")\n📊 "status" for a full summary\n🆘 "critical" for urgent shortages`;
   }
 
+  const inventoryData = await getInventoryData();
+
   // Critical shortages
   if (/critical|urgent|shortage|emergency|low/.test(msg)) {
-    const critical = inventoryData.filter(i => i.quantity < 20).sort((a, b) => a.quantity - b.quantity);
+    const critical = inventoryData.filter((i: any) => i.quantity < 20).sort((a: any, b: any) => a.quantity - b.quantity);
     if (critical.length === 0) return "✅ No critical shortages right now! All clinics are well-stocked.";
     let reply = `🚨 *CRITICAL SHORTAGES (${critical.length} items)*\n\n`;
-    critical.forEach(item => {
+    critical.forEach((item: any) => {
       reply += `⚠️ *${item.med_name}* — ${item.quantity} units\n   📍 ${item.clinic_name}\n\n`;
     });
-    reply += `_Updated in real-time via IoT sensors_`;
+    reply += `_Updated in real-time from database_`;
     return reply;
   }
 
   // Full status
   if (/status|summary|overview|report/.test(msg)) {
     const total = inventoryData.length;
-    const critical = inventoryData.filter(i => i.quantity < 20).length;
-    const healthy = inventoryData.filter(i => i.quantity >= 100).length;
-    const depleting = inventoryData.filter(i => i.trend === 'Depleting Fast').length;
+    const critical = inventoryData.filter((i: any) => i.quantity < 20).length;
+    const healthy = inventoryData.filter((i: any) => i.quantity >= 100).length;
+    const depleting = inventoryData.filter((i: any) => i.trend === 'Depleting Fast').length;
     return `📊 *ChekaMeds Stock Summary*\n\n💊 Medicines tracked: ${total}\n✅ Healthy stock (100+): ${healthy}\n⚠️ Critical (<20 units): ${critical}\n📉 Depleting fast: ${depleting}\n\n_Send a clinic or medicine name for details._`;
   }
 
   // Search by clinic name
-  const clinicMatches = inventoryData.filter(i => i.clinic_name.toLowerCase().includes(msg));
+  const clinicMatches = inventoryData.filter((i: any) => i.clinic_name.toLowerCase().includes(msg));
   if (clinicMatches.length > 0) {
     const clinicName = clinicMatches[0].clinic_name;
     let reply = `📍 *${clinicName}*\n\n`;
-    clinicMatches.forEach(item => {
+    clinicMatches.forEach((item: any) => {
       const emoji = item.quantity < 20 ? '🔴' : item.quantity < 50 ? '🟡' : '🟢';
       reply += `${emoji} ${item.med_name}: *${item.quantity} units* (${item.trend})\n`;
     });
-    reply += `\n_Real-time data from IoT shelf sensors_`;
+    reply += `\n_Live data from ChekaMeds database_`;
     return reply;
   }
 
   // Search by medicine name
-  const medMatches = inventoryData.filter(i => i.med_name.toLowerCase().includes(msg));
+  const medMatches = inventoryData.filter((i: any) => i.med_name.toLowerCase().includes(msg));
   if (medMatches.length > 0) {
     let reply = `💊 *${medMatches[0].med_name}* availability:\n\n`;
-    medMatches.forEach(item => {
+    medMatches.forEach((item: any) => {
       const emoji = item.quantity < 20 ? '🔴' : item.quantity < 50 ? '🟡' : '🟢';
       reply += `${emoji} ${item.clinic_name}: *${item.quantity} units*\n`;
     });
@@ -104,7 +108,6 @@ serve(async (req) => {
   }
 
   try {
-    // Handle incoming webhook from UltraMsg
     if (req.method === 'POST') {
       const contentType = req.headers.get('content-type') || '';
       let body: Record<string, string>;
@@ -129,8 +132,7 @@ serve(async (req) => {
         });
       }
 
-      // Process and reply
-      const reply = processQuery(messageBody);
+      const reply = await processQuery(messageBody);
       await sendWhatsAppReply(from, reply);
 
       return new Response(JSON.stringify({ status: 'replied', to: from }), {
@@ -139,12 +141,11 @@ serve(async (req) => {
       });
     }
 
-    // GET — test / health check and manual query
     if (req.method === 'GET') {
       const url = new URL(req.url);
       const query = url.searchParams.get('query');
       if (query) {
-        const reply = processQuery(query);
+        const reply = await processQuery(query);
         return new Response(JSON.stringify({ reply }), {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
