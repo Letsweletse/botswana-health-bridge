@@ -14,7 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clinic_inventory: {
+        Row: {
+          category: string
+          clinic_name: string
+          id: string
+          med_name: string
+          quantity: number
+          trend: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          clinic_name: string
+          id?: string
+          med_name: string
+          quantity?: number
+          trend?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          clinic_name?: string
+          id?: string
+          med_name?: string
+          quantity?: number
+          trend?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
