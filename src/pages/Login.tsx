@@ -2,23 +2,61 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Shield, Activity, Pill } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 import logo from '@/assets/ChekaMeds_Logo.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [clinicName, setClinicName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulated login — replace with Lovable Cloud auth
-    setTimeout(() => {
-      localStorage.setItem('chekameds_user', JSON.stringify({ email, role: 'operator' }));
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       navigate('/');
-    }, 1200);
+    } catch (err: any) {
+      toast({ title: 'Sign in failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clinicName.trim()) {
+      toast({ title: 'Clinic required', description: 'Please enter your clinic name.', variant: 'destructive' });
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            full_name: fullName.trim(),
+            clinic_name: clinicName.trim(),
+          },
+        },
+      });
+      if (error) throw error;
+      toast({ title: 'Check your email', description: 'A confirmation link has been sent to verify your account.' });
+      setIsSignUp(false);
+    } catch (err: any) {
+      toast({ title: 'Sign up failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -60,7 +98,7 @@ const Login = () => {
               {[
                 { icon: Activity, text: 'Real-time IoT sensor monitoring' },
                 { icon: Pill, text: 'Shelf-level medicine tracking' },
-                { icon: Shield, text: 'Secure government-grade access' },
+                { icon: Shield, text: 'Secure clinic-scoped access' },
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-white/5 border border-white/10">
@@ -78,7 +116,7 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Right panel — login form */}
+      {/* Right panel — auth form */}
       <div className="flex-1 flex items-center justify-center p-6 bg-background">
         <motion.div
           className="w-full max-w-sm space-y-8"
@@ -91,13 +129,43 @@ const Login = () => {
           </div>
 
           <div>
-            <h2 className="text-2xl font-display font-bold text-foreground">Welcome back</h2>
+            <h2 className="text-2xl font-display font-bold text-foreground">
+              {isSignUp ? 'Register your clinic' : 'Welcome back'}
+            </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Sign in to access the stock monitoring dashboard
+              {isSignUp
+                ? 'Create an account to manage your clinic\'s inventory'
+                : 'Sign in to access the stock monitoring dashboard'}
             </p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
+            {isSignUp && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">Full name</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="e.g. Dr. Kgosi Moyo"
+                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">Clinic name</label>
+                  <input
+                    type="text"
+                    required
+                    value={clinicName}
+                    onChange={(e) => setClinicName(e.target.value)}
+                    placeholder="e.g. Princess Marina Hospital"
+                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                  />
+                </div>
+              </>
+            )}
+
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-foreground">Email address</label>
               <input
@@ -113,7 +181,9 @@ const Login = () => {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-medium text-foreground">Password</label>
-                <button type="button" className="text-xs text-primary hover:underline">Forgot?</button>
+                {!isSignUp && (
+                  <button type="button" className="text-xs text-primary hover:underline">Forgot?</button>
+                )}
               </div>
               <div className="relative">
                 <input
@@ -122,6 +192,7 @@ const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  minLength={6}
                   className="w-full px-3 py-2.5 text-sm rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all pr-10"
                 />
                 <button
@@ -142,15 +213,21 @@ const Login = () => {
               {isLoading ? (
                 <>
                   <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  Signing in...
+                  {isSignUp ? 'Creating account...' : 'Signing in...'}
                 </>
               ) : (
-                'Sign in'
+                isSignUp ? 'Create account' : 'Sign in'
               )}
             </button>
           </form>
 
-          <div className="text-center">
+          <div className="text-center space-y-2">
+            <button
+              onClick={() => { setIsSignUp(!isSignUp); setIsLoading(false); }}
+              className="text-xs text-primary hover:underline"
+            >
+              {isSignUp ? 'Already have an account? Sign in' : 'New clinic? Register here'}
+            </button>
             <p className="text-xs text-muted-foreground">
               Access restricted to authorised health personnel only.
             </p>

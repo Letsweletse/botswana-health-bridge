@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { clinics } from '@/data/mockClinicData';
 
 export interface InventoryItem {
@@ -12,6 +13,7 @@ export interface InventoryItem {
   updated_at: string;
 }
 
+/** Fetches ALL inventory (used by stats/map that need global view) */
 export function useInventory() {
   return useQuery({
     queryKey: ['clinic-inventory'],
@@ -24,7 +26,30 @@ export function useInventory() {
       if (error) throw error;
       return (data ?? []) as InventoryItem[];
     },
-    refetchInterval: 30000, // auto-refresh every 30s
+    refetchInterval: 30000,
+  });
+}
+
+/** Fetches inventory filtered to the logged-in user's clinic */
+export function useClinicInventory() {
+  const { profile } = useAuth();
+  const clinicName = profile?.clinic_name;
+
+  return useQuery({
+    queryKey: ['clinic-inventory', clinicName],
+    queryFn: async (): Promise<InventoryItem[]> => {
+      if (!clinicName) return [];
+      const { data, error } = await supabase
+        .from('clinic_inventory')
+        .select('*')
+        .eq('clinic_name', clinicName)
+        .order('med_name');
+
+      if (error) throw error;
+      return (data ?? []) as InventoryItem[];
+    },
+    enabled: !!clinicName,
+    refetchInterval: 30000,
   });
 }
 
@@ -37,7 +62,6 @@ export function useInventoryStats() {
   const healthyCount = inventory.filter(i => i.quantity >= 100).length;
   const depletingFast = inventory.filter(i => i.trend === 'Depleting Fast').length;
 
-  // Derive clinic statuses from inventory
   const clinicStatuses = clinics.map(c => {
     const clinicMeds = inventory.filter(i => i.clinic_name === c.name);
     const hasCritical = clinicMeds.some(m => m.quantity < 20);

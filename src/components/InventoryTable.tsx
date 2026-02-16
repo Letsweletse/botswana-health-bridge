@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useInventory, useRefreshInventory } from '@/hooks/useInventory';
+import { useClinicInventory, useRefreshInventory } from '@/hooks/useInventory';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { TrendingDown, Minus, ArrowUpRight, Search, Pencil, Check, X, Loader2 } from 'lucide-react';
 import AddMedicineDialog from '@/components/AddMedicineDialog';
@@ -20,7 +21,8 @@ const categoryColors: Record<string, string> = {
 };
 
 const InventoryTable = () => {
-  const { data: inventoryData = [], isLoading } = useInventory();
+  const { data: inventoryData = [], isLoading } = useClinicInventory();
+  const { profile } = useAuth();
   const refreshInventory = useRefreshInventory();
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('All');
@@ -71,7 +73,7 @@ const InventoryTable = () => {
       setEditingId(null);
       refreshInventory();
     } catch (err: any) {
-      toast({ title: 'Update failed', description: err.message || 'Could not update stock. Are you logged in?', variant: 'destructive' });
+      toast({ title: 'Update failed', description: err.message || 'Could not update stock.', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -91,8 +93,10 @@ const InventoryTable = () => {
       <div className="px-4 py-3 border-b border-border space-y-2">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-display font-semibold text-foreground">Medicine Inventory</h2>
-            <p className="text-xs text-muted-foreground">{filtered.length} items shown · Click ✏️ to update stock</p>
+            <h2 className="text-sm font-display font-semibold text-foreground">
+              {profile?.clinic_name} — Inventory
+            </h2>
+            <p className="text-xs text-muted-foreground">{filtered.length} items · Click ✏️ to update stock</p>
           </div>
           <AddMedicineDialog />
         </div>
@@ -101,7 +105,7 @@ const InventoryTable = () => {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search clinic or medicine..."
+              placeholder="Search medicine..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
@@ -128,7 +132,6 @@ const InventoryTable = () => {
         <table className="w-full text-xs">
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-border bg-muted/80 backdrop-blur-sm">
-              <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Clinic</th>
               <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Medicine</th>
               <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Type</th>
               <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">Stock</th>
@@ -140,8 +143,8 @@ const InventoryTable = () => {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
-                  No results found. Try a different search.
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                  No medicines found. Add your first medicine above.
                 </td>
               </tr>
             ) : (
@@ -156,8 +159,7 @@ const InventoryTable = () => {
                     key={item.id}
                     className={`border-b border-border last:border-0 transition-colors hover:bg-muted/30 ${isLow ? 'bg-critical/[0.03]' : ''}`}
                   >
-                    <td className="px-4 py-2.5 font-medium text-foreground">{item.clinic_name}</td>
-                    <td className="px-4 py-2.5 text-foreground">{item.med_name}</td>
+                    <td className="px-4 py-2.5 font-medium text-foreground">{item.med_name}</td>
                     <td className="px-4 py-2.5">
                       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${categoryColors[item.category] || ''}`}>
                         {item.category}
