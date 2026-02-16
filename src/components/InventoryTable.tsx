@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useInventory, useRefreshInventory } from '@/hooks/useInventory';
 import { supabase } from '@/integrations/supabase/client';
 import { TrendingDown, Minus, ArrowUpRight, Search, Pencil, Check, X, Loader2 } from 'lucide-react';
+import AddMedicineDialog from '@/components/AddMedicineDialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 
@@ -93,6 +94,7 @@ const InventoryTable = () => {
             <h2 className="text-sm font-display font-semibold text-foreground">Medicine Inventory</h2>
             <p className="text-xs text-muted-foreground">{filtered.length} items shown · Click ✏️ to update stock</p>
           </div>
+          <AddMedicineDialog />
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
