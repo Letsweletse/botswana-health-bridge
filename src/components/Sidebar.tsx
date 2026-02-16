@@ -5,6 +5,7 @@ import {
   LayoutDashboard, Map, Package, BarChart3, MessageCircle, Settings, LogOut,
   ChevronLeft, ChevronRight, User
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import logo from '@/assets/ChekaMeds_Logo.png';
 
 export type TabId = 'dashboard' | 'map' | 'inventory' | 'analytics' | 'whatsapp' | 'settings';
@@ -26,9 +27,10 @@ interface SidebarProps {
 const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
+  const { profile, signOut } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem('chekameds_user');
+  const handleLogout = async () => {
+    await signOut();
     navigate('/login');
   };
 
@@ -94,8 +96,8 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
           <AnimatePresence>
             {!collapsed && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="overflow-hidden">
-                <p className="text-xs font-medium truncate">Health Operator</p>
-                <p className="text-[10px] text-sidebar-foreground/50 truncate">MoHW · Gaborone</p>
+                <p className="text-xs font-medium truncate">{profile?.full_name || 'Operator'}</p>
+                <p className="text-[10px] text-sidebar-foreground/50 truncate">{profile?.clinic_name || 'Loading...'}</p>
               </motion.div>
             )}
           </AnimatePresence>

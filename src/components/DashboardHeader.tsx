@@ -1,9 +1,11 @@
 import { Bell, Clock, Moon, Sun } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 
 const DashboardHeader = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [darkMode, setDarkMode] = useState(false);
+  const { profile } = useAuth();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -34,8 +36,8 @@ const DashboardHeader = () => {
           <p className="text-sm font-display font-bold text-foreground">ChekaMeds</p>
         </div>
         <div className="hidden md:block">
-          <p className="text-sm text-foreground font-medium">{greeting}, Operator 👋</p>
-          <p className="text-xs text-muted-foreground">{formattedDate}</p>
+          <p className="text-sm text-foreground font-medium">{greeting}, {profile?.full_name || 'Operator'} 👋</p>
+          <p className="text-xs text-muted-foreground">{formattedDate} · {profile?.clinic_name}</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
