@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         display: ['Space Grotesk', 'system-ui', 'sans-serif'],
+        serif: ['Fraunces', 'Georgia', 'serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -76,7 +77,8 @@ export default {
         gov: {
           dark: "hsl(var(--gov-dark))",
           blue: "hsl(var(--gov-blue))",
-          "blue-light": "hsl(var(--gov-blue-light))",
+          gold: "hsl(var(--gov-gold))",
+          terracotta: "hsl(var(--gov-terracotta))",
         },
       },
       borderRadius: {

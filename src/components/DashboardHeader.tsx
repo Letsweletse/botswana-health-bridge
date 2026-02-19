@@ -1,4 +1,4 @@
-import { Bell, Clock, Moon, Sun } from 'lucide-react';
+import { Bell, Clock, Moon, Sun, Wifi } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -17,10 +17,10 @@ const DashboardHeader = () => {
   }, [darkMode]);
 
   const greeting = currentTime.getHours() < 12
-    ? 'Good morning'
+    ? 'Dumela'
     : currentTime.getHours() < 17
-    ? 'Good afternoon'
-    : 'Good evening';
+    ? 'Dumela'
+    : 'Lotsha';
 
   const formattedDate = currentTime.toLocaleDateString('en-BW', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -30,34 +30,44 @@ const DashboardHeader = () => {
   });
 
   return (
-    <header className="bg-card border-b border-border sticky top-0 z-30">
-      <div className="px-4 sm:px-6 py-3 flex items-center justify-between">
+    <header className="bg-card/95 border-b border-border sticky top-0 z-30 backdrop-blur-sm">
+      <div className="px-5 sm:px-6 py-3.5 flex items-center justify-between">
         <div className="md:hidden">
           <p className="text-sm font-display font-bold text-foreground">ChekaMeds</p>
         </div>
         <div className="hidden md:block">
-          <p className="text-sm text-foreground font-medium">{greeting}, {profile?.full_name || 'Operator'} 👋</p>
-          <p className="text-xs text-muted-foreground">{formattedDate} · {profile?.clinic_name}</p>
+          <p className="text-sm text-foreground font-medium">
+            {greeting}, <span className="font-semibold">{profile?.full_name || 'Operator'}</span> 👋
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">{formattedDate} · {profile?.clinic_name || '—'}</p>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-2 sm:gap-3">
           <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
-            <span>{formattedTime}</span>
+            <span className="font-mono font-medium">{formattedTime}</span>
           </div>
-          <div className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success/5 px-3 py-1">
-            <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
-            <span className="text-xs font-medium text-success">Online</span>
+
+          {/* Live indicator */}
+          <div className="flex items-center gap-1.5 rounded-full border border-success/25 bg-success/8 px-3 py-1">
+            <Wifi className="h-3 w-3 text-success" />
+            <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+            <span className="text-xs font-semibold text-success hidden sm:block">Live</span>
           </div>
+
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className="p-2 rounded-lg hover:bg-muted transition-colors"
+            className="p-2 rounded-xl hover:bg-muted transition-colors border border-transparent hover:border-border"
             title="Toggle theme"
           >
-            {darkMode ? <Sun className="h-4 w-4 text-warning" /> : <Moon className="h-4 w-4 text-muted-foreground" />}
+            {darkMode
+              ? <Sun className="h-4 w-4 text-[hsl(var(--gov-gold))]" />
+              : <Moon className="h-4 w-4 text-muted-foreground" />}
           </button>
-          <button className="relative p-2 rounded-lg hover:bg-muted transition-colors" title="Notifications">
+
+          <button className="relative p-2 rounded-xl hover:bg-muted transition-colors border border-transparent hover:border-border" title="Notifications">
             <Bell className="h-4 w-4 text-muted-foreground" />
-            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-critical" />
+            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-critical border-2 border-card" />
           </button>
         </div>
       </div>
