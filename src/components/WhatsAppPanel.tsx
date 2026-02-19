@@ -76,16 +76,26 @@ const WhatsAppPanel = () => {
   };
 
   return (
-    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden flex flex-col h-full">
-      <div className="px-4 py-3 border-b border-border bg-gradient-to-r from-success/10 to-success/5">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-full bg-success/20">
-            <MessageCircle className="h-4 w-4 text-success" />
+    <div className="bg-card rounded-2xl border border-border overflow-hidden flex flex-col h-full card-premium">
+      <div className="px-4 py-3.5 border-b border-border bg-gradient-to-r from-success/8 to-success/4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-success/15 border border-success/20">
+              <MessageCircle className="h-4 w-4 text-success" />
+            </div>
+            <div>
+              <h2 className="text-sm font-display font-semibold text-foreground">Live Bot Preview</h2>
+              <p className="text-[11px] text-muted-foreground">Same logic as <span className="font-semibold text-success">+267 71 424 486</span></p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-sm font-display font-semibold text-foreground">WhatsApp Stock Checker</h2>
-            <p className="text-[11px] text-muted-foreground">Test medicine queries here — same logic as WhatsApp</p>
-          </div>
+          <a
+            href="https://wa.me/26771424486"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] font-semibold text-success border border-success/25 bg-success/8 rounded-lg px-2.5 py-1 hover:bg-success/15 transition-colors"
+          >
+            Open WhatsApp ↗
+          </a>
         </div>
       </div>
 
@@ -131,12 +141,9 @@ const WhatsAppPanel = () => {
         )}
       </div>
 
-      <div className="p-3 border-t border-border">
+      <div className="p-3 border-t border-border bg-card/50">
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
+          onSubmit={(e) => { e.preventDefault(); handleSend(); }}
           className="flex gap-2"
         >
           <input
@@ -144,12 +151,12 @@ const WhatsAppPanel = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Try: 'critical' or 'Princess Marina'..."
-            className="flex-1 px-3 py-2 text-xs rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="flex-1 px-3 py-2 text-xs rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="p-2 rounded-lg bg-success text-success-foreground hover:bg-success/90 disabled:opacity-50 transition-colors"
+            className="p-2 rounded-xl bg-success text-success-foreground hover:bg-success/90 disabled:opacity-40 transition-all shadow-sm shadow-success/20"
           >
             <Send className="h-3.5 w-3.5" />
           </button>

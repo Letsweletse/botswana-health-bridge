@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,108 +6,132 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 220 20% 10%;
+    /* Kalahari Gold + Botswana Cobalt palette */
+    --background: 30 15% 97%;
+    --foreground: 220 25% 8%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 220 25% 8%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 220 25% 8%;
 
-    --primary: 202 100% 40%;
+    /* Botswana flag cobalt */
+    --primary: 210 85% 38%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 15% 93%;
-    --secondary-foreground: 220 20% 10%;
+    --secondary: 30 20% 93%;
+    --secondary-foreground: 220 25% 8%;
 
-    --muted: 210 15% 95%;
-    --muted-foreground: 215 14% 50%;
+    --muted: 30 12% 94%;
+    --muted-foreground: 220 12% 48%;
 
-    --accent: 155 72% 37%;
-    --accent-foreground: 0 0% 100%;
+    /* Kalahari gold accent */
+    --accent: 38 85% 52%;
+    --accent-foreground: 30 20% 10%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 90%;
-    --input: 214 20% 90%;
-    --ring: 202 100% 40%;
+    --border: 30 18% 88%;
+    --input: 30 18% 88%;
+    --ring: 210 85% 38%;
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 220 20% 10%;
-    --sidebar-foreground: 210 15% 93%;
-    --sidebar-primary: 202 100% 40%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 18% 16%;
-    --sidebar-accent-foreground: 210 15% 93%;
-    --sidebar-border: 220 15% 18%;
-    --sidebar-ring: 202 100% 40%;
+    /* Sidebar — deep night-sky navy */
+    --sidebar-background: 218 35% 9%;
+    --sidebar-foreground: 36 60% 90%;
+    --sidebar-primary: 38 85% 52%;
+    --sidebar-primary-foreground: 218 35% 9%;
+    --sidebar-accent: 218 30% 14%;
+    --sidebar-accent-foreground: 36 60% 90%;
+    --sidebar-border: 218 25% 16%;
+    --sidebar-ring: 38 85% 52%;
 
-    /* Custom tokens */
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --success: 155 72% 37%;
+    /* Status tokens */
+    --warning: 38 85% 52%;
+    --warning-foreground: 30 20% 10%;
+    --success: 152 60% 36%;
     --success-foreground: 0 0% 100%;
-    --critical: 0 72% 51%;
+    --critical: 4 80% 50%;
     --critical-foreground: 0 0% 100%;
-    --gov-dark: 220 20% 10%;
-    --gov-blue: 202 100% 40%;
-    --gov-blue-light: 202 80% 94%;
+
+    /* Botswana brand */
+    --gov-dark: 218 35% 9%;
+    --gov-blue: 210 85% 38%;
+    --gov-gold: 38 85% 52%;
+    --gov-terracotta: 16 68% 46%;
+
+    /* Shadows */
+    --shadow-card: 0 2px 20px -4px hsl(218 35% 9% / 0.08), 0 1px 4px -2px hsl(218 35% 9% / 0.05);
+    --shadow-glow: 0 0 40px -10px hsl(210 85% 38% / 0.25);
   }
 
   .dark {
-    --background: 220 20% 7%;
-    --foreground: 210 15% 93%;
-    --card: 220 18% 11%;
-    --card-foreground: 210 15% 93%;
-    --popover: 220 18% 11%;
-    --popover-foreground: 210 15% 93%;
-    --primary: 202 100% 50%;
+    --background: 218 30% 6%;
+    --foreground: 36 40% 92%;
+    --card: 218 28% 10%;
+    --card-foreground: 36 40% 92%;
+    --popover: 218 28% 10%;
+    --popover-foreground: 36 40% 92%;
+    --primary: 210 85% 52%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 15% 16%;
-    --secondary-foreground: 210 15% 93%;
-    --muted: 220 15% 16%;
-    --muted-foreground: 215 14% 55%;
-    --accent: 155 72% 42%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 62% 30.6%;
+    --secondary: 218 25% 16%;
+    --secondary-foreground: 36 40% 92%;
+    --muted: 218 25% 15%;
+    --muted-foreground: 220 14% 55%;
+    --accent: 38 85% 52%;
+    --accent-foreground: 218 35% 9%;
+    --destructive: 0 62% 30%;
     --destructive-foreground: 210 40% 98%;
-    --border: 220 15% 18%;
-    --input: 220 15% 18%;
-    --ring: 202 100% 50%;
-    --sidebar-background: 220 20% 5%;
-    --sidebar-foreground: 210 15% 93%;
-    --sidebar-primary: 202 100% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 18% 12%;
-    --sidebar-accent-foreground: 210 15% 93%;
-    --sidebar-border: 220 15% 14%;
-    --sidebar-ring: 202 100% 50%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --success: 155 72% 42%;
+    --border: 218 22% 18%;
+    --input: 218 22% 18%;
+    --ring: 210 85% 52%;
+    --sidebar-background: 218 35% 5%;
+    --sidebar-foreground: 36 60% 88%;
+    --sidebar-primary: 38 85% 52%;
+    --sidebar-primary-foreground: 218 35% 5%;
+    --sidebar-accent: 218 30% 10%;
+    --sidebar-accent-foreground: 36 60% 88%;
+    --sidebar-border: 218 25% 13%;
+    --sidebar-ring: 38 85% 52%;
+    --warning: 38 85% 52%;
+    --warning-foreground: 218 35% 9%;
+    --success: 152 60% 42%;
     --success-foreground: 0 0% 100%;
-    --critical: 0 72% 51%;
+    --critical: 4 80% 55%;
     --critical-foreground: 0 0% 100%;
-    --gov-dark: 220 20% 5%;
-    --gov-blue: 202 100% 50%;
-    --gov-blue-light: 202 60% 18%;
+    --gov-dark: 218 35% 5%;
+    --gov-blue: 210 85% 52%;
+    --gov-gold: 38 85% 52%;
+    --gov-terracotta: 16 68% 52%;
+    --shadow-card: 0 2px 20px -4px hsl(0 0% 0% / 0.4);
+    --shadow-glow: 0 0 40px -10px hsl(210 85% 52% / 0.3);
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground;
     font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', system-ui, sans-serif;
   }
+}
+
+/* Tribal pattern overlay utility */
+.tribal-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c8870a' fill-opacity='0.07'%3E%3Cpath d='M20 0L40 20L20 40L0 20z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Premium card shadow */
+.card-premium {
+  box-shadow: var(--shadow-card);
 }
 
 /* Leaflet overrides */
@@ -115,3 +139,9 @@
   border-radius: var(--radius);
   z-index: 1;
 }
+
+/* Smooth scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 99px; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
