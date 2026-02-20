@@ -148,7 +148,7 @@ const ClinicOnboarding = () => {
       <div className="bg-gradient-to-r from-primary/8 via-primary/5 to-[hsl(var(--gov-gold))]/5 border border-primary/15 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h4 className="text-sm font-display font-semibold text-foreground">Want to enroll your facility?</h4>
-          <p className="text-xs text-muted-foreground mt-0.5">Contact the Ministry of Health & Wellness Digital Health team to request a ChekaMeds account for your clinic.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Contact the IBLIM ENTERPRISE team to request a ChekaMeds account for your clinic.</p>
         </div>
         <div className="flex gap-2 flex-shrink-0">
           <a

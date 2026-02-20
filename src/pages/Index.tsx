@@ -162,7 +162,7 @@ const Index = () => {
           </AnimatePresence>
 
           <footer className="text-center text-[11px] text-muted-foreground py-4 border-t border-border">
-            ChekaMeds · Ministry of Health & Wellness, Republic of Botswana · Data updated in real-time via IoT sensors · © 2026
+            ChekaMeds · IBLIM ENTERPRISE · Data updated in real-time via IoT sensors · © 2026
           </footer>
         </main>
       </div>
