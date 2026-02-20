@@ -66,38 +66,23 @@ const Login = () => {
     <div className="min-h-screen flex">
       {/* LEFT — hero panel */}
       <div className="hidden lg:flex lg:w-[58%] relative overflow-hidden">
-        {/* Background image */}
-        <img
-          src={heroBg}
-          alt="Gaborone"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        {/* Deep overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[hsl(218,35%,9%)]/85 via-[hsl(218,35%,9%)]/60 to-[hsl(210,85%,20%)]/70" />
-        {/* Gold tribal accent strip */}
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-[hsl(38,85%,52%)] to-transparent opacity-60" />
+        <img src={heroBg} alt="Gaborone" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[hsl(180,12%,9%)]/85 via-[hsl(180,12%,9%)]/60 to-[hsl(145,45%,20%)]/70" />
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-primary to-transparent opacity-60" />
 
         <div className="relative z-10 flex flex-col justify-between p-14 w-full">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-          >
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
             <img src={logo} alt="ChekaMeds" className="h-12 w-auto object-contain" />
           </motion.div>
 
           <div className="space-y-10">
-            <motion.div
-              initial={{ opacity: 0, x: -40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3, duration: 0.8 }}
-            >
-              <p className="text-[hsl(38,85%,62%)] text-sm font-medium tracking-widest uppercase mb-3">
+            <motion.div initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3, duration: 0.8 }}>
+              <p className="text-primary-foreground/70 text-sm font-medium tracking-widest uppercase mb-3">
                 Ipelegeng · Serving Batswana
               </p>
               <h1 className="text-5xl font-display font-bold text-white leading-[1.1]">
                 Medicine reaches<br />
-                <span className="text-[hsl(38,85%,62%)]">every Motswana.</span>
+                <span className="text-primary">every Motswana.</span>
               </h1>
               <p className="text-white/60 text-base mt-4 leading-relaxed max-w-md">
                 A real-time stock visibility platform built for Botswana's public health network — 
@@ -105,27 +90,21 @@ const Login = () => {
               </p>
             </motion.div>
 
-            <motion.div
-              className="space-y-3"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.7, duration: 0.6 }}
-            >
+            <motion.div className="space-y-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7, duration: 0.6 }}>
               {[
                 { icon: Activity, text: 'Live IoT sensor monitoring across all facilities' },
                 { icon: Pill, text: 'Shelf-level medicine tracking & depletion alerts' },
                 { icon: Shield, text: 'Clinic-scoped secure access for health personnel' },
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-[hsl(38,85%,52%)]/15 border border-[hsl(38,85%,52%)]/25">
-                    <item.icon className="h-4 w-4 text-[hsl(38,85%,62%)]" />
+                  <div className="p-2 rounded-lg bg-primary/15 border border-primary/25">
+                    <item.icon className="h-4 w-4 text-primary" />
                   </div>
                   <span className="text-sm text-white/65">{item.text}</span>
                 </div>
               ))}
             </motion.div>
 
-            {/* WhatsApp CTA */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -133,7 +112,7 @@ const Login = () => {
               className="bg-white/[0.06] border border-white/10 rounded-2xl p-4 backdrop-blur-sm"
             >
               <p className="text-[10px] text-white/40 uppercase tracking-widest mb-1">Public WhatsApp Line</p>
-              <p className="text-[hsl(38,85%,62%)] text-xl font-display font-bold">+267 714 24 486</p>
+              <p className="text-primary text-xl font-display font-bold">+267 714 24 486</p>
               <p className="text-white/50 text-xs mt-0.5">Patients text this number to find medicine across Gaborone</p>
             </motion.div>
           </div>
@@ -180,13 +159,12 @@ const Login = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              {/* Mobile logo */}
               <div className="lg:hidden flex justify-center">
                 <img src={logo} alt="ChekaMeds" className="h-12 object-contain" />
               </div>
 
               <div>
-                <p className="text-xs text-[hsl(var(--gov-gold))] font-medium uppercase tracking-widest mb-2">
+                <p className="text-xs text-primary font-medium uppercase tracking-widest mb-2">
                   {isSignUp ? 'Register facility' : 'Staff portal'}
                 </p>
                 <h2 className="text-3xl font-display font-bold text-foreground">
@@ -210,27 +188,12 @@ const Login = () => {
                     >
                       <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-foreground/80 tracking-wide">Full name</label>
-                        <input
-                          type="text"
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          placeholder="Dr. Kgosi Moyo"
-                          className={inputClass}
-                        />
+                        <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. Kgosi Moyo" className={inputClass} />
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-foreground/80 tracking-wide">Clinic / Hospital name</label>
-                        <input
-                          type="text"
-                          required
-                          value={clinicName}
-                          onChange={(e) => setClinicName(e.target.value)}
-                          placeholder="e.g. Princess Marina Hospital"
-                          className={inputClass}
-                        />
-                        <p className="text-[11px] text-muted-foreground px-1">
-                          This becomes your facility identifier. Use the official name.
-                        </p>
+                        <input type="text" required value={clinicName} onChange={(e) => setClinicName(e.target.value)} placeholder="e.g. Princess Marina Hospital" className={inputClass} />
+                        <p className="text-[11px] text-muted-foreground px-1">This becomes your facility identifier. Use the official name.</p>
                       </div>
                     </motion.div>
                   )}
@@ -238,38 +201,17 @@ const Login = () => {
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-foreground/80 tracking-wide">Email address</label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="operator@health.gov.bw"
-                    className={inputClass}
-                  />
+                  <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="operator@health.gov.bw" className={inputClass} />
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-semibold text-foreground/80 tracking-wide">Password</label>
-                    {!isSignUp && (
-                      <button type="button" className="text-xs text-primary hover:underline font-medium">Forgot password?</button>
-                    )}
+                    {!isSignUp && <button type="button" className="text-xs text-primary hover:underline font-medium">Forgot password?</button>}
                   </div>
                   <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      minLength={6}
-                      className={inputClass + ' pr-11'}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    >
+                    <input type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} className={inputClass + ' pr-11'} />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
