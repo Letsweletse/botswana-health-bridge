@@ -139,7 +139,7 @@ const Login = () => {
           </div>
 
           <p className="text-xs text-white/25 tracking-wide">
-            © 2026 ChekaMeds · Ministry of Health & Wellness, Republic of Botswana
+            © 2026 ChekaMeds · IBLIM ENTERPRISE
           </p>
         </div>
       </div>
