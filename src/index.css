@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,48 +6,48 @@
 
 @layer base {
   :root {
-    /* Kalahari Gold + Botswana Cobalt palette */
-    --background: 30 15% 97%;
-    --foreground: 220 25% 8%;
+    /* ChekaMeds Green + Slate Grey palette */
+    --background: 140 8% 97%;
+    --foreground: 200 18% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 25% 8%;
+    --card-foreground: 200 18% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 8%;
+    --popover-foreground: 200 18% 12%;
 
-    /* Botswana flag cobalt */
-    --primary: 210 85% 38%;
+    /* ChekaMeds green */
+    --primary: 145 45% 38%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 30 20% 93%;
-    --secondary-foreground: 220 25% 8%;
+    --secondary: 150 10% 93%;
+    --secondary-foreground: 200 18% 12%;
 
-    --muted: 30 12% 94%;
-    --muted-foreground: 220 12% 48%;
+    --muted: 150 8% 94%;
+    --muted-foreground: 200 10% 48%;
 
-    /* Kalahari gold accent */
-    --accent: 38 85% 52%;
-    --accent-foreground: 30 20% 10%;
+    /* Warm accent — kept gold-ish for highlights */
+    --accent: 145 50% 45%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 30 18% 88%;
-    --input: 30 18% 88%;
-    --ring: 210 85% 38%;
+    --border: 150 12% 88%;
+    --input: 150 12% 88%;
+    --ring: 145 45% 38%;
 
     --radius: 0.75rem;
 
-    /* Sidebar — deep night-sky navy */
-    --sidebar-background: 218 35% 9%;
-    --sidebar-foreground: 36 60% 90%;
-    --sidebar-primary: 38 85% 52%;
-    --sidebar-primary-foreground: 218 35% 9%;
-    --sidebar-accent: 218 30% 14%;
-    --sidebar-accent-foreground: 36 60% 90%;
-    --sidebar-border: 218 25% 16%;
-    --sidebar-ring: 38 85% 52%;
+    /* Sidebar — deep charcoal-green */
+    --sidebar-background: 180 12% 9%;
+    --sidebar-foreground: 140 20% 90%;
+    --sidebar-primary: 145 50% 45%;
+    --sidebar-primary-foreground: 180 12% 9%;
+    --sidebar-accent: 180 10% 14%;
+    --sidebar-accent-foreground: 140 20% 90%;
+    --sidebar-border: 180 10% 16%;
+    --sidebar-ring: 145 50% 45%;
 
     /* Status tokens */
     --warning: 38 85% 52%;
@@ -57,57 +57,57 @@
     --critical: 4 80% 50%;
     --critical-foreground: 0 0% 100%;
 
-    /* Botswana brand */
-    --gov-dark: 218 35% 9%;
-    --gov-blue: 210 85% 38%;
-    --gov-gold: 38 85% 52%;
+    /* Brand tokens */
+    --gov-dark: 180 12% 9%;
+    --gov-blue: 145 45% 38%;
+    --gov-gold: 145 50% 45%;
     --gov-terracotta: 16 68% 46%;
 
     /* Shadows */
-    --shadow-card: 0 2px 20px -4px hsl(218 35% 9% / 0.08), 0 1px 4px -2px hsl(218 35% 9% / 0.05);
-    --shadow-glow: 0 0 40px -10px hsl(210 85% 38% / 0.25);
+    --shadow-card: 0 2px 20px -4px hsl(180 12% 9% / 0.08), 0 1px 4px -2px hsl(180 12% 9% / 0.05);
+    --shadow-glow: 0 0 40px -10px hsl(145 45% 38% / 0.25);
   }
 
   .dark {
-    --background: 218 30% 6%;
-    --foreground: 36 40% 92%;
-    --card: 218 28% 10%;
-    --card-foreground: 36 40% 92%;
-    --popover: 218 28% 10%;
-    --popover-foreground: 36 40% 92%;
-    --primary: 210 85% 52%;
+    --background: 180 15% 6%;
+    --foreground: 140 20% 92%;
+    --card: 180 14% 10%;
+    --card-foreground: 140 20% 92%;
+    --popover: 180 14% 10%;
+    --popover-foreground: 140 20% 92%;
+    --primary: 145 50% 48%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 218 25% 16%;
-    --secondary-foreground: 36 40% 92%;
-    --muted: 218 25% 15%;
-    --muted-foreground: 220 14% 55%;
-    --accent: 38 85% 52%;
-    --accent-foreground: 218 35% 9%;
+    --secondary: 180 12% 16%;
+    --secondary-foreground: 140 20% 92%;
+    --muted: 180 12% 15%;
+    --muted-foreground: 200 10% 55%;
+    --accent: 145 50% 50%;
+    --accent-foreground: 180 12% 9%;
     --destructive: 0 62% 30%;
     --destructive-foreground: 210 40% 98%;
-    --border: 218 22% 18%;
-    --input: 218 22% 18%;
-    --ring: 210 85% 52%;
-    --sidebar-background: 218 35% 5%;
-    --sidebar-foreground: 36 60% 88%;
-    --sidebar-primary: 38 85% 52%;
-    --sidebar-primary-foreground: 218 35% 5%;
-    --sidebar-accent: 218 30% 10%;
-    --sidebar-accent-foreground: 36 60% 88%;
-    --sidebar-border: 218 25% 13%;
-    --sidebar-ring: 38 85% 52%;
+    --border: 180 10% 18%;
+    --input: 180 10% 18%;
+    --ring: 145 50% 48%;
+    --sidebar-background: 180 12% 5%;
+    --sidebar-foreground: 140 20% 88%;
+    --sidebar-primary: 145 50% 50%;
+    --sidebar-primary-foreground: 180 12% 5%;
+    --sidebar-accent: 180 10% 10%;
+    --sidebar-accent-foreground: 140 20% 88%;
+    --sidebar-border: 180 10% 13%;
+    --sidebar-ring: 145 50% 50%;
     --warning: 38 85% 52%;
-    --warning-foreground: 218 35% 9%;
+    --warning-foreground: 180 12% 9%;
     --success: 152 60% 42%;
     --success-foreground: 0 0% 100%;
     --critical: 4 80% 55%;
     --critical-foreground: 0 0% 100%;
-    --gov-dark: 218 35% 5%;
-    --gov-blue: 210 85% 52%;
-    --gov-gold: 38 85% 52%;
+    --gov-dark: 180 12% 5%;
+    --gov-blue: 145 50% 48%;
+    --gov-gold: 145 50% 50%;
     --gov-terracotta: 16 68% 52%;
     --shadow-card: 0 2px 20px -4px hsl(0 0% 0% / 0.4);
-    --shadow-glow: 0 0 40px -10px hsl(210 85% 52% / 0.3);
+    --shadow-glow: 0 0 40px -10px hsl(145 50% 48% / 0.3);
   }
 }
 
@@ -115,18 +115,18 @@
   * { @apply border-border; }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Poppins', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-family: 'Poppins', system-ui, sans-serif;
   }
 }
 
 /* Tribal pattern overlay utility */
 .tribal-pattern {
-  background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c8870a' fill-opacity='0.07'%3E%3Cpath d='M20 0L40 20L20 40L0 20z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%234a9e5e' fill-opacity='0.07'%3E%3Cpath d='M20 0L40 20L20 40L0 20z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* Premium card shadow */
