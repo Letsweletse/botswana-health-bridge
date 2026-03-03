@@ -70,10 +70,11 @@ const Login = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-[hsl(180,12%,9%)]/85 via-[hsl(180,12%,9%)]/60 to-[hsl(145,45%,20%)]/70" />
         <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-primary to-transparent opacity-60" />
 
-        <div className="relative z-10 flex flex-col justify-between p-14 w-full">
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
-            <img src={logo} alt="ChekaMeds" className="h-12 w-auto object-contain" />
-          </motion.div>
+         <div className="relative z-10 flex flex-col justify-between p-14 w-full">
+           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }} className="space-y-2">
+             <img src={logo} alt="ChekaMeds" className="h-20 w-auto object-contain" />
+             <p className="text-[10px] text-white/40 tracking-[0.25em] uppercase font-medium">Powered by IBLIM ENTERPRISE</p>
+           </motion.div>
 
           <div className="space-y-10">
             <motion.div initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3, duration: 0.8 }}>
@@ -117,10 +118,10 @@ const Login = () => {
             </motion.div>
           </div>
 
-          <p className="text-xs text-white/25 tracking-wide">
-            © 2026 ChekaMeds · IBLIM ENTERPRISE
-          </p>
-        </div>
+           <p className="text-xs text-white/25 tracking-wide">
+             © 2026 ChekaMeds · Powered by IBLIM ENTERPRISE
+           </p>
+         </div>
       </div>
 
       {/* RIGHT — auth form */}
@@ -159,9 +160,10 @@ const Login = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <div className="lg:hidden flex justify-center">
-                <img src={logo} alt="ChekaMeds" className="h-12 object-contain" />
-              </div>
+               <div className="lg:hidden flex flex-col items-center gap-1">
+                 <img src={logo} alt="ChekaMeds" className="h-16 object-contain" />
+                 <p className="text-[9px] text-muted-foreground tracking-[0.2em] uppercase">Powered by IBLIM ENTERPRISE</p>
+               </div>
 
               <div>
                 <p className="text-xs text-primary font-medium uppercase tracking-widest mb-2">
