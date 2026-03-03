@@ -51,8 +51,8 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
       <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent opacity-60" />
 
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border">
-        <img src={logo} alt="ChekaMeds" className="h-8 w-8 object-contain flex-shrink-0 rounded-lg" />
+       <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border">
+        <img src={logo} alt="ChekaMeds" className="h-10 w-10 object-contain flex-shrink-0 rounded-lg" />
         <AnimatePresence>
           {!collapsed && (
             <motion.div
@@ -61,8 +61,8 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
               exit={{ opacity: 0, width: 0 }}
               className="overflow-hidden"
             >
-              <p className="text-sm font-display font-bold whitespace-nowrap text-sidebar-foreground">ChekaMeds</p>
-              <p className="text-[9px] text-primary whitespace-nowrap font-medium tracking-widest uppercase">IBLIM · Botswana</p>
+              <p className="text-base font-display font-extrabold whitespace-nowrap text-sidebar-foreground tracking-tight">ChekaMeds</p>
+              <p className="text-[8px] text-muted-foreground whitespace-nowrap font-medium tracking-[0.2em] uppercase">Powered by IBLIM ENTERPRISE</p>
             </motion.div>
           )}
         </AnimatePresence>

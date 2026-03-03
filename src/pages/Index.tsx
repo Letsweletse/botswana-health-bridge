@@ -161,9 +161,9 @@ const Index = () => {
             </motion.div>
           </AnimatePresence>
 
-          <footer className="text-center text-[11px] text-muted-foreground py-4 border-t border-border">
-            ChekaMeds · IBLIM ENTERPRISE · Data updated in real-time via IoT sensors · © 2026
-          </footer>
+           <footer className="text-center text-[11px] text-muted-foreground py-4 border-t border-border">
+             <span className="font-bold text-foreground/60">ChekaMeds</span> · Powered by IBLIM ENTERPRISE · Data updated in real-time via IoT sensors · © 2026
+           </footer>
         </main>
       </div>
     </div>
