@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Map, Package, BarChart3, MessageCircle, Settings, LogOut,
-  ChevronLeft, ChevronRight, User, Stethoscope
+  ChevronLeft, ChevronRight, User, Stethoscope, ClipboardList, Brain, QrCode, Phone
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import logo from '@/assets/ChekaMeds_Logo.png';
 
-export type TabId = 'dashboard' | 'map' | 'inventory' | 'analytics' | 'whatsapp' | 'settings';
+export type TabId = 'dashboard' | 'map' | 'inventory' | 'analytics' | 'whatsapp' | 'prescriptions' | 'forecasting' | 'qr_codes' | 'sms_ussd' | 'settings';
 
 const navItems: { label: string; icon: typeof LayoutDashboard; id: TabId }[] = [
   { label: 'Dashboard', icon: LayoutDashboard, id: 'dashboard' },
@@ -16,6 +16,10 @@ const navItems: { label: string; icon: typeof LayoutDashboard; id: TabId }[] = [
   { label: 'My Inventory', icon: Package, id: 'inventory' },
   { label: 'Analytics', icon: BarChart3, id: 'analytics' },
   { label: 'WhatsApp Bot', icon: MessageCircle, id: 'whatsapp' },
+  { label: 'Prescriptions', icon: ClipboardList, id: 'prescriptions' },
+  { label: 'Forecasting', icon: Brain, id: 'forecasting' },
+  { label: 'QR Codes', icon: QrCode, id: 'qr_codes' },
+  { label: 'SMS/USSD', icon: Phone, id: 'sms_ussd' },
   { label: 'Settings', icon: Settings, id: 'settings' },
 ];
 
@@ -47,11 +51,10 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
         `
       }}
     >
-      {/* Green accent top border */}
       <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent opacity-60" />
 
       {/* Logo */}
-       <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border">
+      <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border">
         <img src={logo} alt="ChekaMeds" className="h-10 w-10 object-contain flex-shrink-0 rounded-lg" />
         <AnimatePresence>
           {!collapsed && (
@@ -69,12 +72,12 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-4 space-y-0.5 px-2">
+      <nav className="flex-1 py-3 space-y-0.5 px-2 overflow-y-auto scrollbar-thin">
         {navItems.map(item => (
           <button
             key={item.id}
             onClick={() => onTabChange(item.id)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
               activeTab === item.id
                 ? 'bg-primary/15 text-primary font-semibold border border-primary/20'
                 : 'text-sidebar-foreground/55 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'
@@ -87,7 +90,7 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="whitespace-nowrap overflow-hidden"
+                  className="whitespace-nowrap overflow-hidden text-xs"
                 >
                   {item.label}
                 </motion.span>

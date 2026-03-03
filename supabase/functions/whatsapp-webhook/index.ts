@@ -6,6 +6,26 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// Language state per user session (in production, persist in DB)
+const userLanguages: Record<string, 'en' | 'tn'> = {};
+
+function getLang(from: string): 'en' | 'tn' {
+  return userLanguages[from] || 'en';
+}
+
+const tn: Record<string, string> = {
+  greeting: '🏥 *ChekaMeds — Tlhatlhobo ya Ditlhare*\n\nDumelang! 👋 Ke ka go thusa go bona ditlhare.\n\nRomela:\n📍 Leina la kliniiki (jk. "Princess Marina")\n💊 Leina la setlhare (jk. "Metformin")\n📊 "status" go bona kakaretso\n🆘 "critical" go bona tlhaelo e kgolo\n💊 "prescription: Med1, Med2" go bona kliniiki e e nang le tsotlhe',
+  no_critical: '✅ Ga go na tlhaelo e kgolo ga jaana! Dikliniiki tsotlhe di na le ditlhare.',
+  critical_header: '🚨 *TLHAELO E KGOLO',
+  status_header: '📊 *Kakaretso ya ChekaMeds*',
+  not_found: '🤔 Ga ke a bona sepe ka',
+  lang_switch: '🇧🇼 Puo e fetoletswe go Setswana! Romela molaetsa ope.',
+  lang_en: '🇬🇧 Language switched to English! Send any message.',
+  prescription_header: '💊 *Prescription Matching*',
+  prescription_full: '✅ *FULL MATCH*',
+  prescription_partial: '⚠️ *PARTIAL MATCH*',
+};
+
 async function getInventoryData() {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -23,34 +43,114 @@ async function getInventoryData() {
   return data || [];
 }
 
-async function processQuery(message: string): Promise<string> {
+async function processQuery(message: string, from: string = ''): Promise<string> {
   const msg = message.toLowerCase().trim();
+  const lang = getLang(from);
+
+  // Language switching
+  if (/^setswana$/.test(msg)) {
+    userLanguages[from] = 'tn';
+    return tn.lang_switch;
+  }
+  if (/^english$/.test(msg)) {
+    userLanguages[from] = 'en';
+    return tn.lang_en;
+  }
 
   // Greeting
-  if (/^(hi|hello|hey|dumelang|dumela)/.test(msg)) {
-    return `🏥 *ChekaMeds — Medicine Stock Checker*\n\nDumelang! 👋 I can help you check medicine availability.\n\nSend me:\n📍 A clinic name (e.g. "Princess Marina")\n💊 A medicine name (e.g. "Metformin")\n📊 "status" for a full summary\n🆘 "critical" for urgent shortages`;
+  if (/^(hi|hello|hey|dumelang|dumela|thobela|lotsha)/.test(msg)) {
+    if (lang === 'tn') return tn.greeting;
+    return `🏥 *ChekaMeds — Medicine Stock Checker*\n\nDumelang! 👋 I can help you check medicine availability.\n\nSend me:\n📍 A clinic name (e.g. "Princess Marina")\n💊 A medicine name (e.g. "Metformin")\n📊 "status" for a full summary\n🆘 "critical" for urgent shortages\n💊 "prescription: Med1, Med2" to find a clinic with all meds\n🇧🇼 "setswana" to switch language`;
   }
 
   const inventoryData = await getInventoryData();
 
+  // Prescription matching
+  if (/^prescription[:\s]/.test(msg)) {
+    const rxPart = msg.replace(/^prescription[:\s]+/, '');
+    const medicines = rxPart.split(/[,;]+/).map(m => m.trim()).filter(Boolean);
+    
+    if (medicines.length === 0) {
+      return lang === 'tn' 
+        ? '💊 Romela lenaane la ditlhare: "prescription: Metformin, Paracetamol"'
+        : '💊 Send your list like: "prescription: Metformin, Paracetamol"';
+    }
+
+    // Group inventory by clinic
+    const clinicMap: Record<string, any[]> = {};
+    inventoryData.forEach((item: any) => {
+      if (!clinicMap[item.clinic_name]) clinicMap[item.clinic_name] = [];
+      clinicMap[item.clinic_name].push(item);
+    });
+
+    const results: { clinic: string; matched: string[]; missing: string[]; pct: number }[] = [];
+    
+    for (const [clinic, meds] of Object.entries(clinicMap)) {
+      const matched: string[] = [];
+      const missing: string[] = [];
+      medicines.forEach(rx => {
+        const found = meds.some(m => m.med_name.toLowerCase().includes(rx) && m.quantity > 0);
+        if (found) matched.push(rx);
+        else missing.push(rx);
+      });
+      if (matched.length > 0) {
+        results.push({ clinic, matched, missing, pct: Math.round((matched.length / medicines.length) * 100) });
+      }
+    }
+
+    results.sort((a, b) => b.pct - a.pct);
+
+    if (results.length === 0) {
+      return lang === 'tn'
+        ? '😞 Ga go na kliniiki e e nang le ditlhare tseo.'
+        : '😞 No clinic has any of those medicines in stock right now.';
+    }
+
+    let reply = lang === 'tn' ? `${tn.prescription_header}\n\n` : `💊 *Prescription Matching Results*\n\n`;
+    reply += `🔍 Searched: ${medicines.join(', ')}\n\n`;
+
+    results.slice(0, 5).forEach(r => {
+      const icon = r.pct === 100 ? '✅' : '⚠️';
+      reply += `${icon} *${r.clinic}* — ${r.pct}% match\n`;
+      reply += `  ✓ Has: ${r.matched.join(', ')}\n`;
+      if (r.missing.length > 0) reply += `  ✗ Missing: ${r.missing.join(', ')}\n`;
+      reply += `\n`;
+    });
+
+    const fullMatch = results.find(r => r.pct === 100);
+    if (fullMatch) {
+      reply += `🎯 *Best option: ${fullMatch.clinic}* has ALL your medicines!`;
+    } else {
+      reply += `⚠️ No single clinic has everything. ${results[0].clinic} is the closest match.`;
+    }
+
+    return reply;
+  }
+
   // Critical shortages
-  if (/critical|urgent|shortage|emergency|low/.test(msg)) {
+  if (/critical|urgent|shortage|emergency|low|tlhaelo/.test(msg)) {
     const critical = inventoryData.filter((i: any) => i.quantity < 20).sort((a: any, b: any) => a.quantity - b.quantity);
-    if (critical.length === 0) return "✅ No critical shortages right now! All clinics are well-stocked.";
-    let reply = `🚨 *CRITICAL SHORTAGES (${critical.length} items)*\n\n`;
+    if (critical.length === 0) return lang === 'tn' ? tn.no_critical : "✅ No critical shortages right now! All clinics are well-stocked.";
+    let reply = lang === 'tn' 
+      ? `${tn.critical_header} (${critical.length})*\n\n`
+      : `🚨 *CRITICAL SHORTAGES (${critical.length} items)*\n\n`;
     critical.forEach((item: any) => {
       reply += `⚠️ *${item.med_name}* — ${item.quantity} units\n   📍 ${item.clinic_name}\n\n`;
     });
-    reply += `_Updated in real-time from database_`;
+    reply += lang === 'tn' ? `_Data ya sebele go tswa mo database_` : `_Updated in real-time from database_`;
     return reply;
   }
 
   // Full status
-  if (/status|summary|overview|report/.test(msg)) {
+  if (/status|summary|overview|report|kakaretso/.test(msg)) {
     const total = inventoryData.length;
     const critical = inventoryData.filter((i: any) => i.quantity < 20).length;
     const healthy = inventoryData.filter((i: any) => i.quantity >= 100).length;
     const depleting = inventoryData.filter((i: any) => i.trend === 'Depleting Fast').length;
+    
+    if (lang === 'tn') {
+      return `${tn.status_header}*\n\n💊 Ditlhare tse di latedisiwang: ${total}\n✅ Setoko se se siameng (100+): ${healthy}\n⚠️ Tlhaelo e kgolo (<20): ${critical}\n📉 Di a fela ka bonako: ${depleting}\n\n_Romela leina la kliniiki kgotsa setlhare go bona dintlha._`;
+    }
     return `📊 *ChekaMeds Stock Summary*\n\n💊 Medicines tracked: ${total}\n✅ Healthy stock (100+): ${healthy}\n⚠️ Critical (<20 units): ${critical}\n📉 Depleting fast: ${depleting}\n\n_Send a clinic or medicine name for details._`;
   }
 
@@ -63,14 +163,14 @@ async function processQuery(message: string): Promise<string> {
       const emoji = item.quantity < 20 ? '🔴' : item.quantity < 50 ? '🟡' : '🟢';
       reply += `${emoji} ${item.med_name}: *${item.quantity} units* (${item.trend})\n`;
     });
-    reply += `\n_Live data from ChekaMeds database_`;
+    reply += lang === 'tn' ? `\n_Data ya sebele go tswa mo ChekaMeds_` : `\n_Live data from ChekaMeds database_`;
     return reply;
   }
 
   // Search by medicine name
   const medMatches = inventoryData.filter((i: any) => i.med_name.toLowerCase().includes(msg));
   if (medMatches.length > 0) {
-    let reply = `💊 *${medMatches[0].med_name}* availability:\n\n`;
+    let reply = `💊 *${medMatches[0].med_name}* ${lang === 'tn' ? 'e fumaneha:' : 'availability'}:\n\n`;
     medMatches.forEach((item: any) => {
       const emoji = item.quantity < 20 ? '🔴' : item.quantity < 50 ? '🟡' : '🟢';
       reply += `${emoji} ${item.clinic_name}: *${item.quantity} units*\n`;
@@ -78,7 +178,10 @@ async function processQuery(message: string): Promise<string> {
     return reply;
   }
 
-  return `🤔 I couldn't find anything for "${message}".\n\nTry:\n📍 A clinic name (e.g. "Princess Marina")\n💊 A medicine (e.g. "Paracetamol")\n📊 "status" for overview\n🆘 "critical" for urgent shortages`;
+  if (lang === 'tn') {
+    return `🤔 Ga ke a bona sepe ka "${message}".\n\nLeka:\n📍 Leina la kliniiki (jk. "Princess Marina")\n💊 Setlhare (jk. "Paracetamol")\n📊 "status" go bona kakaretso\n🆘 "critical" go bona tlhaelo\n💊 "prescription: Med1, Med2" go batla ditlhare tsotlhe`;
+  }
+  return `🤔 I couldn't find anything for "${message}".\n\nTry:\n📍 A clinic name (e.g. "Princess Marina")\n💊 A medicine (e.g. "Paracetamol")\n📊 "status" for overview\n🆘 "critical" for urgent shortages\n💊 "prescription: Med1, Med2" for prescription matching\n🇧🇼 "setswana" to switch language`;
 }
 
 async function sendWhatsAppReply(to: string, message: string) {
@@ -132,7 +235,7 @@ serve(async (req) => {
         });
       }
 
-      const reply = await processQuery(messageBody);
+      const reply = await processQuery(messageBody, from);
       await sendWhatsAppReply(from, reply);
 
       return new Response(JSON.stringify({ status: 'replied', to: from }), {

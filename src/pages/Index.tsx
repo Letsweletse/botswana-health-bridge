@@ -8,6 +8,10 @@ import StockChart from '@/components/StockChart';
 import AlertsFeed from '@/components/AlertsFeed';
 import WhatsAppPanel from '@/components/WhatsAppPanel';
 import ClinicOnboarding from '@/components/ClinicOnboarding';
+import PrescriptionMatcher from '@/components/PrescriptionMatcher';
+import StockForecasting from '@/components/StockForecasting';
+import QRVerification from '@/components/QRVerification';
+import SMSUSSDPanel from '@/components/SMSUSSDPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wrench, Settings as SettingsIcon } from 'lucide-react';
 
@@ -17,6 +21,10 @@ const tabTitles: Record<TabId, { title: string; subtitle: string }> = {
   inventory: { title: 'My Clinic Inventory', subtitle: 'Manage your facility\'s medicine stock — add, update quantities, or remove records.' },
   analytics: { title: 'Stock Analytics', subtitle: 'Weekly trends, depletion patterns, and alert history across the district.' },
   whatsapp: { title: 'WhatsApp Bot & Clinic Guide', subtitle: 'How patients and health workers access medicine data — and how to join ChekaMeds.' },
+  prescriptions: { title: 'Prescription Matching', subtitle: 'Find the nearest clinic that has ALL medicines on a patient\'s prescription list.' },
+  forecasting: { title: 'Predictive Stock Forecasting', subtitle: 'AI-powered depletion analysis with automatic supplier alerts before shortages hit.' },
+  qr_codes: { title: 'QR Code Verification', subtitle: 'Generate and manage QR codes for medicine authenticity verification.' },
+  sms_ussd: { title: 'SMS/USSD & Integrations', subtitle: 'Feature phone access via *123#, SMS fallback, and DHIS2 government API integration.' },
   settings: { title: 'System Settings', subtitle: 'IoT device configuration, notification thresholds, and system preferences.' },
 };
 
@@ -98,6 +106,8 @@ const Index = () => {
                           { cmd: '"Metformin"', desc: 'Find this medicine across all Gaborone clinics' },
                           { cmd: '"critical"', desc: 'View all urgent shortages requiring immediate attention' },
                           { cmd: '"status"', desc: 'Get a full district-wide stock summary' },
+                          { cmd: '"prescription: Med1, Med2"', desc: 'Find clinic with ALL prescription medicines' },
+                          { cmd: '"setswana"', desc: 'Switch bot language to Setswana' },
                         ].map(({ cmd, desc }) => (
                           <div key={cmd} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/50 border border-border">
                             <code className="text-primary font-mono font-bold whitespace-nowrap">{cmd}</code>
@@ -115,6 +125,11 @@ const Index = () => {
                   </div>
                 </div>
               )}
+
+              {activeTab === 'prescriptions' && <PrescriptionMatcher />}
+              {activeTab === 'forecasting' && <StockForecasting />}
+              {activeTab === 'qr_codes' && <QRVerification />}
+              {activeTab === 'sms_ussd' && <SMSUSSDPanel />}
 
               {activeTab === 'settings' && (
                 <div className="grid lg:grid-cols-2 gap-6">
