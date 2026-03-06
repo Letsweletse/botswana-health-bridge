@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useClinicInventory, useRefreshInventory } from '@/hooks/useInventory';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { TrendingDown, Minus, ArrowUpRight, Search, Pencil, Check, X, Loader2, Trash2, AlertTriangle } from 'lucide-react';
+import { TrendingDown, Minus, ArrowUpRight, Search, Pencil, Check, X, Loader2, Trash2, AlertTriangle, Download, Upload } from 'lucide-react';
 import AddMedicineDialog from '@/components/AddMedicineDialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +42,98 @@ const InventoryTable = () => {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const clinicName = profile?.clinic_name || 'My Clinic';
+
+  const downloadTemplate = () => {
+    const templateData = [
+      { med_name: 'Metformin 500mg', category: 'Chronic', quantity: 120, trend: 'Stable' },
+      { med_name: 'Paracetamol 500mg', category: 'Acute', quantity: 200, trend: 'Restocked' },
+      { med_name: 'Amoxicillin 250mg', category: 'Essential', quantity: 45, trend: 'Depleting Fast' },
+    ];
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Stock Template');
+    XLSX.writeFile(wb, `ChekaMeds_Stock_Template_${clinicName.replace(/\s+/g, '_')}.xlsx`);
+    toast({ title: 'Template downloaded', description: 'Fill it out and upload to update your stock.' });
+  };
+
+  const downloadCurrentStock = () => {
+    if (inventoryData.length === 0) {
+      toast({ title: 'No data', description: 'Your inventory is empty.', variant: 'destructive' });
+      return;
+    }
+    const exportData = inventoryData.map(i => ({
+      med_name: i.med_name,
+      category: i.category,
+      quantity: i.quantity,
+      trend: i.trend,
+      updated_at: i.updated_at,
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Current Stock');
+    XLSX.writeFile(wb, `ChekaMeds_Stock_${clinicName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast({ title: 'Stock exported', description: `${exportData.length} medicines exported to Excel.` });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+
+    try {
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows: any[] = XLSX.utils.sheet_to_json(ws);
+
+      if (rows.length === 0) throw new Error('The file is empty.');
+
+      const validCategories = ['Chronic', 'Acute', 'Preventive', 'Essential'];
+      const validTrends = ['Stable', 'Depleting Fast', 'Restocked'];
+
+      const records = rows.map((row, idx) => {
+        const medName = String(row.med_name || row['Medicine Name'] || row['medicine'] || '').trim();
+        const category = String(row.category || row['Category'] || 'Essential').trim();
+        const quantity = parseInt(row.quantity || row['Quantity'] || '0', 10);
+        const trend = String(row.trend || row['Trend'] || 'Stable').trim();
+
+        if (!medName) throw new Error(`Row ${idx + 2}: Medicine name is required.`);
+        if (isNaN(quantity) || quantity < 0) throw new Error(`Row ${idx + 2}: Invalid quantity for "${medName}".`);
+
+        return {
+          clinic_name: clinicName,
+          med_name: medName,
+          category: validCategories.includes(category) ? category : 'Essential',
+          quantity,
+          trend: validTrends.includes(trend) ? trend : 'Stable',
+        };
+      });
+
+      // Upsert: delete existing then insert fresh
+      const { error: delErr } = await supabase
+        .from('clinic_inventory')
+        .delete()
+        .eq('clinic_name', clinicName);
+      if (delErr) throw delErr;
+
+      const { error: insErr } = await supabase
+        .from('clinic_inventory')
+        .insert(records);
+      if (insErr) throw insErr;
+
+      toast({ title: 'Stock uploaded!', description: `${records.length} medicines imported from Excel. Your inventory is now live & searchable on WhatsApp.` });
+      refreshInventory();
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message || 'Could not process the file.', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const categories = ['All', ...new Set(inventoryData.map(i => i.category))];
 
@@ -120,14 +213,43 @@ const InventoryTable = () => {
       <div className="bg-card rounded-2xl border border-border overflow-hidden card-premium">
         {/* Header */}
         <div className="px-5 py-4 border-b border-border space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <h2 className="text-base font-display font-semibold text-foreground">
-                {profile?.clinic_name || 'My Clinic'} — Stock Inventory
+                {clinicName} — Stock Inventory
               </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">{filtered.length} items · Click edit to update quantities</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{filtered.length} items · Upload Excel to bulk-update</p>
             </div>
-            <AddMedicineDialog />
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={downloadTemplate}
+                className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold rounded-xl border border-input bg-background text-muted-foreground hover:bg-muted transition-all"
+              >
+                <Download className="h-3.5 w-3.5" /> Template
+              </button>
+              <button
+                onClick={downloadCurrentStock}
+                className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold rounded-xl border border-input bg-background text-muted-foreground hover:bg-muted transition-all"
+              >
+                <Download className="h-3.5 w-3.5" /> Export
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm shadow-primary/20"
+              >
+                {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {uploading ? 'Uploading...' : 'Upload Excel'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <AddMedicineDialog />
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">

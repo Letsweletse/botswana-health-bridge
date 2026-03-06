@@ -6,13 +6,14 @@ import {
 const plans = [
   {
     name: 'Clinic Listing',
-    price: 'P150',
+    price: 'P300',
     period: '/month',
     desc: 'Get your clinic listed on ChekaMeds so patients can find your medicines via WhatsApp, SMS & USSD.',
     features: [
       'Listed on WhatsApp bot search',
       'Dashboard access for staff',
-      'IoT sensor integration',
+      'Excel upload/download stock management',
+      'IoT sensor integration (when available)',
       'Real-time stock updates',
       'WhatsApp alerts on low stock',
     ],
@@ -21,7 +22,7 @@ const plans = [
   },
   {
     name: 'Pharmacy Listing',
-    price: 'P200',
+    price: 'P350',
     period: '/month',
     desc: 'Get your pharmacy listed alongside clinics — patients find you when searching for medicines near them.',
     features: [
