@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useClinicInventory, useRefreshInventory } from '@/hooks/useInventory';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { TrendingDown, Minus, ArrowUpRight, Search, Pencil, Check, X, Loader2, Trash2, AlertTriangle } from 'lucide-react';
+import { TrendingDown, Minus, ArrowUpRight, Search, Pencil, Check, X, Loader2, Trash2, AlertTriangle, Download, Upload } from 'lucide-react';
 import AddMedicineDialog from '@/components/AddMedicineDialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
 import {
   AlertDialog,
   AlertDialogAction,
