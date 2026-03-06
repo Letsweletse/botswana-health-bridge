@@ -10,7 +10,7 @@ const steps = [
     step: '01',
     icon: UserPlus,
     title: 'Register Your Facility',
-    desc: 'A clinic administrator creates an account using the official facility name and a ministry-issued email. Each clinic gets its own secure dashboard.',
+    desc: 'A clinic or pharmacy administrator creates an account using the official facility name and email. Each facility gets its own secure dashboard.',
     color: 'text-primary',
     bg: 'bg-primary/10 border-primary/20',
   },
@@ -34,7 +34,7 @@ const steps = [
     step: '04',
     icon: MessageCircle,
     title: 'Go Live on WhatsApp',
-    desc: 'Your clinic\'s stock is instantly searchable via the ChekaMeds WhatsApp bot. Patients and health workers can find your medicines without calling.',
+    desc: 'Your clinic or pharmacy stock is instantly searchable via the ChekaMeds WhatsApp bot. Patients and health workers can find your medicines without calling.',
     color: 'text-accent',
     bg: 'bg-accent/10 border-accent/20',
   },
@@ -42,8 +42,8 @@ const steps = [
 
 const whoCanUse = [
   { icon: Users, title: 'Patients & Batswana', desc: 'Text the number to find where a specific medicine is available before travelling across Gaborone.' },
-  { icon: Building2, title: 'Clinic Staff', desc: 'Check stock at nearby facilities before referring a patient. Coordinate transfers during shortages.' },
-  { icon: CheckCircle2, title: 'Ministry Officials', desc: 'Monitor supply chain health across all facilities in real-time. Identify systemic shortages early.' },
+  { icon: Building2, title: 'Clinics & Pharmacies', desc: 'Check stock at nearby facilities and pharmacies before referring a patient. Coordinate transfers during shortages.' },
+  { icon: CheckCircle2, title: 'Ministry Officials', desc: 'Monitor supply chain health across all clinics and pharmacies in real-time. Identify systemic shortages early.' },
 ];
 
 const ClinicOnboarding = () => {
@@ -110,8 +110,8 @@ const ClinicOnboarding = () => {
       {/* How clinics join */}
       <div className="bg-card border border-border rounded-2xl p-6 card-premium">
         <div className="mb-6">
-          <p className="text-[hsl(var(--gov-gold))] text-xs font-semibold uppercase tracking-widest mb-1">For Health Facilities</p>
-          <h3 className="text-lg font-display font-bold text-foreground">How your clinic joins ChekaMeds</h3>
+          <p className="text-[hsl(var(--gov-gold))] text-xs font-semibold uppercase tracking-widest mb-1">For Clinics & Pharmacies</p>
+          <h3 className="text-lg font-display font-bold text-foreground">How your clinic or pharmacy joins ChekaMeds</h3>
           <p className="text-sm text-muted-foreground mt-1">A simple four-step process to get your facility live and searchable.</p>
         </div>
 
@@ -147,8 +147,8 @@ const ClinicOnboarding = () => {
       {/* Contact CTA */}
       <div className="bg-gradient-to-r from-primary/8 via-primary/5 to-[hsl(var(--gov-gold))]/5 border border-primary/15 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h4 className="text-sm font-display font-semibold text-foreground">Want to enroll your facility?</h4>
-          <p className="text-xs text-muted-foreground mt-0.5">Contact the IBLIM ENTERPRISE team to request a ChekaMeds account for your clinic.</p>
+          <h4 className="text-sm font-display font-semibold text-foreground">Want to enroll your clinic or pharmacy?</h4>
+          <p className="text-xs text-muted-foreground mt-0.5">Contact the IBLIM ENTERPRISE team to request a ChekaMeds account for your facility.</p>
         </div>
         <div className="flex gap-2 flex-shrink-0">
           <a

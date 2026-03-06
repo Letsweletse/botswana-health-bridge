@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Map, Package, BarChart3, MessageCircle, Settings, LogOut,
-  ChevronLeft, ChevronRight, User, Stethoscope, ClipboardList, Brain, QrCode, Phone
+  ChevronLeft, ChevronRight, User, Stethoscope, ClipboardList, Brain, QrCode, Phone, CreditCard, Store
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import logo from '@/assets/ChekaMeds_Logo.png';
 
-export type TabId = 'dashboard' | 'map' | 'inventory' | 'analytics' | 'whatsapp' | 'prescriptions' | 'forecasting' | 'qr_codes' | 'sms_ussd' | 'settings';
+export type TabId = 'dashboard' | 'map' | 'inventory' | 'analytics' | 'whatsapp' | 'prescriptions' | 'forecasting' | 'qr_codes' | 'sms_ussd' | 'pricing' | 'settings';
 
 const navItems: { label: string; icon: typeof LayoutDashboard; id: TabId }[] = [
   { label: 'Dashboard', icon: LayoutDashboard, id: 'dashboard' },
@@ -20,6 +20,7 @@ const navItems: { label: string; icon: typeof LayoutDashboard; id: TabId }[] = [
   { label: 'Forecasting', icon: Brain, id: 'forecasting' },
   { label: 'QR Codes', icon: QrCode, id: 'qr_codes' },
   { label: 'SMS/USSD', icon: Phone, id: 'sms_ussd' },
+  { label: 'Pricing & Pay', icon: CreditCard, id: 'pricing' },
   { label: 'Settings', icon: Settings, id: 'settings' },
 ];
 
