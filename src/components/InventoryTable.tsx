@@ -213,14 +213,43 @@ const InventoryTable = () => {
       <div className="bg-card rounded-2xl border border-border overflow-hidden card-premium">
         {/* Header */}
         <div className="px-5 py-4 border-b border-border space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <h2 className="text-base font-display font-semibold text-foreground">
-                {profile?.clinic_name || 'My Clinic'} — Stock Inventory
+                {clinicName} — Stock Inventory
               </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">{filtered.length} items · Click edit to update quantities</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{filtered.length} items · Upload Excel to bulk-update</p>
             </div>
-            <AddMedicineDialog />
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={downloadTemplate}
+                className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold rounded-xl border border-input bg-background text-muted-foreground hover:bg-muted transition-all"
+              >
+                <Download className="h-3.5 w-3.5" /> Template
+              </button>
+              <button
+                onClick={downloadCurrentStock}
+                className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold rounded-xl border border-input bg-background text-muted-foreground hover:bg-muted transition-all"
+              >
+                <Download className="h-3.5 w-3.5" /> Export
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm shadow-primary/20"
+              >
+                {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {uploading ? 'Uploading...' : 'Upload Excel'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <AddMedicineDialog />
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
