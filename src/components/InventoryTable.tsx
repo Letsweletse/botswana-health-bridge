@@ -42,6 +42,98 @@ const InventoryTable = () => {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const clinicName = profile?.clinic_name || 'My Clinic';
+
+  const downloadTemplate = () => {
+    const templateData = [
+      { med_name: 'Metformin 500mg', category: 'Chronic', quantity: 120, trend: 'Stable' },
+      { med_name: 'Paracetamol 500mg', category: 'Acute', quantity: 200, trend: 'Restocked' },
+      { med_name: 'Amoxicillin 250mg', category: 'Essential', quantity: 45, trend: 'Depleting Fast' },
+    ];
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Stock Template');
+    XLSX.writeFile(wb, `ChekaMeds_Stock_Template_${clinicName.replace(/\s+/g, '_')}.xlsx`);
+    toast({ title: 'Template downloaded', description: 'Fill it out and upload to update your stock.' });
+  };
+
+  const downloadCurrentStock = () => {
+    if (inventoryData.length === 0) {
+      toast({ title: 'No data', description: 'Your inventory is empty.', variant: 'destructive' });
+      return;
+    }
+    const exportData = inventoryData.map(i => ({
+      med_name: i.med_name,
+      category: i.category,
+      quantity: i.quantity,
+      trend: i.trend,
+      updated_at: i.updated_at,
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Current Stock');
+    XLSX.writeFile(wb, `ChekaMeds_Stock_${clinicName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast({ title: 'Stock exported', description: `${exportData.length} medicines exported to Excel.` });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+
+    try {
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows: any[] = XLSX.utils.sheet_to_json(ws);
+
+      if (rows.length === 0) throw new Error('The file is empty.');
+
+      const validCategories = ['Chronic', 'Acute', 'Preventive', 'Essential'];
+      const validTrends = ['Stable', 'Depleting Fast', 'Restocked'];
+
+      const records = rows.map((row, idx) => {
+        const medName = String(row.med_name || row['Medicine Name'] || row['medicine'] || '').trim();
+        const category = String(row.category || row['Category'] || 'Essential').trim();
+        const quantity = parseInt(row.quantity || row['Quantity'] || '0', 10);
+        const trend = String(row.trend || row['Trend'] || 'Stable').trim();
+
+        if (!medName) throw new Error(`Row ${idx + 2}: Medicine name is required.`);
+        if (isNaN(quantity) || quantity < 0) throw new Error(`Row ${idx + 2}: Invalid quantity for "${medName}".`);
+
+        return {
+          clinic_name: clinicName,
+          med_name: medName,
+          category: validCategories.includes(category) ? category : 'Essential',
+          quantity,
+          trend: validTrends.includes(trend) ? trend : 'Stable',
+        };
+      });
+
+      // Upsert: delete existing then insert fresh
+      const { error: delErr } = await supabase
+        .from('clinic_inventory')
+        .delete()
+        .eq('clinic_name', clinicName);
+      if (delErr) throw delErr;
+
+      const { error: insErr } = await supabase
+        .from('clinic_inventory')
+        .insert(records);
+      if (insErr) throw insErr;
+
+      toast({ title: 'Stock uploaded!', description: `${records.length} medicines imported from Excel. Your inventory is now live & searchable on WhatsApp.` });
+      refreshInventory();
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message || 'Could not process the file.', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const categories = ['All', ...new Set(inventoryData.map(i => i.category))];
 
