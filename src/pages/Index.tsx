@@ -12,6 +12,7 @@ import PrescriptionMatcher from '@/components/PrescriptionMatcher';
 import StockForecasting from '@/components/StockForecasting';
 import QRVerification from '@/components/QRVerification';
 import SMSUSSDPanel from '@/components/SMSUSSDPanel';
+import PaymentMethods from '@/components/PaymentMethods';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wrench, Settings as SettingsIcon } from 'lucide-react';
 
@@ -25,6 +26,7 @@ const tabTitles: Record<TabId, { title: string; subtitle: string }> = {
   forecasting: { title: 'Predictive Stock Forecasting', subtitle: 'AI-powered depletion analysis with automatic supplier alerts before shortages hit.' },
   qr_codes: { title: 'QR Code Verification', subtitle: 'Generate and manage QR codes for medicine authenticity verification.' },
   sms_ussd: { title: 'SMS/USSD & Integrations', subtitle: 'Feature phone access via *123#, SMS fallback, and DHIS2 government API integration.' },
+  pricing: { title: 'Pricing & Payment', subtitle: 'Subscription plans for clinics and pharmacies, with local Botswana payment methods.' },
   settings: { title: 'System Settings', subtitle: 'IoT device configuration, notification thresholds, and system preferences.' },
 };
 
@@ -130,6 +132,7 @@ const Index = () => {
               {activeTab === 'forecasting' && <StockForecasting />}
               {activeTab === 'qr_codes' && <QRVerification />}
               {activeTab === 'sms_ussd' && <SMSUSSDPanel />}
+              {activeTab === 'pricing' && <PaymentMethods />}
 
               {activeTab === 'settings' && (
                 <div className="grid lg:grid-cols-2 gap-6">
