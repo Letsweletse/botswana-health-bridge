@@ -1,1 +1,7 @@
 project_id = "vhwuybxljszhgbgtnjiq"
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.ai-stock-insights]
+verify_jwt = false
