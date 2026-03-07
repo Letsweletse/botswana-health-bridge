@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingDown, Brain, AlertTriangle, Clock, Loader2, Sparkles, Plug } from 'lucide-react';
+import { TrendingDown, Brain, AlertTriangle, Clock, Loader2, BarChart3, Plug } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Forecast {
@@ -17,6 +17,8 @@ const StockForecasting = () => {
   const [forecasts, setForecasts] = useState<Forecast[]>([]);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [aiInsight, setAiInsight] = useState<string>('');
+  const [aiLoading, setAiLoading] = useState(false);
 
   const generateForecasts = async () => {
     setLoading(true);
@@ -24,7 +26,6 @@ const StockForecasting = () => {
       const { data } = await supabase.from('clinic_inventory').select('*').order('quantity', { ascending: true });
       if (!data) { setLoading(false); return; }
 
-      // Simple heuristic forecasting (can be enhanced with AI edge function later)
       const forecasted: Forecast[] = data.map(item => {
         const depletionRate = item.trend === 'Depleting Fast' ? 8 : item.trend === 'Decreasing' ? 4 : 2;
         const daysLeft = Math.max(1, Math.round(item.quantity / depletionRate));
@@ -48,6 +49,20 @@ const StockForecasting = () => {
 
       forecasted.sort((a, b) => a.days_until_empty - b.days_until_empty);
       setForecasts(forecasted);
+
+      // Auto-generate AI insight
+      setAiLoading(true);
+      try {
+        const { data: aiData, error: aiError } = await supabase.functions.invoke('ai-stock-insights', {
+          body: { forecasts: forecasted.slice(0, 15) },
+        });
+        if (aiError) throw aiError;
+        setAiInsight(aiData?.insight || '');
+      } catch {
+        setAiInsight('');
+      } finally {
+        setAiLoading(false);
+      }
     } catch {
       setForecasts([]);
     }
@@ -56,9 +71,9 @@ const StockForecasting = () => {
   };
 
   const riskColors = {
-    critical: { bg: 'bg-critical/10', border: 'border-critical/20', text: 'text-critical', label: '🔴 Critical' },
-    warning: { bg: 'bg-warning/10', border: 'border-warning/20', text: 'text-warning', label: '🟡 Warning' },
-    stable: { bg: 'bg-success/10', border: 'border-success/20', text: 'text-success', label: '🟢 Stable' },
+    critical: { bg: 'bg-critical/10', border: 'border-critical/20', text: 'text-critical', label: 'Critical' },
+    warning: { bg: 'bg-warning/10', border: 'border-warning/20', text: 'text-warning', label: 'Warning' },
+    stable: { bg: 'bg-success/10', border: 'border-success/20', text: 'text-success', label: 'Stable' },
   };
 
   return (
@@ -72,7 +87,7 @@ const StockForecasting = () => {
           <div className="flex-1">
             <h2 className="text-lg font-display font-bold text-foreground">Predictive Stock Forecasting</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              AI analyzes depletion trends across all facilities and predicts stockouts before they happen. 
+              AI analyses depletion trends across all facilities and predicts stockouts before they happen. 
               Suppliers are auto-alerted when critical thresholds approach.
             </p>
           </div>
@@ -83,11 +98,11 @@ const StockForecasting = () => {
         {/* Generate */}
         <div className="bg-card border border-border rounded-2xl p-6 card-premium space-y-4">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
+            <BarChart3 className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-display font-semibold text-foreground">AI Depletion Analysis</h3>
           </div>
           <p className="text-xs text-muted-foreground">
-            Runs predictive analysis on all clinic inventory using real-time sensor data and historical depletion patterns.
+            Runs predictive analysis on all clinic inventory using real-time data and historical depletion patterns.
           </p>
           <button
             onClick={generateForecasts}
@@ -95,7 +110,7 @@ const StockForecasting = () => {
             className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all shadow-lg shadow-primary/20"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
-            {loading ? 'Analyzing...' : 'Generate Forecasts'}
+            {loading ? 'Analysing...' : 'Generate Forecasts'}
           </button>
         </div>
 
@@ -113,6 +128,23 @@ const StockForecasting = () => {
           </div>
         </div>
       </div>
+
+      {/* AI Insight */}
+      {aiLoading && (
+        <div className="bg-card border border-primary/20 rounded-2xl p-5 card-premium flex items-center gap-3">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span className="text-sm text-muted-foreground">Generating AI insight...</span>
+        </div>
+      )}
+      {aiInsight && !aiLoading && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/20 rounded-2xl p-5 card-premium">
+          <div className="flex items-center gap-2 mb-3">
+            <Brain className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-display font-semibold text-foreground">AI Insight</h3>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">{aiInsight}</p>
+        </motion.div>
+      )}
 
       {/* Results */}
       {generated && (

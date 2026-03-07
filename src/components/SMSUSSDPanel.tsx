@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion';
-import { Phone, Smartphone, MessageSquare, Hash, Signal, Plug, Globe, ArrowRight } from 'lucide-react';
+import { Phone, MessageSquare, Hash, Signal, Plug, Globe } from 'lucide-react';
 
 const ussdFlow = [
   { step: '1', action: 'Dial *123#', response: 'Welcome to ChekaMeds. Select:\n1. Find Medicine\n2. Clinic Stock\n3. Critical Alerts' },
   { step: '2', action: 'Press 1 (Find Medicine)', response: 'Enter medicine name:' },
-  { step: '3', action: 'Type "Paracetamol"', response: 'Paracetamol available at:\n1. Princess Marina: 120 units\n2. Bontleng Clinic: 45 units\n3. Extension 2: 8 units ⚠️' },
+  { step: '3', action: 'Type "Paracetamol"', response: 'Paracetamol available at:\n1. Princess Marina: 120 units\n2. Bontleng Clinic: 45 units\n3. Extension 2: 8 units (low)' },
 ];
 
 const SMSUSSDPanel = () => {

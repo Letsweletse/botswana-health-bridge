@@ -37,7 +37,7 @@ const DashboardHeader = () => {
         </div>
         <div className="hidden md:block">
           <p className="text-sm text-foreground font-medium">
-            {greeting}, <span className="font-semibold">{profile?.full_name || 'Operator'}</span> 👋
+            {greeting}, <span className="font-semibold">{profile?.full_name || 'Operator'}</span>
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">{formattedDate} · {profile?.clinic_name || '—'}</p>
         </div>
@@ -48,7 +48,6 @@ const DashboardHeader = () => {
             <span className="font-mono font-medium">{formattedTime}</span>
           </div>
 
-          {/* Live indicator */}
           <div className="flex items-center gap-1.5 rounded-full border border-success/25 bg-success/8 px-3 py-1">
             <Wifi className="h-3 w-3 text-success" />
             <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />

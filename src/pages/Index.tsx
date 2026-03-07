@@ -146,7 +146,7 @@ const Index = () => {
                         { label: 'ESP32-S3 Devices Connected', value: '8', color: 'text-foreground' },
                         { label: 'Data Push Interval', value: '5 min', color: 'text-foreground' },
                         { label: 'Critical Threshold', value: '20 units', color: 'text-critical' },
-                        { label: 'WhatsApp Webhook', value: 'Active ✓', color: 'text-success' },
+                        { label: 'WhatsApp Webhook', value: 'Active', color: 'text-success' },
                       ].map(({ label, value, color }) => (
                         <div key={label} className="flex items-center justify-between py-2.5">
                           <span className="text-muted-foreground">{label}</span>
