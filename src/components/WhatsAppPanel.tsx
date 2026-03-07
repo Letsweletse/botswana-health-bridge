@@ -13,7 +13,7 @@ const WhatsAppPanel = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '0',
-      text: '🏥 *ChekaMeds — Medicine Stock Checker*\n\nDumelang! 👋 I can help you check medicine availability.\n\nSend me:\n📍 A clinic name (e.g. "Princess Marina")\n💊 A medicine name (e.g. "Metformin")\n📊 "status" for a full summary\n🆘 "critical" for urgent shortages',
+      text: '*ChekaMeds — Medicine Stock Checker*\n\nDumelang! I can help you check medicine availability.\n\nSend me:\n• A clinic name (e.g. "Princess Marina")\n• A medicine name (e.g. "Metformin")\n• "status" for a full summary\n• "critical" for urgent shortages',
       sender: 'bot',
       timestamp: new Date(),
     },
@@ -58,7 +58,7 @@ const WhatsAppPanel = () => {
         ...prev,
         {
           id: (Date.now() + 1).toString(),
-          text: '⚠️ Could not reach the server. Please try again.',
+          text: 'Could not reach the server. Please try again.',
           sender: 'bot',
           timestamp: new Date(),
         },
@@ -94,7 +94,7 @@ const WhatsAppPanel = () => {
             rel="noopener noreferrer"
             className="text-[10px] font-semibold text-success border border-success/25 bg-success/8 rounded-lg px-2.5 py-1 hover:bg-success/15 transition-colors"
           >
-            Open WhatsApp ↗
+            Open WhatsApp
           </a>
         </div>
       </div>

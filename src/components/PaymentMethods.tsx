@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import {
-  Smartphone, Building, CreditCard, Globe, Banknote, CheckCircle2, ArrowRight, Sparkles, Store
+  Smartphone, Building, CreditCard, Globe, Banknote, CheckCircle2, ArrowRight, Store
 } from 'lucide-react';
 
 const plans = [
@@ -103,7 +103,7 @@ const PaymentMethods = () => {
       <div>
         <div className="mb-5">
           <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="h-4 w-4 text-primary" />
+            <CreditCard className="h-4 w-4 text-primary" />
             <p className="text-primary text-xs font-semibold uppercase tracking-widest">Subscription Plans</p>
           </div>
           <h3 className="text-lg font-display font-bold text-foreground">List your clinic or pharmacy on ChekaMeds</h3>

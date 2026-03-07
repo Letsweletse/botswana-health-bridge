@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ClipboardList, Search, MapPin, CheckCircle2, XCircle, Loader2, Send, Pill, ArrowRight, Phone } from 'lucide-react';
+import { ClipboardList, Search, MapPin, CheckCircle2, XCircle, Loader2, Pill, Phone } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface MatchResult {
@@ -30,7 +30,6 @@ const PrescriptionMatcher = () => {
       const { data } = await supabase.from('clinic_inventory').select('clinic_name, med_name, quantity');
       if (!data) { setResults([]); setSearched(true); setLoading(false); return; }
 
-      // Group by clinic
       const clinicMap: Record<string, { med_name: string; quantity: number }[]> = {};
       data.forEach(row => {
         if (!clinicMap[row.clinic_name]) clinicMap[row.clinic_name] = [];
@@ -108,7 +107,7 @@ const PrescriptionMatcher = () => {
       <div className="bg-success/5 border border-success/15 rounded-2xl p-4 flex items-center gap-4">
         <Phone className="h-5 w-5 text-success flex-shrink-0" />
         <div className="flex-1">
-          <p className="text-xs font-semibold text-foreground">Also available via WhatsApp!</p>
+          <p className="text-xs font-semibold text-foreground">Also available via WhatsApp</p>
           <p className="text-[11px] text-muted-foreground">Text <span className="font-mono font-bold text-success">"prescription: Metformin, Paracetamol"</span> to +267 71 424 486</p>
         </div>
       </div>
