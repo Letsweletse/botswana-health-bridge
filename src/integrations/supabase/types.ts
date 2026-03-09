@@ -16,29 +16,47 @@ export type Database = {
     Tables: {
       clinic_inventory: {
         Row: {
+          atc_code: string | null
+          atc_description: string | null
           category: string
           clinic_name: string
+          dosage_form: string | null
+          facility_level: string | null
           id: string
           med_name: string
+          pack_size: string | null
           quantity: number
+          strength: string | null
           trend: string | null
           updated_at: string
         }
         Insert: {
+          atc_code?: string | null
+          atc_description?: string | null
           category: string
           clinic_name: string
+          dosage_form?: string | null
+          facility_level?: string | null
           id?: string
           med_name: string
+          pack_size?: string | null
           quantity?: number
+          strength?: string | null
           trend?: string | null
           updated_at?: string
         }
         Update: {
+          atc_code?: string | null
+          atc_description?: string | null
           category?: string
           clinic_name?: string
+          dosage_form?: string | null
+          facility_level?: string | null
           id?: string
           med_name?: string
+          pack_size?: string | null
           quantity?: number
+          strength?: string | null
           trend?: string | null
           updated_at?: string
         }
