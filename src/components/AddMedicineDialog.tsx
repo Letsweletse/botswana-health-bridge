@@ -12,6 +12,8 @@ import { toast } from '@/hooks/use-toast';
 
 const categories = ['Chronic', 'Acute', 'Preventive', 'Essential'] as const;
 const trends = ['Stable', 'Depleting Fast', 'Restocked'] as const;
+const facilityLevels = ['Hospital', 'Clinic', 'Health Post', 'Pharmacy'] as const;
+const dosageForms = ['Tablet', 'Capsule', 'Syrup', 'Injection', 'Cream', 'Drops', 'Inhaler', 'Sachet', 'Suspension'] as const;
 
 const AddMedicineDialog = () => {
   const [open, setOpen] = useState(false);
@@ -20,13 +22,25 @@ const AddMedicineDialog = () => {
   const { profile } = useAuth();
 
   const [medName, setMedName] = useState('');
+  const [strength, setStrength] = useState('');
+  const [dosageForm, setDosageForm] = useState('');
+  const [packSize, setPackSize] = useState('');
+  const [atcCode, setAtcCode] = useState('');
+  const [atcDescription, setAtcDescription] = useState('');
   const [category, setCategory] = useState<string>('');
+  const [facilityLevel, setFacilityLevel] = useState('');
   const [quantity, setQuantity] = useState<number>(0);
   const [trend, setTrend] = useState<string>('Stable');
 
   const resetForm = () => {
     setMedName('');
+    setStrength('');
+    setDosageForm('');
+    setPackSize('');
+    setAtcCode('');
+    setAtcDescription('');
     setCategory('');
+    setFacilityLevel('');
     setQuantity(0);
     setTrend('Stable');
   };
@@ -45,7 +59,13 @@ const AddMedicineDialog = () => {
       const { error } = await supabase.from('clinic_inventory').insert({
         clinic_name: clinicName,
         med_name: medName.trim(),
+        strength: strength.trim(),
+        dosage_form: dosageForm,
+        pack_size: packSize.trim(),
+        atc_code: atcCode.trim().toUpperCase(),
+        atc_description: atcDescription.trim(),
         category,
+        facility_level: facilityLevel,
         quantity,
         trend,
       });
@@ -71,24 +91,81 @@ const AddMedicineDialog = () => {
           Add Medicine
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display">Add Medicine to {profile?.clinic_name}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          <div className="space-y-2">
-            <Label className="text-xs">Medicine Name</Label>
-            <Input
-              placeholder="e.g. Metformin 500mg"
-              value={medName}
-              onChange={e => setMedName(e.target.value)}
-              className="text-xs"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs">Medicine Name *</Label>
+              <Input
+                placeholder="e.g. Metformin"
+                value={medName}
+                onChange={e => setMedName(e.target.value)}
+                className="text-xs"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Strength</Label>
+              <Input
+                placeholder="e.g. 500mg"
+                value={strength}
+                onChange={e => setStrength(e.target.value)}
+                className="text-xs"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs">Category</Label>
+              <Label className="text-xs">Dosage Form</Label>
+              <Select value={dosageForm} onValueChange={setDosageForm}>
+                <SelectTrigger className="text-xs">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {dosageForms.map(d => (
+                    <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Pack Size</Label>
+              <Input
+                placeholder="e.g. 100"
+                value={packSize}
+                onChange={e => setPackSize(e.target.value)}
+                className="text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs">ATC Code</Label>
+              <Input
+                placeholder="e.g. A10BA02"
+                value={atcCode}
+                onChange={e => setAtcCode(e.target.value)}
+                className="text-xs font-mono"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">ATC Description</Label>
+              <Input
+                placeholder="e.g. Metformin"
+                value={atcDescription}
+                onChange={e => setAtcDescription(e.target.value)}
+                className="text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs">Category *</Label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger className="text-xs">
                   <SelectValue placeholder="Select..." />
@@ -101,6 +178,22 @@ const AddMedicineDialog = () => {
               </Select>
             </div>
             <div className="space-y-2">
+              <Label className="text-xs">Facility Level</Label>
+              <Select value={facilityLevel} onValueChange={setFacilityLevel}>
+                <SelectTrigger className="text-xs">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {facilityLevels.map(f => (
+                    <SelectItem key={f} value={f} className="text-xs">{f}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
               <Label className="text-xs">Initial Quantity</Label>
               <Input
                 type="number"
@@ -110,20 +203,19 @@ const AddMedicineDialog = () => {
                 className="text-xs"
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-xs">Trend</Label>
-            <Select value={trend} onValueChange={setTrend}>
-              <SelectTrigger className="text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {trends.map(t => (
-                  <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <Label className="text-xs">Trend</Label>
+              <Select value={trend} onValueChange={setTrend}>
+                <SelectTrigger className="text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {trends.map(t => (
+                    <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <Button type="submit" className="w-full gap-2" disabled={saving}>

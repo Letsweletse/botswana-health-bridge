@@ -11,6 +11,12 @@ export interface InventoryItem {
   quantity: number;
   trend: string;
   updated_at: string;
+  strength: string;
+  dosage_form: string;
+  pack_size: string;
+  atc_code: string;
+  atc_description: string;
+  facility_level: string;
 }
 
 /** Fetches ALL inventory (used by stats/map that need global view) */

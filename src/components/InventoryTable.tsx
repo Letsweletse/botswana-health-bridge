@@ -49,9 +49,9 @@ const InventoryTable = () => {
 
   const downloadTemplate = () => {
     const templateData = [
-      { med_name: 'Metformin 500mg', category: 'Chronic', quantity: 120, trend: 'Stable' },
-      { med_name: 'Paracetamol 500mg', category: 'Acute', quantity: 200, trend: 'Restocked' },
-      { med_name: 'Amoxicillin 250mg', category: 'Essential', quantity: 45, trend: 'Depleting Fast' },
+      { med_name: 'Metformin', strength: '500mg', dosage_form: 'Tablet', pack_size: '100', atc_code: 'A10BA02', atc_description: 'Metformin', category: 'Chronic', facility_level: 'Hospital', quantity: 120, trend: 'Stable' },
+      { med_name: 'Paracetamol', strength: '500mg', dosage_form: 'Tablet', pack_size: '500', atc_code: 'N02BE01', atc_description: 'Paracetamol', category: 'Essential', facility_level: 'Clinic', quantity: 200, trend: 'Restocked' },
+      { med_name: 'Amoxicillin', strength: '250mg', dosage_form: 'Capsule', pack_size: '100', atc_code: 'J01CA04', atc_description: 'Amoxicillin', category: 'Acute', facility_level: 'Health Post', quantity: 45, trend: 'Depleting Fast' },
     ];
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
@@ -67,7 +67,13 @@ const InventoryTable = () => {
     }
     const exportData = inventoryData.map(i => ({
       med_name: i.med_name,
+      strength: i.strength || '',
+      dosage_form: i.dosage_form || '',
+      pack_size: i.pack_size || '',
+      atc_code: i.atc_code || '',
+      atc_description: i.atc_description || '',
       category: i.category,
+      facility_level: i.facility_level || '',
       quantity: i.quantity,
       trend: i.trend,
       updated_at: i.updated_at,
@@ -97,7 +103,13 @@ const InventoryTable = () => {
 
       const records = rows.map((row, idx) => {
         const medName = String(row.med_name || row['Medicine Name'] || row['medicine'] || '').trim();
+        const strength = String(row.strength || row['Strength'] || '').trim();
+        const dosageForm = String(row.dosage_form || row['Dosage Form'] || '').trim();
+        const packSize = String(row.pack_size || row['Pack Size'] || '').trim();
+        const atcCode = String(row.atc_code || row['ATC Code'] || '').trim();
+        const atcDescription = String(row.atc_description || row['ATC Description'] || '').trim();
         const category = String(row.category || row['Category'] || 'Essential').trim();
+        const facilityLevel = String(row.facility_level || row['Facility Level'] || '').trim();
         const quantity = parseInt(row.quantity || row['Quantity'] || '0', 10);
         const trend = String(row.trend || row['Trend'] || 'Stable').trim();
 
@@ -107,13 +119,18 @@ const InventoryTable = () => {
         return {
           clinic_name: clinicName,
           med_name: medName,
+          strength,
+          dosage_form: dosageForm,
+          pack_size: packSize,
+          atc_code: atcCode,
+          atc_description: atcDescription,
           category: validCategories.includes(category) ? category : 'Essential',
+          facility_level: facilityLevel,
           quantity,
           trend: validTrends.includes(trend) ? trend : 'Stable',
         };
       });
 
-      // Upsert: delete existing then insert fresh
       const { error: delErr } = await supabase
         .from('clinic_inventory')
         .delete()
@@ -125,7 +142,7 @@ const InventoryTable = () => {
         .insert(records);
       if (insErr) throw insErr;
 
-      toast({ title: 'Stock uploaded!', description: `${records.length} medicines imported from Excel. Your inventory is now live & searchable on WhatsApp.` });
+      toast({ title: 'Stock uploaded', description: `${records.length} medicines imported from Excel.` });
       refreshInventory();
     } catch (err: any) {
       toast({ title: 'Upload failed', description: err.message || 'Could not process the file.', variant: 'destructive' });
@@ -138,8 +155,12 @@ const InventoryTable = () => {
   const categories = ['All', ...new Set(inventoryData.map(i => i.category))];
 
   const filtered = inventoryData.filter(item => {
-    const matchesSearch = item.clinic_name.toLowerCase().includes(search.toLowerCase()) ||
-      item.med_name.toLowerCase().includes(search.toLowerCase());
+    const searchLower = search.toLowerCase();
+    const matchesSearch =
+      item.med_name.toLowerCase().includes(searchLower) ||
+      (item.strength || '').toLowerCase().includes(searchLower) ||
+      (item.atc_code || '').toLowerCase().includes(searchLower) ||
+      (item.atc_description || '').toLowerCase().includes(searchLower);
     const matchesCategory = filterCategory === 'All' || item.category === filterCategory;
     return matchesSearch && matchesCategory;
   });
@@ -257,7 +278,7 @@ const InventoryTable = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search medicines..."
+                placeholder="Search by name, strength, ATC code..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
@@ -286,18 +307,23 @@ const InventoryTable = () => {
           <table className="w-full text-xs">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted/60 backdrop-blur-sm">
-                <th className="text-left px-5 py-3 font-semibold text-muted-foreground">Medicine</th>
-                <th className="text-left px-5 py-3 font-semibold text-muted-foreground">Type</th>
-                <th className="text-right px-5 py-3 font-semibold text-muted-foreground">Stock</th>
-                <th className="text-left px-5 py-3 font-semibold text-muted-foreground">Trend</th>
-                <th className="text-right px-5 py-3 font-semibold text-muted-foreground">Updated</th>
-                <th className="text-center px-5 py-3 font-semibold text-muted-foreground">Actions</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Medicine Name</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Strength</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Dosage Form</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Pack Size</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">ATC Code</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">ATC Description</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Category</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Facility Level</th>
+                <th className="text-right px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Stock</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Trend</th>
+                <th className="text-center px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
+                  <td colSpan={11} className="px-5 py-10 text-center text-muted-foreground">
                     <div className="flex flex-col items-center gap-2">
                       <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
                         <Search className="h-5 w-5 text-muted-foreground" />
@@ -318,13 +344,19 @@ const InventoryTable = () => {
                       key={item.id}
                       className={`border-b border-border last:border-0 transition-colors hover:bg-muted/30 ${isLow ? 'bg-critical/[0.025]' : ''}`}
                     >
-                      <td className="px-5 py-3 font-medium text-foreground">{item.med_name}</td>
-                      <td className="px-5 py-3">
+                      <td className="px-4 py-3 font-medium text-foreground whitespace-nowrap">{item.med_name}</td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{item.strength || '—'}</td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{item.dosage_form || '—'}</td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{item.pack_size || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-muted-foreground whitespace-nowrap">{item.atc_code || '—'}</td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{item.atc_description || '—'}</td>
+                      <td className="px-4 py-3">
                         <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${categoryColors[item.category] || ''}`}>
                           {item.category}
                         </Badge>
                       </td>
-                      <td className="px-5 py-3 text-right">
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{item.facility_level || '—'}</td>
+                      <td className="px-4 py-3 text-right">
                         {isEditing ? (
                           <input
                             type="number"
@@ -340,16 +372,13 @@ const InventoryTable = () => {
                           </span>
                         )}
                       </td>
-                      <td className="px-5 py-3">
+                      <td className="px-4 py-3">
                         <Badge variant="outline" className={`text-[10px] px-1.5 py-0 gap-1 ${trend.className}`}>
                           <TrendIcon className="h-2.5 w-2.5" />
                           {item.trend}
                         </Badge>
                       </td>
-                      <td className="px-5 py-3 text-right text-muted-foreground">
-                        {formatTime(item.updated_at)}
-                      </td>
-                      <td className="px-5 py-3">
+                      <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
                           {isEditing ? (
                             <>
