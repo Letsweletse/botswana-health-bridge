@@ -72,7 +72,7 @@ const Login = () => {
 
          <div className="relative z-10 flex flex-col justify-between p-14 w-full">
            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }} className="space-y-2">
-             <img src={logo} alt="ChekaMeds" className="h-20 w-auto object-contain" />
+             <img src={logo} alt="ChekaMeds" className="h-36 w-auto object-contain" />
              <p className="text-[10px] text-white/40 tracking-[0.25em] uppercase font-medium">Powered by IBLIM ENTERPRISE</p>
            </motion.div>
 
@@ -161,7 +161,7 @@ const Login = () => {
               transition={{ duration: 0.5 }}
             >
                <div className="lg:hidden flex flex-col items-center gap-1">
-                 <img src={logo} alt="ChekaMeds" className="h-16 object-contain" />
+                 <img src={logo} alt="ChekaMeds" className="h-28 object-contain" />
                  <p className="text-[9px] text-muted-foreground tracking-[0.2em] uppercase">Powered by IBLIM ENTERPRISE</p>
                </div>
 

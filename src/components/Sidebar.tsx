@@ -56,7 +56,7 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
 
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border">
-        <img src={logo} alt="ChekaMeds" className="h-10 w-10 object-contain flex-shrink-0 rounded-lg" />
+        <img src={logo} alt="ChekaMeds" className="h-14 w-14 object-contain flex-shrink-0 rounded-lg" />
         <AnimatePresence>
           {!collapsed && (
             <motion.div
