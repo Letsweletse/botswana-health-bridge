@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { clinics } from '@/data/mockClinicData';
+import { useInventoryStats } from '@/hooks/useInventory';
 
 const statusColors: Record<string, string> = {
   stocked: '#10b981',
@@ -12,9 +12,16 @@ const statusColors: Record<string, string> = {
 const ClinicMap = () => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { clinicStatuses } = useInventoryStats();
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    if (!containerRef.current) return;
+
+    // Clean up previous map
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
 
     const map = L.map(containerRef.current, { zoomControl: false }).setView([-24.6450, 25.9230], 13);
     mapRef.current = map;
@@ -23,7 +30,7 @@ const ClinicMap = () => {
       attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
     }).addTo(map);
 
-    clinics.forEach((clinic) => {
+    clinicStatuses.forEach((clinic) => {
       const color = statusColors[clinic.status] || '#888';
       L.circleMarker([clinic.lat, clinic.lng], {
         radius: clinic.status === 'critical' ? 10 : 8,
@@ -41,7 +48,7 @@ const ClinicMap = () => {
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [clinicStatuses]);
 
   return (
     <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
@@ -63,7 +70,13 @@ const ClinicMap = () => {
           ))}
         </div>
       </div>
-      <div ref={containerRef} className="h-[340px]" />
+      {clinicStatuses.length === 0 ? (
+        <div className="h-[340px] flex items-center justify-center text-muted-foreground text-sm">
+          No clinics registered yet. Add inventory to see clinics on the map.
+        </div>
+      ) : (
+        <div ref={containerRef} className="h-[340px]" />
+      )}
     </div>
   );
 };
