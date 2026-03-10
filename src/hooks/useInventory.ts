@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { clinics } from '@/data/mockClinicData';
 
 export interface InventoryItem {
   id: string;
@@ -62,18 +61,20 @@ export function useClinicInventory() {
 export function useInventoryStats() {
   const { data: inventory = [], isLoading } = useInventory();
 
-  const totalClinics = clinics.length;
+  // Derive unique clinics from live database inventory
+  const clinicNames = [...new Set(inventory.map(i => i.clinic_name))];
+  const totalClinics = clinicNames.length;
   const totalMeds = inventory.length;
   const criticalCount = inventory.filter(i => i.quantity < 20).length;
   const healthyCount = inventory.filter(i => i.quantity >= 100).length;
   const depletingFast = inventory.filter(i => i.trend === 'Depleting Fast').length;
 
-  const clinicStatuses = clinics.map(c => {
-    const clinicMeds = inventory.filter(i => i.clinic_name === c.name);
+  const clinicStatuses = clinicNames.map(name => {
+    const clinicMeds = inventory.filter(i => i.clinic_name === name);
     const hasCritical = clinicMeds.some(m => m.quantity < 20);
     const hasWarning = clinicMeds.some(m => m.quantity >= 20 && m.quantity < 50);
     const status = hasCritical ? 'critical' : hasWarning ? 'warning' : 'stocked';
-    return { ...c, status: status as 'critical' | 'warning' | 'stocked' };
+    return { name, lat: 0, lng: 0, status: status as 'critical' | 'warning' | 'stocked' };
   });
 
   const stockedClinics = clinicStatuses.filter(c => c.status === 'stocked').length;
