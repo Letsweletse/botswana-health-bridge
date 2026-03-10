@@ -161,7 +161,7 @@ const Login = () => {
               transition={{ duration: 0.5 }}
             >
                <div className="lg:hidden flex flex-col items-center gap-1">
-                 <img src={logo} alt="ChekaMeds" className="h-16 object-contain" />
+                 <img src={logo} alt="ChekaMeds" className="h-28 object-contain" />
                  <p className="text-[9px] text-muted-foreground tracking-[0.2em] uppercase">Powered by IBLIM ENTERPRISE</p>
                </div>
 
