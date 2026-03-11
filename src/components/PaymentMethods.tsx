@@ -48,8 +48,8 @@ const paymentMethods = [
     bg: 'bg-[hsl(25,95%,53%)]/10 border-[hsl(25,95%,53%)]/20',
   },
   {
-    name: 'MyZaka (BTC)',
-    desc: 'Via BancABC mobile banking',
+    name: 'MyZaka Mascom / FNB Pay to Cell',
+    desc: 'Via Mascom or FNB mobile transfer',
     detail: 'Transfer to: +26775560140',
     icon: Smartphone,
     color: 'text-[hsl(210,80%,55%)]',
