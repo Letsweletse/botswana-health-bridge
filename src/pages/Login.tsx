@@ -72,7 +72,7 @@ const Login = () => {
 
          <div className="relative z-10 flex flex-col justify-between p-14 w-full">
            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }} className="space-y-2">
-             <img src={logo} alt="ChekaMeds" className="h-36 w-auto object-contain" />
+             <img src={logo} alt="ChekaMeds" className="h-48 w-auto object-contain rounded-[50%]" />
              <p className="text-[10px] text-white/40 tracking-[0.25em] uppercase font-medium">Powered by IBLIM ENTERPRISE</p>
            </motion.div>
 
