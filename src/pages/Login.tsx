@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, Shield, Activity, Pill, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
