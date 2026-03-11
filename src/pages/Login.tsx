@@ -253,6 +253,12 @@ const Login = () => {
                 <p className="text-center text-[11px] text-muted-foreground">
                   Access restricted to authorised Botswana health personnel only.
                 </p>
+                <Link
+                  to="/search"
+                  className="block text-center text-xs text-primary hover:underline font-medium mt-1"
+                >
+                  🔍 Looking for medicine? Search here — no login needed
+                </Link>
               </div>
             </motion.div>
           )}
