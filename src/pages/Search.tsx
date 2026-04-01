@@ -158,7 +158,7 @@ const SearchPage = () => {
               </span>
               <span className="flex items-center gap-1.5">
                 <Building2 className="h-3.5 w-3.5 text-primary" />
-                Available at <strong className="text-foreground">{uniqueClinics}</strong> facility{uniqueClinics !== 1 ? 'ies' : ''}
+                Available at <strong className="text-foreground">{uniqueClinics}</strong> {uniqueClinics !== 1 ? 'facilities' : 'facility'}
               </span>
             </motion.div>
           )}
