@@ -107,9 +107,23 @@ const SearchPage = () => {
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3 tracking-tight">
               Find Your Medicine <span className="text-primary">Instantly</span>
             </h2>
-            <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto mb-8">
+            <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto mb-6">
               Search across clinics and pharmacies in Botswana to find where your medicine is in stock right now.
             </p>
+
+            {/* Popular searches */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
+              <span className="text-xs text-muted-foreground mr-1">Popular:</span>
+              {['Paracetamol', 'Amoxicillin', 'Metformin', 'Ibuprofen', 'Omeprazole', 'Ciprofloxacin', 'Amlodipine', 'ARVs'].map((med) => (
+                <button
+                  key={med}
+                  onClick={() => { setQuery(med); setDebouncedQuery(med); }}
+                  className="text-xs px-3 py-1.5 rounded-full border border-border bg-card hover:bg-primary/10 hover:border-primary/30 hover:text-primary text-muted-foreground transition-all duration-200 font-medium"
+                >
+                  {med}
+                </button>
+              ))}
+            </div>
           </motion.div>
 
           <motion.div
