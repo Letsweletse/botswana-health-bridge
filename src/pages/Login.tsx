@@ -18,6 +18,25 @@ const Login = () => {
   const [confirmed, setConfirmed] = useState(false);
   const navigate = useNavigate();
 
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      toast({ title: 'Enter your email', description: 'Please enter your email address first, then click Forgot password.', variant: 'destructive' });
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-password',
+      });
+      if (error) throw error;
+      toast({ title: 'Reset link sent', description: 'Check your email for a password reset link.' });
+    } catch (err: any) {
+      toast({ title: 'Request failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
