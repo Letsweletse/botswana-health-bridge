@@ -209,7 +209,7 @@ const Login = () => {
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-semibold text-foreground/80 tracking-wide">Password</label>
-                    {!isSignUp && <button type="button" className="text-xs text-primary hover:underline font-medium">Forgot password?</button>}
+                    {!isSignUp && <button type="button" onClick={handleForgotPassword} className="text-xs text-primary hover:underline font-medium">Forgot password?</button>}
                   </div>
                   <div className="relative">
                     <input type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} className={inputClass + ' pr-11'} />
