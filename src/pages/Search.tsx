@@ -287,6 +287,7 @@ const SearchPage = () => {
           </p>
           <div className="flex items-center justify-center gap-4 mt-2">
             <Link to="/login" className="text-[10px] text-primary hover:underline">Clinic Portal</Link>
+            <Link to="/" className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">Home</Link>
           </div>
         </div>
       </footer>

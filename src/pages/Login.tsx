@@ -18,13 +18,32 @@ const Login = () => {
   const [confirmed, setConfirmed] = useState(false);
   const navigate = useNavigate();
 
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      toast({ title: 'Enter your email', description: 'Please enter your email address first, then click Forgot password.', variant: 'destructive' });
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-password',
+      });
+      if (error) throw error;
+      toast({ title: 'Reset link sent', description: 'Check your email for a password reset link.' });
+    } catch (err: any) {
+      toast({ title: 'Request failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      navigate('/');
+      navigate('/dashboard');
     } catch (err: any) {
       toast({ title: 'Sign in failed', description: err.message, variant: 'destructive' });
     } finally {
@@ -209,7 +228,7 @@ const Login = () => {
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-semibold text-foreground/80 tracking-wide">Password</label>
-                    {!isSignUp && <button type="button" className="text-xs text-primary hover:underline font-medium">Forgot password?</button>}
+                    {!isSignUp && <button type="button" onClick={handleForgotPassword} className="text-xs text-primary hover:underline font-medium">Forgot password?</button>}
                   </div>
                   <div className="relative">
                     <input type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} className={inputClass + ' pr-11'} />
