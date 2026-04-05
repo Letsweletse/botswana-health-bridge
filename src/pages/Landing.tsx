@@ -118,8 +118,8 @@ const Landing = () => {
               { icon: Shield, text: 'Secure facility access' },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-2.5">
-                <item.icon className="h-4 w-4 text-primary" />
-                <span className="text-xs text-muted-foreground font-medium">{item.text}</span>
+                <item.icon className="h-4 w-4 text-[hsl(210,80%,50%)]" />
+                <span className="text-xs text-[hsl(210,10%,50%)] font-medium">{item.text}</span>
               </div>
             ))}
           </div>
