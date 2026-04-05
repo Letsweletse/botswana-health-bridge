@@ -130,11 +130,11 @@ const Landing = () => {
       <section className="py-20 md:py-28 bg-white">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-14">
-            <p className="text-xs text-primary font-semibold uppercase tracking-[0.2em] mb-2">Platform</p>
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
+            <p className="text-xs text-[hsl(210,80%,50%)] font-semibold uppercase tracking-[0.2em] mb-2">Platform</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-[hsl(215,25%,15%)] tracking-tight">
               Built for Botswana's health infrastructure
             </h2>
-            <p className="text-sm text-muted-foreground mt-3 max-w-md mx-auto leading-relaxed">
+            <p className="text-sm text-[hsl(210,10%,50%)] mt-3 max-w-md mx-auto leading-relaxed font-light">
               From Princess Marina to rural clinics — one platform connecting the entire medicine supply chain.
             </p>
           </div>
