@@ -165,11 +165,11 @@ const Landing = () => {
           <div className="grid md:grid-cols-3 gap-8">
             {steps.map((s, i) => (
               <div key={i} className="text-center">
-                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-primary/10 text-primary font-bold text-sm mb-4">
+                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-[hsl(210,80%,50%)]/10 text-[hsl(210,80%,50%)] font-bold text-sm mb-4">
                   {s.num}
                 </div>
-                <h3 className="text-sm font-semibold text-foreground mb-2">{s.title}</h3>
-                <p className="text-[13px] text-muted-foreground leading-relaxed">{s.desc}</p>
+                <h3 className="text-sm font-semibold text-[hsl(215,25%,15%)] mb-2">{s.title}</h3>
+                <p className="text-[13px] text-[hsl(210,10%,50%)] leading-relaxed font-light">{s.desc}</p>
               </div>
             ))}
           </div>
