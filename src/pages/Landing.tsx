@@ -43,7 +43,7 @@ const steps = [
 
 const Landing = () => {
   return (
-    <div className="min-h-screen bg-white font-[Poppins] antialiased">
+    <div className="min-h-screen bg-white font-[Gordita,system-ui,sans-serif] antialiased">
 
       {/* ─── Navigation ─── */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-border/50">
