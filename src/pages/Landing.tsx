@@ -144,11 +144,11 @@ const Landing = () => {
                 key={i}
                 className="group rounded-xl border border-border bg-card p-6 hover:shadow-md hover:border-primary/20 transition-all duration-200"
               >
-                <div className="h-10 w-10 rounded-lg bg-primary/8 flex items-center justify-center mb-4 group-hover:bg-primary/12 transition-colors">
-                  <f.icon className="h-[18px] w-[18px] text-primary" />
+                <div className="h-10 w-10 rounded-lg bg-[hsl(210,80%,50%)]/8 flex items-center justify-center mb-4 group-hover:bg-[hsl(210,80%,50%)]/12 transition-colors">
+                  <f.icon className="h-[18px] w-[18px] text-[hsl(210,80%,50%)]" />
                 </div>
-                <h3 className="text-sm font-semibold text-foreground mb-1.5">{f.title}</h3>
-                <p className="text-[13px] text-muted-foreground leading-relaxed">{f.desc}</p>
+                <h3 className="text-sm font-semibold text-[hsl(215,25%,15%)] mb-1.5">{f.title}</h3>
+                <p className="text-[13px] text-[hsl(210,10%,50%)] leading-relaxed font-light">{f.desc}</p>
               </div>
             ))}
           </div>
