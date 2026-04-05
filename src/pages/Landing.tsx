@@ -199,11 +199,11 @@ const Landing = () => {
       </section>
 
       {/* ─── Pricing ─── */}
-      <section className="py-20 md:py-28 bg-foreground">
+      <section className="py-20 md:py-28 bg-[hsl(215,25%,12%)]">
         <div className="max-w-3xl mx-auto px-6 lg:px-8 text-center">
-          <p className="text-xs text-primary font-semibold uppercase tracking-[0.2em] mb-2">Facility Subscriptions</p>
+          <p className="text-xs text-[hsl(210,80%,60%)] font-semibold uppercase tracking-[0.2em] mb-2">Facility Subscriptions</p>
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-3 tracking-tight">Start from P300/month</h2>
-          <p className="text-sm text-white/50 max-w-md mx-auto mb-10 leading-relaxed">
+          <p className="text-sm text-white/50 max-w-md mx-auto mb-10 leading-relaxed font-light">
             Get your clinic or pharmacy listed on ChekaMeds. Patients find you, stock is managed, and you stay ahead of shortages.
           </p>
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 mb-10">
@@ -214,14 +214,14 @@ const Landing = () => {
               'Prescription matching',
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-2 text-[13px] text-white/70">
-                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <CheckCircle2 className="h-4 w-4 text-[hsl(210,80%,60%)]" />
                 {item}
               </div>
             ))}
           </div>
           <Link
             to="/login"
-            className="inline-flex items-center gap-2.5 px-7 py-3 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary/90 transition-all"
+            className="inline-flex items-center gap-2.5 px-7 py-3 bg-[hsl(210,80%,50%)] text-white text-sm font-semibold rounded-lg hover:bg-[hsl(210,80%,45%)] transition-all"
           >
             Register Your Facility <ChevronRight className="h-4 w-4" />
           </Link>
