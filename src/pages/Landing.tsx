@@ -43,7 +43,7 @@ const steps = [
 
 const Landing = () => {
   return (
-    <div className="min-h-screen bg-white font-[Poppins] antialiased">
+    <div className="min-h-screen bg-white font-[Gordita,system-ui,sans-serif] antialiased">
 
       {/* ─── Navigation ─── */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-border/50">
@@ -81,29 +81,29 @@ const Landing = () => {
               />
             </div>
 
-            <p className="text-muted-foreground text-xs font-semibold tracking-[0.25em] uppercase mb-6">
+            <p className="text-[hsl(210,80%,45%)] text-xs font-semibold tracking-[0.25em] uppercase mb-6">
               Ipelegeng — Serving Batswana
             </p>
 
-            <h1 className="text-[2rem] sm:text-4xl md:text-5xl font-bold text-foreground leading-[1.15] mb-5 tracking-tight">
+            <h1 className="text-[2rem] sm:text-4xl md:text-5xl font-bold text-[hsl(215,25%,15%)] leading-[1.15] mb-5 tracking-tight">
               Medicine reaches{' '}
-              <span className="text-primary">every Motswana</span>
+              <span className="text-[hsl(210,80%,50%)]">every Motswana</span>
             </h1>
 
-            <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-10 max-w-xl mx-auto">
+            <p className="text-[hsl(210,10%,50%)] text-base md:text-lg leading-relaxed mb-10 max-w-xl mx-auto font-light">
               A real-time stock visibility platform built for Botswana's health network — connecting clinics, pharmacies, and patients.
             </p>
 
             <div className="flex flex-col sm:flex-row justify-center gap-3">
               <Link
                 to="/search"
-                className="inline-flex items-center justify-center gap-2.5 px-7 py-3 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                className="inline-flex items-center justify-center gap-2.5 px-7 py-3 bg-[hsl(210,80%,50%)] text-white text-sm font-semibold rounded-lg hover:bg-[hsl(210,80%,45%)] transition-all shadow-lg shadow-[hsl(210,80%,50%)]/20"
               >
                 <Search className="h-4 w-4" /> Find Medicine
               </Link>
               <Link
                 to="/login"
-                className="inline-flex items-center justify-center gap-2.5 px-7 py-3 bg-secondary text-foreground text-sm font-semibold rounded-lg hover:bg-secondary/80 transition-all border border-border"
+                className="inline-flex items-center justify-center gap-2.5 px-7 py-3 bg-white text-[hsl(215,25%,15%)] text-sm font-semibold rounded-lg hover:bg-[hsl(210,20%,96%)] transition-all border border-[hsl(210,20%,88%)]"
               >
                 Register Your Facility <ArrowRight className="h-4 w-4" />
               </Link>
@@ -118,8 +118,8 @@ const Landing = () => {
               { icon: Shield, text: 'Secure facility access' },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-2.5">
-                <item.icon className="h-4 w-4 text-primary" />
-                <span className="text-xs text-muted-foreground font-medium">{item.text}</span>
+                <item.icon className="h-4 w-4 text-[hsl(210,80%,50%)]" />
+                <span className="text-xs text-[hsl(210,10%,50%)] font-medium">{item.text}</span>
               </div>
             ))}
           </div>
@@ -130,11 +130,11 @@ const Landing = () => {
       <section className="py-20 md:py-28 bg-white">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-14">
-            <p className="text-xs text-primary font-semibold uppercase tracking-[0.2em] mb-2">Platform</p>
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
+            <p className="text-xs text-[hsl(210,80%,50%)] font-semibold uppercase tracking-[0.2em] mb-2">Platform</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-[hsl(215,25%,15%)] tracking-tight">
               Built for Botswana's health infrastructure
             </h2>
-            <p className="text-sm text-muted-foreground mt-3 max-w-md mx-auto leading-relaxed">
+            <p className="text-sm text-[hsl(210,10%,50%)] mt-3 max-w-md mx-auto leading-relaxed font-light">
               From Princess Marina to rural clinics — one platform connecting the entire medicine supply chain.
             </p>
           </div>
@@ -144,11 +144,11 @@ const Landing = () => {
                 key={i}
                 className="group rounded-xl border border-border bg-card p-6 hover:shadow-md hover:border-primary/20 transition-all duration-200"
               >
-                <div className="h-10 w-10 rounded-lg bg-primary/8 flex items-center justify-center mb-4 group-hover:bg-primary/12 transition-colors">
-                  <f.icon className="h-[18px] w-[18px] text-primary" />
+                <div className="h-10 w-10 rounded-lg bg-[hsl(210,80%,50%)]/8 flex items-center justify-center mb-4 group-hover:bg-[hsl(210,80%,50%)]/12 transition-colors">
+                  <f.icon className="h-[18px] w-[18px] text-[hsl(210,80%,50%)]" />
                 </div>
-                <h3 className="text-sm font-semibold text-foreground mb-1.5">{f.title}</h3>
-                <p className="text-[13px] text-muted-foreground leading-relaxed">{f.desc}</p>
+                <h3 className="text-sm font-semibold text-[hsl(215,25%,15%)] mb-1.5">{f.title}</h3>
+                <p className="text-[13px] text-[hsl(210,10%,50%)] leading-relaxed font-light">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -159,17 +159,17 @@ const Landing = () => {
       <section className="py-20 md:py-28 bg-secondary/40">
         <div className="max-w-4xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-14">
-            <p className="text-xs text-primary font-semibold uppercase tracking-[0.2em] mb-2">Getting Started</p>
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">Three steps to go live</h2>
+            <p className="text-xs text-[hsl(210,80%,50%)] font-semibold uppercase tracking-[0.2em] mb-2">Getting Started</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-[hsl(215,25%,15%)] tracking-tight">Three steps to go live</h2>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {steps.map((s, i) => (
               <div key={i} className="text-center">
-                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-primary/10 text-primary font-bold text-sm mb-4">
+                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-[hsl(210,80%,50%)]/10 text-[hsl(210,80%,50%)] font-bold text-sm mb-4">
                   {s.num}
                 </div>
-                <h3 className="text-sm font-semibold text-foreground mb-2">{s.title}</h3>
-                <p className="text-[13px] text-muted-foreground leading-relaxed">{s.desc}</p>
+                <h3 className="text-sm font-semibold text-[hsl(215,25%,15%)] mb-2">{s.title}</h3>
+                <p className="text-[13px] text-[hsl(210,10%,50%)] leading-relaxed font-light">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -180,30 +180,30 @@ const Landing = () => {
       <section className="py-20 bg-white">
         <div className="max-w-3xl mx-auto px-6 lg:px-8">
           <div className="rounded-2xl border border-border bg-card p-8 md:p-12 text-center">
-            <div className="inline-flex items-center gap-2 bg-[hsl(142,70%,95%)] text-primary rounded-full px-4 py-1.5 text-xs font-semibold mb-5">
+            <div className="inline-flex items-center gap-2 bg-[hsl(210,80%,95%)] text-[hsl(210,80%,50%)] rounded-full px-4 py-1.5 text-xs font-semibold mb-5">
               <MessageCircle className="h-3.5 w-3.5" />
               WhatsApp Access
             </div>
-            <h2 className="text-xl md:text-2xl font-bold text-foreground mb-2">
+            <h2 className="text-xl md:text-2xl font-bold text-[hsl(215,25%,15%)] mb-2">
               Patients can text to find medicine
             </h2>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto mb-7 leading-relaxed">
+            <p className="text-sm text-[hsl(210,10%,50%)] max-w-md mx-auto mb-7 leading-relaxed font-light">
               No app download. No internet browsing. Just text a WhatsApp number and find your medicine across Gaborone.
             </p>
-            <div className="bg-foreground rounded-xl inline-block px-8 py-4">
+            <div className="bg-[hsl(215,25%,12%)] rounded-xl inline-block px-8 py-4">
               <p className="text-[10px] text-white/40 uppercase tracking-widest mb-1">Public WhatsApp Line</p>
-              <p className="text-primary text-xl font-bold tracking-wide">+267 714 24 486</p>
+              <p className="text-[hsl(210,80%,60%)] text-xl font-bold tracking-wide">+267 714 24 486</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* ─── Pricing ─── */}
-      <section className="py-20 md:py-28 bg-foreground">
+      <section className="py-20 md:py-28 bg-[hsl(215,25%,12%)]">
         <div className="max-w-3xl mx-auto px-6 lg:px-8 text-center">
-          <p className="text-xs text-primary font-semibold uppercase tracking-[0.2em] mb-2">Facility Subscriptions</p>
+          <p className="text-xs text-[hsl(210,80%,60%)] font-semibold uppercase tracking-[0.2em] mb-2">Facility Subscriptions</p>
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-3 tracking-tight">Start from P300/month</h2>
-          <p className="text-sm text-white/50 max-w-md mx-auto mb-10 leading-relaxed">
+          <p className="text-sm text-white/50 max-w-md mx-auto mb-10 leading-relaxed font-light">
             Get your clinic or pharmacy listed on ChekaMeds. Patients find you, stock is managed, and you stay ahead of shortages.
           </p>
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 mb-10">
@@ -214,14 +214,14 @@ const Landing = () => {
               'Prescription matching',
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-2 text-[13px] text-white/70">
-                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <CheckCircle2 className="h-4 w-4 text-[hsl(210,80%,60%)]" />
                 {item}
               </div>
             ))}
           </div>
           <Link
             to="/login"
-            className="inline-flex items-center gap-2.5 px-7 py-3 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary/90 transition-all"
+            className="inline-flex items-center gap-2.5 px-7 py-3 bg-[hsl(210,80%,50%)] text-white text-sm font-semibold rounded-lg hover:bg-[hsl(210,80%,45%)] transition-all"
           >
             Register Your Facility <ChevronRight className="h-4 w-4" />
           </Link>
