@@ -180,19 +180,19 @@ const Landing = () => {
       <section className="py-20 bg-white">
         <div className="max-w-3xl mx-auto px-6 lg:px-8">
           <div className="rounded-2xl border border-border bg-card p-8 md:p-12 text-center">
-            <div className="inline-flex items-center gap-2 bg-[hsl(142,70%,95%)] text-primary rounded-full px-4 py-1.5 text-xs font-semibold mb-5">
+            <div className="inline-flex items-center gap-2 bg-[hsl(210,80%,95%)] text-[hsl(210,80%,50%)] rounded-full px-4 py-1.5 text-xs font-semibold mb-5">
               <MessageCircle className="h-3.5 w-3.5" />
               WhatsApp Access
             </div>
-            <h2 className="text-xl md:text-2xl font-bold text-foreground mb-2">
+            <h2 className="text-xl md:text-2xl font-bold text-[hsl(215,25%,15%)] mb-2">
               Patients can text to find medicine
             </h2>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto mb-7 leading-relaxed">
+            <p className="text-sm text-[hsl(210,10%,50%)] max-w-md mx-auto mb-7 leading-relaxed font-light">
               No app download. No internet browsing. Just text a WhatsApp number and find your medicine across Gaborone.
             </p>
-            <div className="bg-foreground rounded-xl inline-block px-8 py-4">
+            <div className="bg-[hsl(215,25%,12%)] rounded-xl inline-block px-8 py-4">
               <p className="text-[10px] text-white/40 uppercase tracking-widest mb-1">Public WhatsApp Line</p>
-              <p className="text-primary text-xl font-bold tracking-wide">+267 714 24 486</p>
+              <p className="text-[hsl(210,80%,60%)] text-xl font-bold tracking-wide">+267 714 24 486</p>
             </div>
           </div>
         </div>
