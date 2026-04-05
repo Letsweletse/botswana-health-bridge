@@ -97,13 +97,13 @@ const Landing = () => {
             <div className="flex flex-col sm:flex-row justify-center gap-3">
               <Link
                 to="/search"
-                className="inline-flex items-center justify-center gap-2.5 px-7 py-3 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                className="inline-flex items-center justify-center gap-2.5 px-7 py-3 bg-[hsl(210,80%,50%)] text-white text-sm font-semibold rounded-lg hover:bg-[hsl(210,80%,45%)] transition-all shadow-lg shadow-[hsl(210,80%,50%)]/20"
               >
                 <Search className="h-4 w-4" /> Find Medicine
               </Link>
               <Link
                 to="/login"
-                className="inline-flex items-center justify-center gap-2.5 px-7 py-3 bg-secondary text-foreground text-sm font-semibold rounded-lg hover:bg-secondary/80 transition-all border border-border"
+                className="inline-flex items-center justify-center gap-2.5 px-7 py-3 bg-white text-[hsl(215,25%,15%)] text-sm font-semibold rounded-lg hover:bg-[hsl(210,20%,96%)] transition-all border border-[hsl(210,20%,88%)]"
               >
                 Register Your Facility <ArrowRight className="h-4 w-4" />
               </Link>
