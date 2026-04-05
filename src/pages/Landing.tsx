@@ -159,8 +159,8 @@ const Landing = () => {
       <section className="py-20 md:py-28 bg-secondary/40">
         <div className="max-w-4xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-14">
-            <p className="text-xs text-primary font-semibold uppercase tracking-[0.2em] mb-2">Getting Started</p>
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">Three steps to go live</h2>
+            <p className="text-xs text-[hsl(210,80%,50%)] font-semibold uppercase tracking-[0.2em] mb-2">Getting Started</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-[hsl(215,25%,15%)] tracking-tight">Three steps to go live</h2>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {steps.map((s, i) => (
