@@ -81,16 +81,16 @@ const Landing = () => {
               />
             </div>
 
-            <p className="text-muted-foreground text-xs font-semibold tracking-[0.25em] uppercase mb-6">
+            <p className="text-[hsl(210,80%,45%)] text-xs font-semibold tracking-[0.25em] uppercase mb-6">
               Ipelegeng — Serving Batswana
             </p>
 
-            <h1 className="text-[2rem] sm:text-4xl md:text-5xl font-bold text-foreground leading-[1.15] mb-5 tracking-tight">
+            <h1 className="text-[2rem] sm:text-4xl md:text-5xl font-bold text-[hsl(215,25%,15%)] leading-[1.15] mb-5 tracking-tight">
               Medicine reaches{' '}
-              <span className="text-primary">every Motswana</span>
+              <span className="text-[hsl(210,80%,50%)]">every Motswana</span>
             </h1>
 
-            <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-10 max-w-xl mx-auto">
+            <p className="text-[hsl(210,10%,50%)] text-base md:text-lg leading-relaxed mb-10 max-w-xl mx-auto font-light">
               A real-time stock visibility platform built for Botswana's health network — connecting clinics, pharmacies, and patients.
             </p>
 
