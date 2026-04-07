@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import logo from '@/assets/ChekaMeds_Logo.png';
+import heroBg from '@/assets/hero-bg.png';
 
 interface InventoryItem {
   id: string;
@@ -24,7 +25,6 @@ const SearchPage = () => {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
-  // Debounce search
   const handleSearch = (value: string) => {
     setQuery(value);
     clearTimeout((window as any).__searchTimeout);
@@ -50,7 +50,6 @@ const SearchPage = () => {
     enabled: debouncedQuery.length >= 2,
   });
 
-  // Group results by clinic
   const groupedByClinic = useMemo(() => {
     const map = new Map<string, InventoryItem[]>();
     results.forEach(item => {
@@ -65,107 +64,105 @@ const SearchPage = () => {
   const uniqueClinics = new Set(results.map(r => r.clinic_name)).size;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-xl border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/search" className="flex items-center gap-3">
-            <img src={logo} alt="ChekaMeds" className="h-10 w-10 rounded-xl bg-white p-0.5 shadow-sm object-contain" />
-            <div>
-              <h1 className="text-sm font-bold text-foreground tracking-tight">ChekaMeds</h1>
-              <p className="text-[9px] text-muted-foreground uppercase tracking-widest">Medicine Finder</p>
-            </div>
+    <div className="min-h-screen font-[Gordita,system-ui,sans-serif] antialiased bg-[#020e08]">
+      {/* ─── Top nav ─── */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#020e08]/60 backdrop-blur-xl border-b border-white/[0.06]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-12 h-14 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2.5">
+            <img src={logo} alt="ChekaMeds" className="h-8 w-auto object-contain" />
           </Link>
           <Link
-            to="/login"
-            className="text-xs font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+            to="/"
+            className="text-xs font-medium text-white/50 hover:text-white transition-colors flex items-center gap-1"
           >
             Clinic Login <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
-      </header>
+      </nav>
 
-      {/* Hero Search */}
-      <section className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: `radial-gradient(circle at 20% 50%, hsl(var(--primary)) 0%, transparent 50%),
-                              radial-gradient(circle at 80% 50%, hsl(var(--accent)) 0%, transparent 50%)`,
-          }}
-        />
-        <div className="max-w-3xl mx-auto px-4 pt-16 pb-10 text-center relative">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-4 py-1.5 text-xs font-semibold mb-6 border border-primary/20">
-              <Pill className="h-3.5 w-3.5" />
-              Free • No login required
-            </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3 tracking-tight">
-              Find Your Medicine <span className="text-primary">Instantly</span>
-            </h2>
-            <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto mb-6">
-              Search across clinics and pharmacies in Botswana to find where your medicine is in stock right now.
-            </p>
-
-            {/* Popular searches */}
-            <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
-              <span className="text-xs text-muted-foreground mr-1">Popular:</span>
-              {['Paracetamol', 'Amoxicillin', 'Metformin', 'Ibuprofen', 'Omeprazole', 'Ciprofloxacin', 'Amlodipine', 'ARVs'].map((med) => (
-                <button
-                  key={med}
-                  onClick={() => { setQuery(med); setDebouncedQuery(med); }}
-                  className="text-xs px-3 py-1.5 rounded-full border border-border bg-card hover:bg-primary/10 hover:border-primary/30 hover:text-primary text-muted-foreground transition-all duration-200 font-medium"
-                >
-                  {med}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="relative max-w-xl mx-auto"
-          >
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Type a medicine name e.g. Amoxicillin, Paracetamol..."
-              className="pl-12 pr-4 h-14 text-base rounded-2xl border-2 border-border focus:border-primary bg-card shadow-lg"
-              autoFocus
-            />
-            {isLoading && (
-              <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary animate-spin" />
-            )}
-          </motion.div>
-
-          {/* Quick stats */}
-          {debouncedQuery.length >= 2 && !isLoading && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-center justify-center gap-6 mt-5 text-xs text-muted-foreground"
-            >
-              <span className="flex items-center gap-1.5">
-                <Pill className="h-3.5 w-3.5 text-primary" />
-                <strong className="text-foreground">{uniqueMedicines}</strong> medicine{uniqueMedicines !== 1 ? 's' : ''} found
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Building2 className="h-3.5 w-3.5 text-primary" />
-                Available at <strong className="text-foreground">{uniqueClinics}</strong> {uniqueClinics !== 1 ? 'facilities' : 'facility'}
-              </span>
-            </motion.div>
-          )}
+      {/* ─── Hero image — full width, uncropped ─── */}
+      <div className="pt-14">
+        <div className="relative w-full">
+          <img
+            src={heroBg}
+            alt="ChekaMeds — Find Medicines Faster"
+            className="w-full h-auto block"
+          />
+          <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#020e08] to-transparent" />
         </div>
+      </div>
+
+      {/* ─── Search section ─── */}
+      <section className="relative max-w-3xl mx-auto px-4 pt-12 pb-8 text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="inline-flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-4 py-1.5 text-xs font-semibold mb-6 border border-emerald-500/20">
+            <Pill className="h-3.5 w-3.5" />
+            Free · No login required
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 tracking-tight">
+            Find Your Medicine <span className="text-emerald-400">Instantly</span>
+          </h2>
+          <p className="text-white/40 text-sm md:text-base max-w-lg mx-auto mb-6 font-light">
+            Search across clinics and pharmacies in Botswana to find where your medicine is in stock right now.
+          </p>
+
+          {/* Popular searches */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
+            <span className="text-xs text-white/30 mr-1">Popular:</span>
+            {['Paracetamol', 'Amoxicillin', 'Metformin', 'Ibuprofen', 'Omeprazole', 'Ciprofloxacin', 'Amlodipine', 'ARVs'].map((med) => (
+              <button
+                key={med}
+                onClick={() => { setQuery(med); setDebouncedQuery(med); }}
+                className="text-xs px-3 py-1.5 border border-white/[0.1] bg-white/[0.03] hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-400 text-white/40 transition-all duration-200 font-medium"
+              >
+                {med}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="relative max-w-xl mx-auto"
+        >
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30" />
+          <input
+            value={query}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Type a medicine name e.g. Amoxicillin, Paracetamol..."
+            className="w-full pl-12 pr-4 h-14 text-base border border-white/[0.1] bg-white/[0.04] text-white placeholder:text-white/25 focus:outline-none focus:border-emerald-500/50 transition-colors shadow-lg shadow-black/30"
+            autoFocus
+          />
+          {isLoading && (
+            <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-emerald-400 animate-spin" />
+          )}
+        </motion.div>
+
+        {debouncedQuery.length >= 2 && !isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-center justify-center gap-6 mt-5 text-xs text-white/30"
+          >
+            <span className="flex items-center gap-1.5">
+              <Pill className="h-3.5 w-3.5 text-emerald-400" />
+              <strong className="text-white/70">{uniqueMedicines}</strong> medicine{uniqueMedicines !== 1 ? 's' : ''} found
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-emerald-400" />
+              Available at <strong className="text-white/70">{uniqueClinics}</strong> {uniqueClinics !== 1 ? 'facilities' : 'facility'}
+            </span>
+          </motion.div>
+        )}
       </section>
 
-      {/* Results */}
+      {/* ─── Results ─── */}
       <section className="max-w-3xl mx-auto px-4 pb-16">
         <AnimatePresence mode="wait">
           {debouncedQuery.length < 2 && query.length === 0 ? (
@@ -182,12 +179,12 @@ const SearchPage = () => {
                   { icon: MapPin, label: 'Find nearby clinics', desc: 'With stock available' },
                   { icon: Package, label: 'Check availability', desc: 'Real-time quantities' },
                 ].map((item, i) => (
-                  <div key={i} className="bg-card rounded-2xl p-5 border border-border text-center">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                      <item.icon className="h-5 w-5 text-primary" />
+                  <div key={i} className="bg-white/[0.03] border border-white/[0.08] p-5 text-center">
+                    <div className="h-10 w-10 bg-emerald-500/10 flex items-center justify-center mx-auto mb-3">
+                      <item.icon className="h-5 w-5 text-emerald-400" />
                     </div>
-                    <p className="text-xs font-semibold text-foreground mb-0.5">{item.label}</p>
-                    <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                    <p className="text-xs font-semibold text-white/70 mb-0.5">{item.label}</p>
+                    <p className="text-[10px] text-white/30">{item.desc}</p>
                   </div>
                 ))}
               </div>
@@ -200,10 +197,10 @@ const SearchPage = () => {
               exit={{ opacity: 0 }}
               className="text-center py-16"
             >
-              <AlertCircle className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="text-lg font-semibold text-foreground mb-1">No results found</p>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                No clinics currently have "<strong>{debouncedQuery}</strong>" in stock. Try a different spelling or search for a generic name.
+              <AlertCircle className="h-12 w-12 text-white/15 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-white mb-1">No results found</p>
+              <p className="text-sm text-white/40 max-w-md mx-auto">
+                No clinics currently have "<strong className="text-white/60">{debouncedQuery}</strong>" in stock. Try a different spelling or search for a generic name.
               </p>
             </motion.div>
           ) : (
@@ -220,54 +217,48 @@ const SearchPage = () => {
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
-                  className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                  className="bg-white/[0.03] border border-white/[0.08] overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                 >
-                  {/* Clinic header */}
-                  <div className="px-5 py-4 border-b border-border bg-muted/30 flex items-center justify-between">
+                  <div className="px-5 py-4 border-b border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-primary/15 flex items-center justify-center">
-                        <Building2 className="h-4.5 w-4.5 text-primary" />
+                      <div className="h-9 w-9 bg-emerald-500/10 flex items-center justify-center">
+                        <Building2 className="h-4 w-4 text-emerald-400" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-foreground">{clinicName}</h3>
-                        <p className="text-[10px] text-muted-foreground">
+                        <h3 className="text-sm font-bold text-white">{clinicName}</h3>
+                        <p className="text-[10px] text-white/30">
                           {medicines.length} matching medicine{medicines.length > 1 ? 's' : ''} in stock
                         </p>
                       </div>
                     </div>
-                    <Badge variant="secondary" className="text-[10px] bg-success/10 text-success border-success/20">
+                    <span className="text-[10px] px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
                       In Stock
-                    </Badge>
+                    </span>
                   </div>
 
-                  {/* Medicine list */}
-                  <div className="divide-y divide-border">
+                  <div className="divide-y divide-white/[0.04]">
                     {medicines.map((med) => (
-                      <div key={med.id} className="px-5 py-3 flex items-center justify-between hover:bg-muted/20 transition-colors">
+                      <div key={med.id} className="px-5 py-3 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-foreground truncate">{med.med_name}</p>
+                            <p className="text-sm font-medium text-white/80 truncate">{med.med_name}</p>
                             {med.strength && (
-                              <span className="text-[10px] text-muted-foreground bg-muted rounded-md px-1.5 py-0.5">
+                              <span className="text-[10px] text-white/30 bg-white/[0.05] px-1.5 py-0.5">
                                 {med.strength}
                               </span>
                             )}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
-                            {med.dosage_form && (
-                              <span className="text-[10px] text-muted-foreground">{med.dosage_form}</span>
-                            )}
-                            {med.pack_size && (
-                              <span className="text-[10px] text-muted-foreground">• {med.pack_size}</span>
-                            )}
-                            <span className="text-[10px] text-muted-foreground">• {med.category}</span>
+                            {med.dosage_form && <span className="text-[10px] text-white/25">{med.dosage_form}</span>}
+                            {med.pack_size && <span className="text-[10px] text-white/25">· {med.pack_size}</span>}
+                            <span className="text-[10px] text-white/25">· {med.category}</span>
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0 ml-4">
-                          <p className={`text-sm font-bold ${med.quantity > 50 ? 'text-success' : med.quantity > 10 ? 'text-warning' : 'text-critical'}`}>
+                          <p className={`text-sm font-bold ${med.quantity > 50 ? 'text-emerald-400' : med.quantity > 10 ? 'text-amber-400' : 'text-red-400'}`}>
                             {med.quantity}
                           </p>
-                          <p className="text-[9px] text-muted-foreground">units</p>
+                          <p className="text-[9px] text-white/25">units</p>
                         </div>
                       </div>
                     ))}
@@ -279,15 +270,15 @@ const SearchPage = () => {
         </AnimatePresence>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border bg-muted/30 py-6">
-        <div className="max-w-3xl mx-auto px-4 text-center">
-          <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} ChekaMeds — Powered by IBLIM ENTERPRISE. Stock data updated in real time by registered facilities.
+      {/* ─── Footer ─── */}
+      <footer className="border-t border-white/[0.06] py-6 px-6">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-[11px] text-white/15">
+            © {new Date().getFullYear()} ChekaMeds — Powered by IBLIM ENTERPRISE. Stock data updated in real time.
           </p>
           <div className="flex items-center justify-center gap-4 mt-2">
-            <Link to="/login" className="text-[10px] text-primary hover:underline">Clinic Portal</Link>
-            <Link to="/" className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">Home</Link>
+            <Link to="/" className="text-[10px] text-emerald-400/60 hover:text-emerald-400 transition-colors">Clinic Portal</Link>
+            <Link to="/" className="text-[10px] text-white/20 hover:text-white/50 transition-colors">Home</Link>
           </div>
         </div>
       </footer>
