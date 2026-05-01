@@ -33,7 +33,7 @@ const SearchPage = () => {
     }, 400);
   };
 
-  const { data: results = [], isLoading } = useQuery({
+  const { data: rawResults = [], isLoading } = useQuery({
     queryKey: ['public-medicine-search', debouncedQuery],
     queryFn: async () => {
       if (!debouncedQuery || debouncedQuery.length < 2) return [];
@@ -48,6 +48,18 @@ const SearchPage = () => {
     },
     enabled: debouncedQuery.length >= 2,
   });
+
+  const results = useMemo(() => {
+    const map = new Map<string, InventoryItem>();
+    rawResults.forEach(item => {
+      const key = [item.clinic_name, item.med_name, item.strength || '', item.dosage_form || '', item.pack_size || ''].join('|').toLowerCase();
+      const existing = map.get(key);
+      if (!existing || item.quantity > existing.quantity) {
+        map.set(key, item);
+      }
+    });
+    return Array.from(map.values());
+  }, [rawResults]);
 
   const groupedByClinic = useMemo(() => {
     const map = new Map<string, InventoryItem[]>();
@@ -106,7 +118,7 @@ const SearchPage = () => {
             Find Your Medicine <span className="text-emerald-400">Instantly</span>
           </h2>
           <p className="text-white/40 text-sm md:text-base max-w-lg mx-auto mb-6 font-light">
-            Search across clinics and pharmacies in Botswana to find where your medicine is in stock right now.
+            Search across clinics and pharmacies in Botswana to check listed medicines and current stock levels.
           </p>
 
           {/* Popular searches */}
@@ -175,7 +187,7 @@ const SearchPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto">
                 {[
                   { icon: Search, label: 'Search any medicine', desc: 'By name or type' },
-                  { icon: MapPin, label: 'Find nearby clinics', desc: 'With stock available' },
+                  { icon: MapPin, label: 'Find nearby clinics', desc: 'With listed stock' },
                   { icon: Package, label: 'Check availability', desc: 'Real-time quantities' },
                 ].map((item, i) => (
                   <div key={i} className="bg-white/[0.03] border border-white/[0.08] p-5 text-center">
@@ -226,7 +238,7 @@ const SearchPage = () => {
                       <div>
                         <h3 className="text-sm font-bold text-white">{clinicName}</h3>
                         <p className="text-[10px] text-white/30">
-                          {medicines.length} matching medicine{medicines.length > 1 ? 's' : ''} in stock
+                          {medicines.length} matching medicine{medicines.length > 1 ? 's' : ''} listed
                         </p>
                       </div>
                     </div>
