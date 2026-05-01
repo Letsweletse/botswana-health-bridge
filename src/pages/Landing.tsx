@@ -67,6 +67,10 @@ const Landing = () => {
         },
       });
       if (error) throw error;
+      // Fire-and-forget admin notification
+      supabase.functions.invoke('notify-facility-registration', {
+        body: { clinicName: clinicName.trim(), fullName: fullName.trim(), email },
+      }).catch((e) => console.error('Notification email failed:', e));
       setConfirmed(true);
     } catch (err: any) {
       toast({ title: 'Registration failed', description: err.message, variant: 'destructive' });
