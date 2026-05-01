@@ -33,7 +33,7 @@ const SearchPage = () => {
     }, 400);
   };
 
-  const { data: results = [], isLoading } = useQuery({
+  const { data: rawResults = [], isLoading } = useQuery({
     queryKey: ['public-medicine-search', debouncedQuery],
     queryFn: async () => {
       if (!debouncedQuery || debouncedQuery.length < 2) return [];
@@ -41,7 +41,6 @@ const SearchPage = () => {
         .from('clinic_inventory')
         .select('id, med_name, clinic_name, quantity, category, strength, dosage_form, pack_size, updated_at')
         .ilike('med_name', `%${debouncedQuery}%`)
-        .gt('quantity', 0)
         .order('quantity', { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -49,6 +48,18 @@ const SearchPage = () => {
     },
     enabled: debouncedQuery.length >= 2,
   });
+
+  const results = useMemo(() => {
+    const map = new Map<string, InventoryItem>();
+    rawResults.forEach(item => {
+      const key = [item.clinic_name, item.med_name, item.strength || '', item.dosage_form || '', item.pack_size || ''].join('|').toLowerCase();
+      const existing = map.get(key);
+      if (!existing || item.quantity > existing.quantity) {
+        map.set(key, item);
+      }
+    });
+    return Array.from(map.values());
+  }, [rawResults]);
 
   const groupedByClinic = useMemo(() => {
     const map = new Map<string, InventoryItem[]>();
@@ -107,7 +118,7 @@ const SearchPage = () => {
             Find Your Medicine <span className="text-emerald-400">Instantly</span>
           </h2>
           <p className="text-white/40 text-sm md:text-base max-w-lg mx-auto mb-6 font-light">
-            Search across clinics and pharmacies in Botswana to find where your medicine is in stock right now.
+            Search across clinics and pharmacies in Botswana to check listed medicines and current stock levels.
           </p>
 
           {/* Popular searches */}
@@ -156,7 +167,7 @@ const SearchPage = () => {
             </span>
             <span className="flex items-center gap-1.5">
               <Building2 className="h-3.5 w-3.5 text-emerald-400" />
-              Available at <strong className="text-white/70">{uniqueClinics}</strong> {uniqueClinics !== 1 ? 'facilities' : 'facility'}
+              Found at <strong className="text-white/70">{uniqueClinics}</strong> {uniqueClinics !== 1 ? 'facilities' : 'facility'}
             </span>
           </motion.div>
         )}
@@ -176,7 +187,7 @@ const SearchPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto">
                 {[
                   { icon: Search, label: 'Search any medicine', desc: 'By name or type' },
-                  { icon: MapPin, label: 'Find nearby clinics', desc: 'With stock available' },
+                  { icon: MapPin, label: 'Find nearby clinics', desc: 'With listed stock' },
                   { icon: Package, label: 'Check availability', desc: 'Real-time quantities' },
                 ].map((item, i) => (
                   <div key={i} className="bg-white/[0.03] border border-white/[0.08] p-5 text-center">
@@ -200,7 +211,7 @@ const SearchPage = () => {
               <AlertCircle className="h-12 w-12 text-white/15 mx-auto mb-4" />
               <p className="text-lg font-semibold text-white mb-1">No results found</p>
               <p className="text-sm text-white/40 max-w-md mx-auto">
-                No clinics currently have "<strong className="text-white/60">{debouncedQuery}</strong>" in stock. Try a different spelling or search for a generic name.
+                No facilities currently list "<strong className="text-white/60">{debouncedQuery}</strong>". Try a different spelling or search for a generic name.
               </p>
             </motion.div>
           ) : (
@@ -227,12 +238,12 @@ const SearchPage = () => {
                       <div>
                         <h3 className="text-sm font-bold text-white">{clinicName}</h3>
                         <p className="text-[10px] text-white/30">
-                          {medicines.length} matching medicine{medicines.length > 1 ? 's' : ''} in stock
+                          {medicines.length} matching medicine{medicines.length > 1 ? 's' : ''} listed
                         </p>
                       </div>
                     </div>
-                    <span className="text-[10px] px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
-                      In Stock
+                    <span className={`text-[10px] px-2.5 py-1 border font-semibold ${medicines.some(m => m.quantity > 0) ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                      {medicines.some(m => m.quantity > 0) ? 'In Stock' : 'Listed'}
                     </span>
                   </div>
 

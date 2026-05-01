@@ -18,8 +18,14 @@ const AdminPanel = () => {
     queryKey: ['admin-check', user?.id],
     queryFn: async () => {
       if (!user) return false;
-      const { data } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
-      return data === true;
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+      if (error) throw error;
+      return data?.role === 'admin';
     },
     enabled: !!user,
   });
