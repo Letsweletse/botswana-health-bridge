@@ -67,10 +67,10 @@ const Landing = () => {
         },
       });
       if (error) throw error;
-      // Fire-and-forget admin notification
-      supabase.functions.invoke('notify-facility-registration', {
+      const { error: notifyError } = await supabase.functions.invoke('notify-facility-registration', {
         body: { clinicName: clinicName.trim(), fullName: fullName.trim(), email },
-      }).catch((e) => console.error('Notification email failed:', e));
+      });
+      if (notifyError) console.error('Notification email failed:', notifyError);
       setConfirmed(true);
     } catch (err: any) {
       toast({ title: 'Registration failed', description: err.message, variant: 'destructive' });
@@ -171,7 +171,7 @@ const Landing = () => {
                   <div>
                     <h2 className="text-xl font-bold text-white">Account created!</h2>
                     <p className="text-sm text-white/50 mt-2 leading-relaxed">
-                      Check your email to verify, then sign in.
+                      Your facility is approved. A confirmation email has been sent, and you can sign in now.
                     </p>
                   </div>
                   <button
