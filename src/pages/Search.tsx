@@ -41,7 +41,6 @@ const SearchPage = () => {
         .from('clinic_inventory')
         .select('id, med_name, clinic_name, quantity, category, strength, dosage_form, pack_size, updated_at')
         .ilike('med_name', `%${debouncedQuery}%`)
-        .gt('quantity', 0)
         .order('quantity', { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -156,7 +155,7 @@ const SearchPage = () => {
             </span>
             <span className="flex items-center gap-1.5">
               <Building2 className="h-3.5 w-3.5 text-emerald-400" />
-              Available at <strong className="text-white/70">{uniqueClinics}</strong> {uniqueClinics !== 1 ? 'facilities' : 'facility'}
+              Found at <strong className="text-white/70">{uniqueClinics}</strong> {uniqueClinics !== 1 ? 'facilities' : 'facility'}
             </span>
           </motion.div>
         )}
@@ -200,7 +199,7 @@ const SearchPage = () => {
               <AlertCircle className="h-12 w-12 text-white/15 mx-auto mb-4" />
               <p className="text-lg font-semibold text-white mb-1">No results found</p>
               <p className="text-sm text-white/40 max-w-md mx-auto">
-                No clinics currently have "<strong className="text-white/60">{debouncedQuery}</strong>" in stock. Try a different spelling or search for a generic name.
+                No facilities currently list "<strong className="text-white/60">{debouncedQuery}</strong>". Try a different spelling or search for a generic name.
               </p>
             </motion.div>
           ) : (
@@ -231,8 +230,8 @@ const SearchPage = () => {
                         </p>
                       </div>
                     </div>
-                    <span className="text-[10px] px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
-                      In Stock
+                    <span className={`text-[10px] px-2.5 py-1 border font-semibold ${medicines.some(m => m.quantity > 0) ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                      {medicines.some(m => m.quantity > 0) ? 'In Stock' : 'Listed'}
                     </span>
                   </div>
 
