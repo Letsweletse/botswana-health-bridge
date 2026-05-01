@@ -75,7 +75,24 @@ Deno.serve(async (req) => {
       </div>
     `;
 
-    const res = await fetch('https://api.resend.com/emails', {
+    const recipients = [
+      {
+        to: ADMIN_EMAIL,
+        subject: `New Facility Registered: ${clinicName}`,
+        html: adminHtml,
+        reply_to: email,
+      },
+      {
+        to: email,
+        subject: `ChekaMeds Facility Approved: ${clinicName}`,
+        html: facilityHtml,
+        reply_to: ADMIN_EMAIL,
+      },
+    ];
+
+    const sendResults = [];
+    for (const message of recipients) {
+      const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${RESEND_API_KEY}`,
@@ -83,23 +100,25 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: FROM_EMAIL,
-        to: [ADMIN_EMAIL],
-        subject: `New Facility Registered: ${clinicName}`,
-        html,
-        reply_to: email,
+        to: [message.to],
+        subject: message.subject,
+        html: message.html,
+        reply_to: message.reply_to,
       }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      console.error('Resend error:', data);
-      return new Response(JSON.stringify({ error: 'Email send failed', details: data }), {
-        status: 502,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+
+      const data = await res.json();
+      if (!res.ok) {
+        console.error('Resend error:', data);
+        return new Response(JSON.stringify({ error: 'Email send failed', details: data }), {
+          status: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      sendResults.push({ to: message.to, id: data.id });
     }
 
-    return new Response(JSON.stringify({ success: true, id: data.id }), {
+    return new Response(JSON.stringify({ success: true, sent: sendResults }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
