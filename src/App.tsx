@@ -27,6 +27,7 @@ const App = () => (
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/search" element={<Search />} />
           <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/admin/whatsapp" element={<WhatsAppWebhookAdmin />} />
           <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
