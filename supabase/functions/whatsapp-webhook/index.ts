@@ -205,30 +205,68 @@ async function sendWhatsAppReply(to: string, message: string) {
   return data;
 }
 
+async function logWebhook(entry: {
+  source: string;
+  from_number?: string;
+  message_body?: string;
+  reply_text?: string;
+  response_status?: number;
+  error_message?: string;
+  raw_payload?: unknown;
+}) {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    await supabase.from('whatsapp_webhook_logs').insert(entry);
+  } catch (e) {
+    console.error('Failed to log webhook:', e);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const url = new URL(req.url);
+  const isTest = url.searchParams.get('test') === 'true';
+
   try {
     if (req.method === 'POST') {
       const contentType = req.headers.get('content-type') || '';
-      let body: Record<string, string>;
+      let body: Record<string, string> = {};
+      let rawText = '';
 
       if (contentType.includes('application/x-www-form-urlencoded')) {
-        const text = await req.text();
-        const params = new URLSearchParams(text);
+        rawText = await req.text();
+        const params = new URLSearchParams(rawText);
         body = Object.fromEntries(params.entries());
       } else {
-        body = await req.json();
+        try {
+          rawText = await req.text();
+          body = rawText ? JSON.parse(rawText) : {};
+        } catch {
+          body = {};
+        }
       }
 
       const from = body.from || body.sender || '';
       const messageBody = body.body || body.message || '';
+      const source = isTest ? 'test' : 'incoming';
 
-      console.log('Incoming WhatsApp message:', { from, messageBody });
+      console.log('Incoming WhatsApp message:', { from, messageBody, isTest });
 
       if (!from || !messageBody) {
+        await logWebhook({
+          source,
+          from_number: from,
+          message_body: messageBody,
+          response_status: 200,
+          error_message: 'no_message: missing from or body',
+          raw_payload: body,
+        });
         return new Response(JSON.stringify({ status: 'no_message' }), {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -236,19 +274,50 @@ serve(async (req) => {
       }
 
       const reply = await processQuery(messageBody, from);
-      await sendWhatsAppReply(from, reply);
 
-      return new Response(JSON.stringify({ status: 'replied', to: from }), {
+      let sendError: string | undefined;
+      if (!isTest) {
+        try {
+          await sendWhatsAppReply(from, reply);
+        } catch (e) {
+          sendError = e instanceof Error ? e.message : String(e);
+        }
+      }
+
+      await logWebhook({
+        source,
+        from_number: from,
+        message_body: messageBody,
+        reply_text: reply,
+        response_status: sendError ? 500 : 200,
+        error_message: sendError,
+        raw_payload: body,
+      });
+
+      if (sendError) {
+        return new Response(JSON.stringify({ error: sendError, reply }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ status: isTest ? 'tested' : 'replied', to: from, reply }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     if (req.method === 'GET') {
-      const url = new URL(req.url);
       const query = url.searchParams.get('query');
       if (query) {
         const reply = await processQuery(query);
+        await logWebhook({
+          source: 'test',
+          from_number: 'GET',
+          message_body: query,
+          reply_text: reply,
+          response_status: 200,
+        });
         return new Response(JSON.stringify({ reply }), {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -267,6 +336,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('WhatsApp webhook error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    await logWebhook({
+      source: isTest ? 'test' : 'incoming',
+      response_status: 500,
+      error_message: errorMessage,
+    });
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
