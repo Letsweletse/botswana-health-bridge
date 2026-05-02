@@ -8,6 +8,16 @@ const corsHeaders = {
 const ADMIN_EMAIL = 'iblimenterprise@zohomail.com';
 const FROM_EMAIL = 'ChekaMeds <noreply@chekameds.co.bw>';
 
+type ResendMessage = {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  reply_to: string;
+  role: 'admin' | 'facility';
+  required: boolean;
+};
+
 function escapeHtml(value: unknown) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -75,47 +85,82 @@ Deno.serve(async (req) => {
       </div>
     `;
 
-    const recipients = [
+    const recipients: ResendMessage[] = [
       {
         to: ADMIN_EMAIL,
         subject: `New Facility Registered: ${clinicName}`,
         html: adminHtml,
+        text: `New facility registered and auto-approved. Facility: ${clinicName}. Contact: ${fullName || '—'}. Email: ${email}. Registered: ${registeredAt}.`,
         reply_to: email,
+        role: 'admin',
+        required: true,
       },
       {
         to: email,
         subject: `ChekaMeds Facility Approved: ${clinicName}`,
         html: facilityHtml,
+        text: `Dumela ${fullName || ''}. Your ChekaMeds facility account for ${clinicName} is active and approved. You can now sign in and upload inventory.`,
         reply_to: ADMIN_EMAIL,
+        role: 'facility',
+        required: false,
       },
     ];
 
     const sendResults = [];
     for (const message of recipients) {
-      const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+      const payload = {
         from: FROM_EMAIL,
         to: [message.to],
         subject: message.subject,
         html: message.html,
+        text: message.text,
         reply_to: message.reply_to,
-      }),
+        tags: [
+          { name: 'source', value: 'facility_registration' },
+          { name: 'recipient_role', value: message.role },
+        ],
+      };
+
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const responseText = await res.text();
+      let data: unknown = responseText;
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch (_) {
+        data = responseText;
+      }
+
       if (!res.ok) {
-        console.error('Resend error:', data);
-        return new Response(JSON.stringify({ error: 'Email send failed', details: data }), {
+        const resendError = {
+          recipientRole: message.role,
+          to: message.to,
+          status: res.status,
+          statusText: res.statusText,
+          responseBody: data,
+        };
+        console.error('Resend delivery request failed:', JSON.stringify(resendError));
+
+        if (!message.required) {
+          sendResults.push({ to: message.to, role: message.role, warning: resendError });
+          continue;
+        }
+
+        return new Response(JSON.stringify({ error: 'Admin notification email failed', details: resendError }), {
           status: 502,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      sendResults.push({ to: message.to, id: data.id });
+
+      console.log('Resend delivery request accepted:', JSON.stringify({ recipientRole: message.role, to: message.to, responseBody: data }));
+      sendResults.push({ to: message.to, role: message.role, id: (data as { id?: string } | null)?.id, responseBody: data });
     }
 
     return new Response(JSON.stringify({ success: true, sent: sendResults }), {
