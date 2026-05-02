@@ -68,9 +68,12 @@ const Landing = () => {
       });
       if (error) throw error;
       const { error: notifyError } = await supabase.functions.invoke('notify-facility-registration', {
-        body: { clinicName: clinicName.trim(), fullName: fullName.trim(), email },
+        body: { clinicName: clinicName.trim(), fullName: fullName.trim(), email: email.trim() },
       });
-      if (notifyError) console.error('Notification email failed:', notifyError);
+      if (notifyError) {
+        console.error('Registration notification email failed:', notifyError);
+        throw new Error(`Account created, but the admin notification email failed: ${notifyError.message}`);
+      }
       setConfirmed(true);
     } catch (err: any) {
       toast({ title: 'Registration failed', description: err.message, variant: 'destructive' });
