@@ -110,6 +110,42 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_webhook_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          from_number: string | null
+          id: string
+          message_body: string | null
+          raw_payload: Json | null
+          reply_text: string | null
+          response_status: number | null
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          from_number?: string | null
+          id?: string
+          message_body?: string | null
+          raw_payload?: Json | null
+          reply_text?: string | null
+          response_status?: number | null
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          from_number?: string | null
+          id?: string
+          message_body?: string | null
+          raw_payload?: Json | null
+          reply_text?: string | null
+          response_status?: number | null
+          source?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
