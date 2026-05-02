@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Search from "./pages/Search";
 import ResetPassword from "./pages/ResetPassword";
 import AdminPanel from "./pages/AdminPanel";
+import WhatsAppWebhookAdmin from "./pages/WhatsAppWebhookAdmin";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
