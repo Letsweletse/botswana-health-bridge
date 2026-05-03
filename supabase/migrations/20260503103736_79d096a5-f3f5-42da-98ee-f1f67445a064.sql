@@ -1,0 +1,1 @@
+ALTER TABLE public.clinic_inventory ADD COLUMN IF NOT EXISTS price_bwp NUMERIC(10,2) NULL;

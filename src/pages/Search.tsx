@@ -18,6 +18,8 @@ interface InventoryItem {
   strength: string | null;
   dosage_form: string | null;
   pack_size: string | null;
+  facility_level: string | null;
+  price_bwp: number | null;
   updated_at: string;
 }
 
@@ -39,10 +41,9 @@ const SearchPage = () => {
       if (!debouncedQuery || debouncedQuery.length < 2) return [];
       const { data, error } = await supabase
         .from('clinic_inventory')
-        .select('id, med_name, clinic_name, quantity, category, strength, dosage_form, pack_size, updated_at')
+        .select('id, med_name, clinic_name, quantity, category, strength, dosage_form, pack_size, facility_level, price_bwp, updated_at')
         .ilike('med_name', `%${debouncedQuery}%`)
-        .order('quantity', { ascending: false })
-        .limit(50);
+        .limit(100);
       if (error) throw error;
       return data as InventoryItem[];
     },
@@ -58,7 +59,15 @@ const SearchPage = () => {
         map.set(key, item);
       }
     });
-    return Array.from(map.values());
+    // Sort: items with a price (pharmacies) come first, cheapest first; then by quantity desc
+    return Array.from(map.values()).sort((a, b) => {
+      const aHasPrice = a.price_bwp != null;
+      const bHasPrice = b.price_bwp != null;
+      if (aHasPrice && bHasPrice) return (a.price_bwp! - b.price_bwp!);
+      if (aHasPrice) return -1;
+      if (bHasPrice) return 1;
+      return b.quantity - a.quantity;
+    });
   }, [rawResults]);
 
   const groupedByClinic = useMemo(() => {
@@ -68,7 +77,13 @@ const SearchPage = () => {
       existing.push(item);
       map.set(item.clinic_name, existing);
     });
-    return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length);
+    // Sort clinic groups by cheapest price among their medicines (then by count)
+    return Array.from(map.entries()).sort((a, b) => {
+      const aMin = Math.min(...a[1].map(m => m.price_bwp ?? Infinity));
+      const bMin = Math.min(...b[1].map(m => m.price_bwp ?? Infinity));
+      if (aMin !== bMin) return aMin - bMin;
+      return b[1].length - a[1].length;
+    });
   }, [results]);
 
   const uniqueMedicines = new Set(results.map(r => r.med_name)).size;
@@ -266,10 +281,12 @@ const SearchPage = () => {
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0 ml-4">
-                          <p className={`text-sm font-bold ${med.quantity > 50 ? 'text-emerald-400' : med.quantity > 10 ? 'text-amber-400' : 'text-red-400'}`}>
-                            {med.quantity}
+                          {med.price_bwp != null && (
+                            <p className="text-sm font-bold text-emerald-300">P {Number(med.price_bwp).toFixed(2)}</p>
+                          )}
+                          <p className={`text-xs font-semibold ${med.quantity > 50 ? 'text-emerald-400' : med.quantity > 10 ? 'text-amber-400' : 'text-red-400'}`}>
+                            {med.quantity} <span className="text-[9px] text-white/25 font-normal">units</span>
                           </p>
-                          <p className="text-[9px] text-white/25">units</p>
                         </div>
                       </div>
                     ))}

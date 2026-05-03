@@ -16,6 +16,7 @@ export interface InventoryItem {
   atc_code: string;
   atc_description: string;
   facility_level: string;
+  price_bwp: number | null;
 }
 
 /** Fetches ALL inventory (used by stats/map that need global view) */
