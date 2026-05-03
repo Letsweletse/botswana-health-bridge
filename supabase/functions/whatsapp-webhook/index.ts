@@ -252,8 +252,12 @@ serve(async (req) => {
         }
       }
 
-      const from = body.from || body.sender || '';
-      const messageBody = body.body || body.message || '';
+      // UltraMsg nests payload under `data`. Support both flat + nested.
+      const data: Record<string, string> = (body as any).data && typeof (body as any).data === 'object'
+        ? (body as any).data
+        : body;
+      const from = (data.from || data.sender || (body as any).from || '').toString().replace('@c.us', '');
+      const messageBody = (data.body || data.message || (body as any).body || '').toString();
       const source = isTest ? 'test' : 'incoming';
 
       console.log('Incoming WhatsApp message:', { from, messageBody, isTest });
