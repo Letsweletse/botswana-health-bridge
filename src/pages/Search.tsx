@@ -281,10 +281,12 @@ const SearchPage = () => {
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0 ml-4">
-                          <p className={`text-sm font-bold ${med.quantity > 50 ? 'text-emerald-400' : med.quantity > 10 ? 'text-amber-400' : 'text-red-400'}`}>
-                            {med.quantity}
+                          {med.price_bwp != null && (
+                            <p className="text-sm font-bold text-emerald-300">P {Number(med.price_bwp).toFixed(2)}</p>
+                          )}
+                          <p className={`text-xs font-semibold ${med.quantity > 50 ? 'text-emerald-400' : med.quantity > 10 ? 'text-amber-400' : 'text-red-400'}`}>
+                            {med.quantity} <span className="text-[9px] text-white/25 font-normal">units</span>
                           </p>
-                          <p className="text-[9px] text-white/25">units</p>
                         </div>
                       </div>
                     ))}
