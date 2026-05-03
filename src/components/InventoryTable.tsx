@@ -121,6 +121,10 @@ const InventoryTable = () => {
         const facilityLevel = String(row.facility_level || row['Facility Level'] || '').trim();
         const quantity = parseInt(row.quantity || row['Quantity'] || '0', 10);
         const trend = String(row.trend || row['Trend'] || 'Stable').trim();
+        const priceRaw = row.price_bwp ?? row['price_bwp'] ?? row['Price (BWP)'] ?? row['price'] ?? '';
+        const priceStr = String(priceRaw).trim();
+        const priceParsed = priceStr === '' ? null : parseFloat(priceStr);
+        const price_bwp = priceParsed !== null && !isNaN(priceParsed) && priceParsed >= 0 ? priceParsed : null;
 
         if (!medName) throw new Error(`Row ${idx + 2}: Medicine name is required.`);
         if (isNaN(quantity) || quantity < 0) throw new Error(`Row ${idx + 2}: Invalid quantity for "${medName}".`);
@@ -137,6 +141,7 @@ const InventoryTable = () => {
           facility_level: facilityLevel,
           quantity,
           trend: validTrends.includes(trend) ? trend : 'Stable',
+          price_bwp,
         };
       });
 
