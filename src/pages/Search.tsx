@@ -59,7 +59,15 @@ const SearchPage = () => {
         map.set(key, item);
       }
     });
-    return Array.from(map.values());
+    // Sort: items with a price (pharmacies) come first, cheapest first; then by quantity desc
+    return Array.from(map.values()).sort((a, b) => {
+      const aHasPrice = a.price_bwp != null;
+      const bHasPrice = b.price_bwp != null;
+      if (aHasPrice && bHasPrice) return (a.price_bwp! - b.price_bwp!);
+      if (aHasPrice) return -1;
+      if (bHasPrice) return 1;
+      return b.quantity - a.quantity;
+    });
   }, [rawResults]);
 
   const groupedByClinic = useMemo(() => {
@@ -69,7 +77,13 @@ const SearchPage = () => {
       existing.push(item);
       map.set(item.clinic_name, existing);
     });
-    return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length);
+    // Sort clinic groups by cheapest price among their medicines (then by count)
+    return Array.from(map.entries()).sort((a, b) => {
+      const aMin = Math.min(...a[1].map(m => m.price_bwp ?? Infinity));
+      const bMin = Math.min(...b[1].map(m => m.price_bwp ?? Infinity));
+      if (aMin !== bMin) return aMin - bMin;
+      return b[1].length - a[1].length;
+    });
   }, [results]);
 
   const uniqueMedicines = new Set(results.map(r => r.med_name)).size;
