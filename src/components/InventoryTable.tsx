@@ -49,15 +49,23 @@ const InventoryTable = () => {
 
   const downloadTemplate = () => {
     const templateData = [
-      { med_name: 'Metformin', strength: '500mg', dosage_form: 'Tablet', pack_size: '100', atc_code: 'A10BA02', atc_description: 'Metformin', category: 'Chronic', facility_level: 'Hospital', quantity: 120, trend: 'Stable' },
-      { med_name: 'Paracetamol', strength: '500mg', dosage_form: 'Tablet', pack_size: '500', atc_code: 'N02BE01', atc_description: 'Paracetamol', category: 'Essential', facility_level: 'Clinic', quantity: 200, trend: 'Restocked' },
-      { med_name: 'Amoxicillin', strength: '250mg', dosage_form: 'Capsule', pack_size: '100', atc_code: 'J01CA04', atc_description: 'Amoxicillin', category: 'Acute', facility_level: 'Health Post', quantity: 45, trend: 'Depleting Fast' },
+      { med_name: 'Metformin', strength: '500mg', dosage_form: 'Tablet', pack_size: '100', atc_code: 'A10BA02', atc_description: 'Metformin', category: 'Chronic', facility_level: 'Hospital', quantity: 120, trend: 'Stable', price_bwp: '' },
+      { med_name: 'Paracetamol', strength: '500mg', dosage_form: 'Tablet', pack_size: '500', atc_code: 'N02BE01', atc_description: 'Paracetamol', category: 'Essential', facility_level: 'Pharmacy', quantity: 200, trend: 'Restocked', price_bwp: 25.50 },
+      { med_name: 'Amoxicillin', strength: '250mg', dosage_form: 'Capsule', pack_size: '100', atc_code: 'J01CA04', atc_description: 'Amoxicillin', category: 'Acute', facility_level: 'Pharmacy', quantity: 45, trend: 'Depleting Fast', price_bwp: 48.00 },
     ];
     const ws = XLSX.utils.json_to_sheet(templateData);
+    // Add an instructions row via a second sheet
+    const instructions = [
+      { Field: 'price_bwp', Notes: 'Optional. Pharmacies should fill price in Botswana Pula (BWP). Clinics and hospitals may leave blank.' },
+      { Field: 'facility_level', Notes: 'Use "Pharmacy" if you want price to display in public search results.' },
+      { Field: 'quantity', Notes: 'Required. Whole number of units in stock.' },
+    ];
+    const wsInfo = XLSX.utils.json_to_sheet(instructions);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Stock Template');
+    XLSX.utils.book_append_sheet(wb, wsInfo, 'Instructions');
     XLSX.writeFile(wb, `ChekaMeds_Stock_Template_${clinicName.replace(/\s+/g, '_')}.xlsx`);
-    toast({ title: 'Template downloaded', description: 'Fill it out and upload to update your stock.' });
+    toast({ title: 'Template downloaded', description: 'Pharmacies: fill price_bwp. Clinics: leave it blank.' });
   };
 
   const downloadCurrentStock = () => {
@@ -76,6 +84,7 @@ const InventoryTable = () => {
       facility_level: i.facility_level || '',
       quantity: i.quantity,
       trend: i.trend,
+      price_bwp: i.price_bwp ?? '',
       updated_at: i.updated_at,
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
