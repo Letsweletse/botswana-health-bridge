@@ -18,6 +18,8 @@ interface InventoryItem {
   strength: string | null;
   dosage_form: string | null;
   pack_size: string | null;
+  facility_level: string | null;
+  price_bwp: number | null;
   updated_at: string;
 }
 
@@ -39,10 +41,9 @@ const SearchPage = () => {
       if (!debouncedQuery || debouncedQuery.length < 2) return [];
       const { data, error } = await supabase
         .from('clinic_inventory')
-        .select('id, med_name, clinic_name, quantity, category, strength, dosage_form, pack_size, updated_at')
+        .select('id, med_name, clinic_name, quantity, category, strength, dosage_form, pack_size, facility_level, price_bwp, updated_at')
         .ilike('med_name', `%${debouncedQuery}%`)
-        .order('quantity', { ascending: false })
-        .limit(50);
+        .limit(100);
       if (error) throw error;
       return data as InventoryItem[];
     },
