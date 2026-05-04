@@ -167,15 +167,44 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     return reply;
   }
 
-  // Search by medicine name
-  const medMatches = inventoryData.filter((i: any) => i.med_name.toLowerCase().includes(msg));
+  // Search by medicine name — formatted, deduped, priced-first
+  const medMatchesRaw = inventoryData.filter((i: any) =>
+    i.med_name.toLowerCase().includes(msg) &&
+    i.quantity > 0 &&
+    i.clinic_name !== 'ChekaMeds Admin'
+  );
+  // Dedupe per clinic+med (prefer lowest price, then highest qty)
+  const dedupMap: Record<string, any> = {};
+  medMatchesRaw.forEach((it: any) => {
+    const key = `${it.clinic_name}|${it.med_name}`.toLowerCase();
+    const ex = dedupMap[key];
+    if (!ex) { dedupMap[key] = it; return; }
+    const exP = ex.price_bwp != null, itP = it.price_bwp != null;
+    if (itP && !exP) dedupMap[key] = it;
+    else if (itP && exP && it.price_bwp < ex.price_bwp) dedupMap[key] = it;
+    else if (!itP && !exP && it.quantity > ex.quantity) dedupMap[key] = it;
+  });
+  const medMatches = Object.values(dedupMap).sort((a: any, b: any) => {
+    const aP = a.price_bwp != null, bP = b.price_bwp != null;
+    if (aP !== bP) return aP ? -1 : 1;
+    if (aP && bP && a.price_bwp !== b.price_bwp) return a.price_bwp - b.price_bwp;
+    return b.quantity - a.quantity;
+  });
+
   if (medMatches.length > 0) {
-    let reply = `💊 *${medMatches[0].med_name}* ${lang === 'tn' ? 'e fumaneha:' : 'availability'}:\n\n`;
-    medMatches.forEach((item: any) => {
-      const emoji = item.quantity < 20 ? '🔴' : item.quantity < 50 ? '🟡' : '🟢';
-      reply += `${emoji} ${item.clinic_name}: *${item.quantity} units*\n`;
+    const stockLabel = (q: number) => q > 100 ? 'In Stock' : q >= 20 ? 'Low Stock' : 'Limited';
+    const blocks = medMatches.slice(0, 10).map((item: any) => {
+      const dose = item.strength || item.dosage_form || '';
+      const lines = [
+        `💊 *${item.med_name}*${dose ? ` (${dose})` : ''}`,
+        `🟢 ${item.clinic_name}`,
+      ];
+      if (item.facility_level) lines.push(`📍 ${item.facility_level}`);
+      if (item.price_bwp != null) lines.push(`💰 P${Number(item.price_bwp).toFixed(2)}`);
+      lines.push(`📦 Stock: ${stockLabel(item.quantity)}`);
+      return lines.join('\n');
     });
-    return reply;
+    return blocks.join('\n──────────\n');
   }
 
   if (lang === 'tn') {
