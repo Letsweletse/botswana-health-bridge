@@ -43,6 +43,8 @@ const SearchPage = () => {
         .from('clinic_inventory')
         .select('id, med_name, clinic_name, quantity, category, strength, dosage_form, pack_size, facility_level, price_bwp, updated_at')
         .ilike('med_name', `%${debouncedQuery}%`)
+        .gt('quantity', 0)
+        .neq('clinic_name', 'ChekaMeds Admin')
         .limit(100);
       if (error) throw error;
       return data as InventoryItem[];
@@ -51,24 +53,35 @@ const SearchPage = () => {
   });
 
   const results = useMemo(() => {
+    // Dedupe: one record per clinic+medication. Prefer lowest price, then highest quantity.
     const map = new Map<string, InventoryItem>();
     rawResults.forEach(item => {
-      const key = [item.clinic_name, item.med_name, item.strength || '', item.dosage_form || '', item.pack_size || ''].join('|').toLowerCase();
+      const key = [item.clinic_name, item.med_name].join('|').toLowerCase();
       const existing = map.get(key);
-      if (!existing || item.quantity > existing.quantity) {
+      if (!existing) {
         map.set(key, item);
+        return;
       }
+      const eHasPrice = existing.price_bwp != null;
+      const iHasPrice = item.price_bwp != null;
+      if (iHasPrice && !eHasPrice) { map.set(key, item); return; }
+      if (iHasPrice && eHasPrice && item.price_bwp! < existing.price_bwp!) { map.set(key, item); return; }
+      if (!iHasPrice && !eHasPrice && item.quantity > existing.quantity) { map.set(key, item); return; }
     });
-    // Sort: items with a price (pharmacies) come first, cheapest first; then by quantity desc
+    // Sort: priced (pharmacies) first, cheapest, then highest qty
     return Array.from(map.values()).sort((a, b) => {
       const aHasPrice = a.price_bwp != null;
       const bHasPrice = b.price_bwp != null;
-      if (aHasPrice && bHasPrice) return (a.price_bwp! - b.price_bwp!);
-      if (aHasPrice) return -1;
-      if (bHasPrice) return 1;
+      if (aHasPrice !== bHasPrice) return aHasPrice ? -1 : 1;
+      if (aHasPrice && bHasPrice && a.price_bwp !== b.price_bwp) return a.price_bwp! - b.price_bwp!;
       return b.quantity - a.quantity;
     });
   }, [rawResults]);
+
+  const stockLabel = (q: number) =>
+    q > 100 ? { text: 'In Stock', cls: 'text-emerald-400' }
+    : q >= 20 ? { text: 'Low Stock', cls: 'text-amber-400' }
+    : { text: 'Limited', cls: 'text-red-400' };
 
   const groupedByClinic = useMemo(() => {
     const map = new Map<string, InventoryItem[]>();
