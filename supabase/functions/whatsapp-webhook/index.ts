@@ -154,57 +154,81 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     return `📊 *ChekaMeds Stock Summary*\n\n💊 Medicines tracked: ${total}\n✅ Healthy stock (100+): ${healthy}\n⚠️ Critical (<20 units): ${critical}\n📉 Depleting fast: ${depleting}\n\n_Send a clinic or medicine name for details._`;
   }
 
-  // Search by clinic name
-  const clinicMatches = inventoryData.filter((i: any) => i.clinic_name.toLowerCase().includes(msg));
-  if (clinicMatches.length > 0) {
-    const clinicName = clinicMatches[0].clinic_name;
-    let reply = `📍 *${clinicName}*\n\n`;
-    clinicMatches.forEach((item: any) => {
-      const emoji = item.quantity < 20 ? '🔴' : item.quantity < 50 ? '🟡' : '🟢';
-      reply += `${emoji} ${item.med_name}: *${item.quantity} units* (${item.trend})\n`;
-    });
-    reply += lang === 'tn' ? `\n_Data ya sebele go tswa mo ChekaMeds_` : `\n_Live data from ChekaMeds database_`;
-    return reply;
-  }
-
-  // Search by medicine name — formatted, deduped, priced-first
+  // Unified medicine search — matches main Search.tsx query exactly
   const medMatchesRaw = inventoryData.filter((i: any) =>
-    i.med_name.toLowerCase().includes(msg) &&
-    i.quantity > 0 &&
+    i.med_name && i.med_name.toLowerCase().includes(msg) &&
+    Number(i.quantity) > 0 &&
     i.clinic_name !== 'ChekaMeds Admin'
   );
-  // Dedupe per clinic+med (prefer lowest price, then highest qty)
+
+  // Dedupe per clinic (one row per clinic, prefer lowest price then highest qty)
   const dedupMap: Record<string, any> = {};
   medMatchesRaw.forEach((it: any) => {
-    const key = `${it.clinic_name}|${it.med_name}`.toLowerCase();
+    const key = it.clinic_name.toLowerCase();
     const ex = dedupMap[key];
     if (!ex) { dedupMap[key] = it; return; }
     const exP = ex.price_bwp != null, itP = it.price_bwp != null;
     if (itP && !exP) dedupMap[key] = it;
-    else if (itP && exP && it.price_bwp < ex.price_bwp) dedupMap[key] = it;
-    else if (!itP && !exP && it.quantity > ex.quantity) dedupMap[key] = it;
-  });
-  const medMatches = Object.values(dedupMap).sort((a: any, b: any) => {
-    const aP = a.price_bwp != null, bP = b.price_bwp != null;
-    if (aP !== bP) return aP ? -1 : 1;
-    if (aP && bP && a.price_bwp !== b.price_bwp) return a.price_bwp - b.price_bwp;
-    return b.quantity - a.quantity;
+    else if (itP && exP && Number(it.price_bwp) < Number(ex.price_bwp)) dedupMap[key] = it;
+    else if (!itP && !exP && Number(it.quantity) > Number(ex.quantity)) dedupMap[key] = it;
   });
 
-  if (medMatches.length > 0) {
+  const all = Object.values(dedupMap);
+  if (all.length > 0) {
     const stockLabel = (q: number) => q > 100 ? 'In Stock' : q >= 20 ? 'Low Stock' : 'Limited';
-    const blocks = medMatches.slice(0, 10).map((item: any) => {
-      const dose = item.strength || item.dosage_form || '';
-      const lines = [
-        `💊 *${item.med_name}*${dose ? ` (${dose})` : ''}`,
-        `🟢 ${item.clinic_name}`,
-      ];
-      if (item.facility_level) lines.push(`📍 ${item.facility_level}`);
-      if (item.price_bwp != null) lines.push(`💰 P${Number(item.price_bwp).toFixed(2)}`);
-      lines.push(`📦 Stock: ${stockLabel(item.quantity)}`);
-      return lines.join('\n');
+
+    const pharmacies = all
+      .filter((i: any) => i.price_bwp != null)
+      .sort((a: any, b: any) => Number(a.price_bwp) - Number(b.price_bwp))
+      .slice(0, 3);
+
+    const clinics = all
+      .filter((i: any) => i.price_bwp == null)
+      .sort((a: any, b: any) => Number(b.quantity) - Number(a.quantity))
+      .slice(0, 2);
+
+    const first = pharmacies[0] || clinics[0];
+    const dose = first.strength || first.dosage_form || '';
+    let reply = `💊 *${first.med_name}*${dose ? ` (${dose})` : ''}\n`;
+
+    if (pharmacies.length > 0) {
+      reply += `\n💰 *Pharmacies*\n`;
+      pharmacies.forEach((item: any) => {
+        reply += `\n🟢 ${item.clinic_name}\n`;
+        if (item.facility_level) reply += `📍 ${item.facility_level}\n`;
+        reply += `💰 P${Number(item.price_bwp).toFixed(2)}\n`;
+        reply += `📦 ${stockLabel(Number(item.quantity))}\n`;
+      });
+    }
+
+    if (clinics.length > 0) {
+      reply += `\n🏥 *Clinics*\n`;
+      clinics.forEach((item: any) => {
+        reply += `\n⚠️ ${item.clinic_name}\n`;
+        if (item.facility_level) reply += `📍 ${item.facility_level}\n`;
+        reply += `📦 ${stockLabel(Number(item.quantity))}\n`;
+      });
+    }
+
+    reply += `\nReply with another medicine to search again.`;
+    return reply;
+  }
+
+  // Search by clinic name (only if not a med match)
+  const clinicMatches = inventoryData.filter((i: any) =>
+    i.clinic_name.toLowerCase().includes(msg) &&
+    Number(i.quantity) > 0 &&
+    i.clinic_name !== 'ChekaMeds Admin'
+  );
+  if (clinicMatches.length > 0) {
+    const clinicName = clinicMatches[0].clinic_name;
+    const stockLabel = (q: number) => q > 100 ? 'In Stock' : q >= 20 ? 'Low Stock' : 'Limited';
+    let reply = `📍 *${clinicName}*\n\n`;
+    clinicMatches.slice(0, 15).forEach((item: any) => {
+      reply += `💊 ${item.med_name} — 📦 ${stockLabel(Number(item.quantity))}\n`;
     });
-    return blocks.join('\n──────────\n');
+    reply += `\nReply with another medicine to search again.`;
+    return reply;
   }
 
   if (lang === 'tn') {
