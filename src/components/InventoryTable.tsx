@@ -49,24 +49,27 @@ const InventoryTable = () => {
 
   const downloadTemplate = () => {
     const templateData = [
-      { 'Product Name': 'Panado', 'Category': 'Essential', 'Stock Quantity': 200, 'Price (BWP)': 25, 'Availability': 'In Stock' },
-      { 'Product Name': 'Metformin', 'Category': 'Chronic', 'Stock Quantity': 45, 'Price (BWP)': 48, 'Availability': 'Low Stock' },
-      { 'Product Name': 'Amoxicillin', 'Category': 'Acute', 'Stock Quantity': 0, 'Price (BWP)': '', 'Availability': 'Out of Stock' },
+      { 'Product Name': 'Panado', 'Category': 'Essential', 'Stock Quantity': 200, 'Price (BWP)': 25, 'Availability': 'In Stock', 'Pharmacy Name': clinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567' },
+      { 'Product Name': 'Metformin', 'Category': 'Chronic', 'Stock Quantity': 45, 'Price (BWP)': 48, 'Availability': 'Low Stock', 'Pharmacy Name': clinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567' },
+      { 'Product Name': 'Amoxicillin', 'Category': 'Acute', 'Stock Quantity': 0, 'Price (BWP)': '', 'Availability': 'Out of Stock', 'Pharmacy Name': clinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567' },
     ];
     const ws = XLSX.utils.json_to_sheet(templateData);
     const instructions = [
       { Field: 'Product Name', Notes: 'Required. The medicine/product name customers will search for.' },
       { Field: 'Category', Notes: 'Optional. e.g. Chronic, Acute, Preventive, Essential.' },
       { Field: 'Stock Quantity', Notes: 'Required. Whole number of units in stock. Use 0 if out of stock.' },
-      { Field: 'Price (BWP)', Notes: 'Optional. Pharmacies should fill the price in Botswana Pula. Clinics may leave blank.' },
+      { Field: 'Price (BWP)', Notes: 'Optional. Pharmacies should fill price in Botswana Pula. Clinics may leave blank.' },
       { Field: 'Availability', Notes: 'Optional. In Stock / Low Stock / Out of Stock. Auto-derived from quantity if blank.' },
+      { Field: 'Pharmacy Name', Notes: 'Optional. Defaults to your account clinic/pharmacy name if blank.' },
+      { Field: 'Location', Notes: 'Recommended. City/area shown to customers (e.g. Gaborone, Block 6).' },
+      { Field: 'Contact', Notes: 'Optional. Phone number for customers to reach the pharmacy.' },
     ];
     const wsInfo = XLSX.utils.json_to_sheet(instructions);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Stock Template');
     XLSX.utils.book_append_sheet(wb, wsInfo, 'Instructions');
     XLSX.writeFile(wb, `ChekaMeds_Stock_Template_${clinicName.replace(/\s+/g, '_')}.xlsx`);
-    toast({ title: 'Template downloaded', description: 'Pharmacies: fill price_bwp. Clinics: leave it blank.' });
+    toast({ title: 'Template downloaded', description: 'Includes Pharmacy Name, Location and Contact columns.' });
   };
 
   const downloadCurrentStock = () => {
@@ -130,12 +133,15 @@ const InventoryTable = () => {
         const priceStr = String(priceRaw).trim();
         const priceParsed = priceStr === '' ? null : parseFloat(priceStr);
         const price_bwp = priceParsed !== null && !isNaN(priceParsed) && priceParsed >= 0 ? priceParsed : null;
+        const pharmacyName = String(row['Pharmacy Name'] || row.pharmacy_name || '').trim();
+        const location = String(row['Location'] || row.location || '').trim();
+        const contact = String(row['Contact'] || row.contact || '').trim();
 
         if (!medName) throw new Error(`Row ${idx + 2}: Product Name is required.`);
         if (isNaN(quantity) || quantity < 0) throw new Error(`Row ${idx + 2}: Invalid Stock Quantity for "${medName}".`);
 
         return {
-          clinic_name: clinicName,
+          clinic_name: pharmacyName || clinicName,
           med_name: medName,
           strength,
           dosage_form: dosageForm,
@@ -147,6 +153,8 @@ const InventoryTable = () => {
           quantity,
           trend: validTrends.includes(trend) ? trend : 'Stable',
           price_bwp,
+          location,
+          contact,
         };
       });
 

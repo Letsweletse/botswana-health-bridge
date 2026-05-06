@@ -20,9 +20,11 @@ export type Database = {
           atc_description: string | null
           category: string
           clinic_name: string
+          contact: string | null
           dosage_form: string | null
           facility_level: string | null
           id: string
+          location: string | null
           med_name: string
           pack_size: string | null
           price_bwp: number | null
@@ -36,9 +38,11 @@ export type Database = {
           atc_description?: string | null
           category: string
           clinic_name: string
+          contact?: string | null
           dosage_form?: string | null
           facility_level?: string | null
           id?: string
+          location?: string | null
           med_name: string
           pack_size?: string | null
           price_bwp?: number | null
@@ -52,9 +56,11 @@ export type Database = {
           atc_description?: string | null
           category?: string
           clinic_name?: string
+          contact?: string | null
           dosage_form?: string | null
           facility_level?: string | null
           id?: string
+          location?: string | null
           med_name?: string
           pack_size?: string | null
           price_bwp?: number | null
