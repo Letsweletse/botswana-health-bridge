@@ -204,9 +204,9 @@ async function processQuery(message: string, from: string = ''): Promise<string>
   }
 
   if (lang === 'tn') {
-    return `🤔 Ga ke a bona sepe ka "${message}".\n\nLeka:\n📍 Leina la kliniiki (jk. "Princess Marina")\n💊 Setlhare (jk. "Paracetamol")\n📊 "status" go bona kakaretso\n🆘 "critical" go bona tlhaelo\n💊 "prescription: Med1, Med2" go batla ditlhare tsotlhe`;
+    return `❌ Setlhare ga se a bonwa. Tlhola mokwalo kgotsa leka leina le lengwe.`;
   }
-  return `🤔 I couldn't find anything for "${message}".\n\nTry:\n📍 A clinic name (e.g. "Princess Marina")\n💊 A medicine (e.g. "Paracetamol")\n📊 "status" for overview\n🆘 "critical" for urgent shortages\n💊 "prescription: Med1, Med2" for prescription matching\n🇧🇼 "setswana" to switch language`;
+  return `❌ Medicine not found. Please check spelling or try another name`;
 }
 
 async function sendWhatsAppReply(to: string, message: string) {
