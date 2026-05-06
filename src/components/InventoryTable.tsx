@@ -112,23 +112,27 @@ const InventoryTable = () => {
       const validTrends = ['Stable', 'Depleting Fast', 'Restocked'];
 
       const records = rows.map((row, idx) => {
-        const medName = String(row.med_name || row['Medicine Name'] || row['medicine'] || '').trim();
+        const medName = String(row['Product Name'] || row.med_name || row['Medicine Name'] || row['medicine'] || '').trim();
         const strength = String(row.strength || row['Strength'] || '').trim();
         const dosageForm = String(row.dosage_form || row['Dosage Form'] || '').trim();
         const packSize = String(row.pack_size || row['Pack Size'] || '').trim();
         const atcCode = String(row.atc_code || row['ATC Code'] || '').trim();
         const atcDescription = String(row.atc_description || row['ATC Description'] || '').trim();
-        const category = String(row.category || row['Category'] || 'Essential').trim();
+        const category = String(row['Category'] || row.category || 'Essential').trim();
         const facilityLevel = String(row.facility_level || row['Facility Level'] || '').trim();
-        const quantity = parseInt(row.quantity || row['Quantity'] || '0', 10);
-        const trend = String(row.trend || row['Trend'] || 'Stable').trim();
-        const priceRaw = row.price_bwp ?? row['price_bwp'] ?? row['Price (BWP)'] ?? row['price'] ?? '';
+        const qtyRaw = row['Stock Quantity'] ?? row.quantity ?? row['Quantity'] ?? '0';
+        const quantity = parseInt(String(qtyRaw), 10);
+        const availability = String(row['Availability'] || '').trim().toLowerCase();
+        let trend = String(row.trend || row['Trend'] || 'Stable').trim();
+        if (availability === 'low stock') trend = 'Depleting Fast';
+        else if (availability === 'in stock') trend = 'Stable';
+        const priceRaw = row['Price (BWP)'] ?? row.price_bwp ?? row['price_bwp'] ?? row['price'] ?? '';
         const priceStr = String(priceRaw).trim();
         const priceParsed = priceStr === '' ? null : parseFloat(priceStr);
         const price_bwp = priceParsed !== null && !isNaN(priceParsed) && priceParsed >= 0 ? priceParsed : null;
 
-        if (!medName) throw new Error(`Row ${idx + 2}: Medicine name is required.`);
-        if (isNaN(quantity) || quantity < 0) throw new Error(`Row ${idx + 2}: Invalid quantity for "${medName}".`);
+        if (!medName) throw new Error(`Row ${idx + 2}: Product Name is required.`);
+        if (isNaN(quantity) || quantity < 0) throw new Error(`Row ${idx + 2}: Invalid Stock Quantity for "${medName}".`);
 
         return {
           clinic_name: clinicName,
