@@ -154,64 +154,36 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     return `📊 *ChekaMeds Stock Summary*\n\n💊 Medicines tracked: ${total}\n✅ Healthy stock (100+): ${healthy}\n⚠️ Critical (<20 units): ${critical}\n📉 Depleting fast: ${depleting}\n\n_Send a clinic or medicine name for details._`;
   }
 
-  // Unified medicine search — matches main Search.tsx query exactly
+  // Product search — short, WhatsApp-friendly response
   const medMatchesRaw = inventoryData.filter((i: any) =>
     i.med_name && i.med_name.toLowerCase().includes(msg) &&
-    Number(i.quantity) > 0 &&
     i.clinic_name !== 'ChekaMeds Admin'
   );
 
-  // Dedupe per clinic (one row per clinic, prefer lowest price then highest qty)
-  const dedupMap: Record<string, any> = {};
-  medMatchesRaw.forEach((it: any) => {
-    const key = it.clinic_name.toLowerCase();
-    const ex = dedupMap[key];
-    if (!ex) { dedupMap[key] = it; return; }
-    const exP = ex.price_bwp != null, itP = it.price_bwp != null;
-    if (itP && !exP) dedupMap[key] = it;
-    else if (itP && exP && Number(it.price_bwp) < Number(ex.price_bwp)) dedupMap[key] = it;
-    else if (!itP && !exP && Number(it.quantity) > Number(ex.quantity)) dedupMap[key] = it;
-  });
+  if (medMatchesRaw.length > 0) {
+    // Pick best record: prefer in-stock + lowest price
+    const inStock = medMatchesRaw.filter((i: any) => Number(i.quantity) > 0);
+    const pool = inStock.length > 0 ? inStock : medMatchesRaw;
+    pool.sort((a: any, b: any) => {
+      const ap = a.price_bwp != null ? Number(a.price_bwp) : Infinity;
+      const bp = b.price_bwp != null ? Number(b.price_bwp) : Infinity;
+      if (ap !== bp) return ap - bp;
+      return Number(b.quantity) - Number(a.quantity);
+    });
+    const best = pool[0];
+    const name = best.med_name;
+    const qty = Number(best.quantity);
+    const priceLine = best.price_bwp != null
+      ? `💊 Price: P${Number(best.price_bwp).toFixed(2)}`
+      : `💊 Price not available`;
 
-  const all = Object.values(dedupMap);
-  if (all.length > 0) {
-    const stockLabel = (q: number) => q > 100 ? 'In Stock' : q >= 20 ? 'Low Stock' : 'Limited';
-
-    const pharmacies = all
-      .filter((i: any) => i.price_bwp != null)
-      .sort((a: any, b: any) => Number(a.price_bwp) - Number(b.price_bwp))
-      .slice(0, 3);
-
-    const clinics = all
-      .filter((i: any) => i.price_bwp == null)
-      .sort((a: any, b: any) => Number(b.quantity) - Number(a.quantity))
-      .slice(0, 2);
-
-    const first = pharmacies[0] || clinics[0];
-    const dose = first.strength || first.dosage_form || '';
-    let reply = `💊 *${first.med_name}*${dose ? ` (${dose})` : ''}\n`;
-
-    if (pharmacies.length > 0) {
-      reply += `\n💰 *Pharmacies*\n`;
-      pharmacies.forEach((item: any) => {
-        reply += `\n🟢 ${item.clinic_name}\n`;
-        if (item.facility_level) reply += `📍 ${item.facility_level}\n`;
-        reply += `💰 P${Number(item.price_bwp).toFixed(2)}\n`;
-        reply += `📦 ${stockLabel(Number(item.quantity))}\n`;
-      });
+    if (qty <= 0) {
+      return `❌ ${name} is out of stock\n\nReply ALT for alternatives or NOTIFY for updates`;
     }
-
-    if (clinics.length > 0) {
-      reply += `\n🏥 *Clinics*\n`;
-      clinics.forEach((item: any) => {
-        reply += `\n⚠️ ${item.clinic_name}\n`;
-        if (item.facility_level) reply += `📍 ${item.facility_level}\n`;
-        reply += `📦 ${stockLabel(Number(item.quantity))}\n`;
-      });
+    if (qty < 20) {
+      return `⚠️ ${name} is available (Limited stock)\n${priceLine}\n📦 Status: Low Stock\n\nReply 1 to reserve or PAY to order`;
     }
-
-    reply += `\nReply with another medicine to search again.`;
-    return reply;
+    return `✅ ${name} is available\n${priceLine}\n📦 Status: In Stock\n\nReply 1 to reserve or PAY to order`;
   }
 
   // Search by clinic name (only if not a med match)
@@ -232,9 +204,9 @@ async function processQuery(message: string, from: string = ''): Promise<string>
   }
 
   if (lang === 'tn') {
-    return `🤔 Ga ke a bona sepe ka "${message}".\n\nLeka:\n📍 Leina la kliniiki (jk. "Princess Marina")\n💊 Setlhare (jk. "Paracetamol")\n📊 "status" go bona kakaretso\n🆘 "critical" go bona tlhaelo\n💊 "prescription: Med1, Med2" go batla ditlhare tsotlhe`;
+    return `❌ Setlhare ga se a bonwa. Tlhola mokwalo kgotsa leka leina le lengwe.`;
   }
-  return `🤔 I couldn't find anything for "${message}".\n\nTry:\n📍 A clinic name (e.g. "Princess Marina")\n💊 A medicine (e.g. "Paracetamol")\n📊 "status" for overview\n🆘 "critical" for urgent shortages\n💊 "prescription: Med1, Med2" for prescription matching\n🇧🇼 "setswana" to switch language`;
+  return `❌ Medicine not found. Please check spelling or try another name`;
 }
 
 async function sendWhatsAppReply(to: string, message: string) {

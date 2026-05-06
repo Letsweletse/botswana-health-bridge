@@ -49,16 +49,17 @@ const InventoryTable = () => {
 
   const downloadTemplate = () => {
     const templateData = [
-      { med_name: 'Metformin', strength: '500mg', dosage_form: 'Tablet', pack_size: '100', atc_code: 'A10BA02', atc_description: 'Metformin', category: 'Chronic', facility_level: 'Hospital', quantity: 120, trend: 'Stable', price_bwp: '' },
-      { med_name: 'Paracetamol', strength: '500mg', dosage_form: 'Tablet', pack_size: '500', atc_code: 'N02BE01', atc_description: 'Paracetamol', category: 'Essential', facility_level: 'Pharmacy', quantity: 200, trend: 'Restocked', price_bwp: 25.50 },
-      { med_name: 'Amoxicillin', strength: '250mg', dosage_form: 'Capsule', pack_size: '100', atc_code: 'J01CA04', atc_description: 'Amoxicillin', category: 'Acute', facility_level: 'Pharmacy', quantity: 45, trend: 'Depleting Fast', price_bwp: 48.00 },
+      { 'Product Name': 'Panado', 'Category': 'Essential', 'Stock Quantity': 200, 'Price (BWP)': 25, 'Availability': 'In Stock' },
+      { 'Product Name': 'Metformin', 'Category': 'Chronic', 'Stock Quantity': 45, 'Price (BWP)': 48, 'Availability': 'Low Stock' },
+      { 'Product Name': 'Amoxicillin', 'Category': 'Acute', 'Stock Quantity': 0, 'Price (BWP)': '', 'Availability': 'Out of Stock' },
     ];
     const ws = XLSX.utils.json_to_sheet(templateData);
-    // Add an instructions row via a second sheet
     const instructions = [
-      { Field: 'price_bwp', Notes: 'Optional. Pharmacies should fill price in Botswana Pula (BWP). Clinics and hospitals may leave blank.' },
-      { Field: 'facility_level', Notes: 'Use "Pharmacy" if you want price to display in public search results.' },
-      { Field: 'quantity', Notes: 'Required. Whole number of units in stock.' },
+      { Field: 'Product Name', Notes: 'Required. The medicine/product name customers will search for.' },
+      { Field: 'Category', Notes: 'Optional. e.g. Chronic, Acute, Preventive, Essential.' },
+      { Field: 'Stock Quantity', Notes: 'Required. Whole number of units in stock. Use 0 if out of stock.' },
+      { Field: 'Price (BWP)', Notes: 'Optional. Pharmacies should fill the price in Botswana Pula. Clinics may leave blank.' },
+      { Field: 'Availability', Notes: 'Optional. In Stock / Low Stock / Out of Stock. Auto-derived from quantity if blank.' },
     ];
     const wsInfo = XLSX.utils.json_to_sheet(instructions);
     const wb = XLSX.utils.book_new();
@@ -111,23 +112,27 @@ const InventoryTable = () => {
       const validTrends = ['Stable', 'Depleting Fast', 'Restocked'];
 
       const records = rows.map((row, idx) => {
-        const medName = String(row.med_name || row['Medicine Name'] || row['medicine'] || '').trim();
+        const medName = String(row['Product Name'] || row.med_name || row['Medicine Name'] || row['medicine'] || '').trim();
         const strength = String(row.strength || row['Strength'] || '').trim();
         const dosageForm = String(row.dosage_form || row['Dosage Form'] || '').trim();
         const packSize = String(row.pack_size || row['Pack Size'] || '').trim();
         const atcCode = String(row.atc_code || row['ATC Code'] || '').trim();
         const atcDescription = String(row.atc_description || row['ATC Description'] || '').trim();
-        const category = String(row.category || row['Category'] || 'Essential').trim();
+        const category = String(row['Category'] || row.category || 'Essential').trim();
         const facilityLevel = String(row.facility_level || row['Facility Level'] || '').trim();
-        const quantity = parseInt(row.quantity || row['Quantity'] || '0', 10);
-        const trend = String(row.trend || row['Trend'] || 'Stable').trim();
-        const priceRaw = row.price_bwp ?? row['price_bwp'] ?? row['Price (BWP)'] ?? row['price'] ?? '';
+        const qtyRaw = row['Stock Quantity'] ?? row.quantity ?? row['Quantity'] ?? '0';
+        const quantity = parseInt(String(qtyRaw), 10);
+        const availability = String(row['Availability'] || '').trim().toLowerCase();
+        let trend = String(row.trend || row['Trend'] || 'Stable').trim();
+        if (availability === 'low stock') trend = 'Depleting Fast';
+        else if (availability === 'in stock') trend = 'Stable';
+        const priceRaw = row['Price (BWP)'] ?? row.price_bwp ?? row['price_bwp'] ?? row['price'] ?? '';
         const priceStr = String(priceRaw).trim();
         const priceParsed = priceStr === '' ? null : parseFloat(priceStr);
         const price_bwp = priceParsed !== null && !isNaN(priceParsed) && priceParsed >= 0 ? priceParsed : null;
 
-        if (!medName) throw new Error(`Row ${idx + 2}: Medicine name is required.`);
-        if (isNaN(quantity) || quantity < 0) throw new Error(`Row ${idx + 2}: Invalid quantity for "${medName}".`);
+        if (!medName) throw new Error(`Row ${idx + 2}: Product Name is required.`);
+        if (isNaN(quantity) || quantity < 0) throw new Error(`Row ${idx + 2}: Invalid Stock Quantity for "${medName}".`);
 
         return {
           clinic_name: clinicName,
