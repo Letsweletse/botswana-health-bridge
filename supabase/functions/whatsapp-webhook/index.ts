@@ -161,29 +161,58 @@ async function processQuery(message: string, from: string = ''): Promise<string>
   );
 
   if (medMatchesRaw.length > 0) {
-    // Pick best record: prefer in-stock + lowest price
     const inStock = medMatchesRaw.filter((i: any) => Number(i.quantity) > 0);
-    const pool = inStock.length > 0 ? inStock : medMatchesRaw;
-    pool.sort((a: any, b: any) => {
+    const sortByPrice = (a: any, b: any) => {
       const ap = a.price_bwp != null ? Number(a.price_bwp) : Infinity;
       const bp = b.price_bwp != null ? Number(b.price_bwp) : Infinity;
       if (ap !== bp) return ap - bp;
       return Number(b.quantity) - Number(a.quantity);
-    });
-    const best = pool[0];
-    const name = best.med_name;
+    };
+
+    // Dedupe by pharmacy/clinic — keep best record per pharmacy
+    const byPharmacy: Record<string, any> = {};
+    (inStock.length > 0 ? inStock : medMatchesRaw)
+      .sort(sortByPrice)
+      .forEach((it: any) => {
+        if (!byPharmacy[it.clinic_name]) byPharmacy[it.clinic_name] = it;
+      });
+    const unique = Object.values(byPharmacy);
+
+    const name = unique[0].med_name;
+
+    // Out of stock — suggest nearest alternative if any
+    if (inStock.length === 0) {
+      return `❌ ${name} is out of stock\n\nReply ALT for alternatives or NOTIFY for updates`;
+    }
+
+    // Multiple pharmacies have it
+    if (unique.length > 1) {
+      const top = unique.slice(0, 2);
+      const lowestPrice = top.find((p: any) => p.price_bwp != null);
+      let reply = `✅ ${name} is available at multiple pharmacies:\n\n`;
+      top.forEach((p: any, idx: number) => {
+        reply += `${idx + 1}. ${p.clinic_name}${p.location ? ' – ' + p.location : ''}\n`;
+      });
+      reply += `\n💊 Price: ${lowestPrice ? 'from P' + Number(lowestPrice.price_bwp).toFixed(2) : 'not available'}\n\n`;
+      reply += `👉 Reply 1 or 2 to choose\n👉 Reply PAY to order`;
+      return reply;
+    }
+
+    // Single pharmacy
+    const best = unique[0];
     const qty = Number(best.quantity);
     const priceLine = best.price_bwp != null
       ? `💊 Price: P${Number(best.price_bwp).toFixed(2)}`
       : `💊 Price not available`;
-
-    if (qty <= 0) {
-      return `❌ ${name} is out of stock\n\nReply ALT for alternatives or NOTIFY for updates`;
-    }
-    if (qty < 20) {
-      return `⚠️ ${name} is available (Limited stock)\n${priceLine}\n📦 Status: Low Stock\n\nReply 1 to reserve or PAY to order`;
-    }
-    return `✅ ${name} is available\n${priceLine}\n📦 Status: In Stock\n\nReply 1 to reserve or PAY to order`;
+    const status = qty < 20 ? 'Low Stock' : qty <= 100 ? 'Low Stock' : 'In Stock';
+    const header = qty < 20
+      ? `⚠️ ${name} is available (Limited stock)`
+      : `✅ ${name} is available`;
+    let reply = `${header}\n${priceLine}\n📦 Status: ${qty < 20 ? 'Low Stock' : 'In Stock'}`;
+    if (best.clinic_name) reply += `\n📍 Pharmacy: ${best.clinic_name}`;
+    if (best.location) reply += `\n📍 Location: ${best.location}`;
+    reply += `\n\n👉 Reply 1 to reserve\n👉 Reply PAY to order`;
+    return reply;
   }
 
   // Search by clinic name (only if not a med match)
