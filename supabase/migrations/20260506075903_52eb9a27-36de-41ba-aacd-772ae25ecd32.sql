@@ -1,0 +1,3 @@
+ALTER TABLE public.clinic_inventory
+  ADD COLUMN IF NOT EXISTS location TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS contact TEXT DEFAULT '';
