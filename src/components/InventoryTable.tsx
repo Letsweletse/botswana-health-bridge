@@ -133,12 +133,15 @@ const InventoryTable = () => {
         const priceStr = String(priceRaw).trim();
         const priceParsed = priceStr === '' ? null : parseFloat(priceStr);
         const price_bwp = priceParsed !== null && !isNaN(priceParsed) && priceParsed >= 0 ? priceParsed : null;
+        const pharmacyName = String(row['Pharmacy Name'] || row.pharmacy_name || '').trim();
+        const location = String(row['Location'] || row.location || '').trim();
+        const contact = String(row['Contact'] || row.contact || '').trim();
 
         if (!medName) throw new Error(`Row ${idx + 2}: Product Name is required.`);
         if (isNaN(quantity) || quantity < 0) throw new Error(`Row ${idx + 2}: Invalid Stock Quantity for "${medName}".`);
 
         return {
-          clinic_name: clinicName,
+          clinic_name: pharmacyName || clinicName,
           med_name: medName,
           strength,
           dosage_form: dosageForm,
@@ -150,6 +153,8 @@ const InventoryTable = () => {
           quantity,
           trend: validTrends.includes(trend) ? trend : 'Stable',
           price_bwp,
+          location,
+          contact,
         };
       });
 
