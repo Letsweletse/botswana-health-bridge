@@ -56,21 +56,46 @@ const tn: Record<string, string> = {
   prescription_partial: '⚠️ *PARTIAL MATCH*',
 };
 
+// ===== Performance: in-memory caches (per warm instance) =====
+const INVENTORY_TTL_MS = 60_000;
+const SEARCH_TTL_MS = 60_000;
+let inventoryCache: { data: any[]; ts: number } | null = null;
+const searchCache = new Map<string, { data: any[]; ts: number }>();
+
+function cachedSupabase() {
+  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+}
+
 async function getInventoryData() {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
-  const { data, error } = await supabase
-    .from('clinic_inventory')
-    .select('*')
-    .order('clinic_name');
-
-  if (error) {
-    console.error('DB query error:', error);
-    return [];
+  if (inventoryCache && Date.now() - inventoryCache.ts < INVENTORY_TTL_MS) {
+    return inventoryCache.data;
   }
-  return data || [];
+  const { data, error } = await cachedSupabase()
+    .from('clinic_inventory')
+    .select('clinic_name,med_name,quantity,price_bwp,location,trend,category')
+    .order('clinic_name');
+  if (error) { console.error('DB query error:', error); return []; }
+  inventoryCache = { data: data || [], ts: Date.now() };
+  return inventoryCache.data;
+}
+
+/** Fast targeted medicine search — only reads matching rows. */
+async function searchMedicine(term: string) {
+  const key = term.toLowerCase().trim();
+  const hit = searchCache.get(key);
+  if (hit && Date.now() - hit.ts < SEARCH_TTL_MS) return hit.data;
+
+  const { data, error } = await cachedSupabase()
+    .from('clinic_inventory')
+    .select('clinic_name,med_name,quantity,price_bwp,location')
+    .ilike('med_name', `%${key}%`)
+    .neq('clinic_name', 'ChekaMeds Admin')
+    .limit(50);
+  if (error) { console.error('searchMedicine error:', error); return []; }
+  const rows = data || [];
+  searchCache.set(key, { data: rows, ts: Date.now() });
+  if (searchCache.size > 200) searchCache.delete(searchCache.keys().next().value);
+  return rows;
 }
 
 async function processQuery(message: string, from: string = ''): Promise<string> {
@@ -118,7 +143,9 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     return `✅ You selected *${choice.clinic_name}*\n\n💊 ${choice.med_name}\n💰 Price: *${priceLine}*\n📍 Location: ${choice.location || 'N/A'}\n\n👉 Reply *PAY* to continue`;
   }
 
-  const inventoryData = await getInventoryData();
+  // Lazy-load full inventory only for aggregate queries below
+  const needsFullInventory = /^prescription[:\s]|critical|urgent|shortage|emergency|low|tlhaelo|status|summary|overview|report|kakaretso/.test(msg);
+  const inventoryData: any[] = needsFullInventory ? await getInventoryData() : [];
 
   // Prescription matching
   if (/^prescription[:\s]/.test(msg)) {
@@ -209,11 +236,8 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     return `📊 *ChekaMeds Stock Summary*\n\n💊 Medicines tracked: ${total}\n✅ Healthy stock (100+): ${healthy}\n⚠️ Critical (<20 units): ${critical}\n📉 Depleting fast: ${depleting}\n\n_Send a clinic or medicine name for details._`;
   }
 
-  // Product search — short, WhatsApp-friendly response
-  const medMatchesRaw = inventoryData.filter((i: any) =>
-    i.med_name && i.med_name.toLowerCase().includes(msg) &&
-    i.clinic_name !== 'ChekaMeds Admin'
-  );
+  // Product search — targeted, cached query (no full-table scan, no AI)
+  const medMatchesRaw = await searchMedicine(msg);
 
   if (medMatchesRaw.length > 0) {
     const inStock = medMatchesRaw.filter((i: any) => Number(i.quantity) > 0);
@@ -281,12 +305,15 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     return reply;
   }
 
-  // Search by clinic name (only if not a med match)
-  const clinicMatches = inventoryData.filter((i: any) =>
-    i.clinic_name.toLowerCase().includes(msg) &&
-    Number(i.quantity) > 0 &&
-    i.clinic_name !== 'ChekaMeds Admin'
-  );
+  // Search by clinic name (targeted query)
+  const { data: clinicRows } = await cachedSupabase()
+    .from('clinic_inventory')
+    .select('clinic_name,med_name,quantity')
+    .ilike('clinic_name', `%${msg}%`)
+    .gt('quantity', 0)
+    .neq('clinic_name', 'ChekaMeds Admin')
+    .limit(15);
+  const clinicMatches = clinicRows || [];
   if (clinicMatches.length > 0) {
     const clinicName = clinicMatches[0].clinic_name;
     const stockLabel = (q: number) => q > 100 ? 'In Stock' : q >= 20 ? 'Low Stock' : 'Limited';
@@ -397,7 +424,19 @@ serve(async (req) => {
         });
       }
 
-      const reply = await processQuery(messageBody, from);
+      // Race the query against a 1s timer — if slow, send an interim "checking..." ping.
+      const queryPromise = processQuery(messageBody, from);
+      let interimSent = false;
+      if (!isTest) {
+        const interimTimer = setTimeout(() => {
+          interimSent = true;
+          sendWhatsAppReply(from, '🔎 Checking nearby pharmacies...').catch(
+            (e) => console.error('interim send failed', e)
+          );
+        }, 1000);
+        queryPromise.finally(() => clearTimeout(interimTimer));
+      }
+      const reply = await queryPromise;
 
       let sendError: string | undefined;
       if (!isTest) {
