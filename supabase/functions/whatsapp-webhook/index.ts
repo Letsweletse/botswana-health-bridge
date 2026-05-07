@@ -113,7 +113,7 @@ async function processQuery(message: string, from: string = ''): Promise<string>
       return `❌ Invalid selection.\n\nPlease reply with:\n${session.options.map((_, i) => i + 1).join(' or ')}`;
     }
     const choice = session.options[idx];
-    setSession(from, { ...session, selected: choice, updated: Date.now() });
+    await setSession(from, { medicine: session.medicine, options: session.options, selected: choice });
     const priceLine = choice.price_bwp != null ? `P${Number(choice.price_bwp).toFixed(2)}` : 'Price not available';
     return `✅ You selected *${choice.clinic_name}*\n\n💊 ${choice.med_name}\n💰 Price: *${priceLine}*\n📍 Location: ${choice.location || 'N/A'}\n\n👉 Reply *PAY* to continue`;
   }
