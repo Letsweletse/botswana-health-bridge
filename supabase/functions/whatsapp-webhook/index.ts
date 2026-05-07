@@ -277,7 +277,7 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     if (best.clinic_name) reply += `\n📍 Pharmacy: *${best.clinic_name}*`;
     if (best.location) reply += `\n📍 Location: ${best.location}`;
     reply += `\n\n👉 Reply *1* to reserve\n👉 Reply *PAY* to order`;
-    setSession(from, { medicine: name, options: [sessionOptions[0]], selected: sessionOptions[0], updated: Date.now() });
+    await setSession(from, { medicine: name, options: [sessionOptions[0]], selected: sessionOptions[0] });
     return reply;
   }
 
