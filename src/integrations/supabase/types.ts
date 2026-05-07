@@ -119,6 +119,30 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_sessions: {
+        Row: {
+          from_number: string
+          medicine: string | null
+          options: Json
+          selected: Json | null
+          updated_at: string
+        }
+        Insert: {
+          from_number: string
+          medicine?: string | null
+          options?: Json
+          selected?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          from_number?: string
+          medicine?: string | null
+          options?: Json
+          selected?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_webhook_logs: {
         Row: {
           created_at: string

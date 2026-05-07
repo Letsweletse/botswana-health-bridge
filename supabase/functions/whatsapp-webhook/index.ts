@@ -9,6 +9,36 @@ const corsHeaders = {
 // Language state per user session (in production, persist in DB)
 const userLanguages: Record<string, 'en' | 'tn'> = {};
 
+// Session memory persisted in DB so replies survive cold starts
+type SessionOption = { clinic_name: string; location: string | null; price_bwp: number | null; quantity: number; med_name: string };
+type Session = { medicine: string; options: SessionOption[]; selected?: SessionOption };
+
+function sessionClient() {
+  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+}
+
+async function setSession(from: string, s: Session) {
+  try {
+    await sessionClient().from('whatsapp_sessions').upsert({
+      from_number: from,
+      medicine: s.medicine,
+      options: s.options as any,
+      selected: (s.selected ?? null) as any,
+      updated_at: new Date().toISOString(),
+    });
+  } catch (e) { console.error('setSession error', e); }
+}
+
+async function getSession(from: string): Promise<Session | undefined> {
+  try {
+    const { data } = await sessionClient()
+      .from('whatsapp_sessions').select('*').eq('from_number', from).maybeSingle();
+    if (!data) return undefined;
+    if (Date.now() - new Date(data.updated_at).getTime() > 30 * 60 * 1000) return undefined;
+    return { medicine: data.medicine, options: (data.options || []) as SessionOption[], selected: data.selected || undefined };
+  } catch { return undefined; }
+}
+
 function getLang(from: string): 'en' | 'tn' {
   return userLanguages[from] || 'en';
 }
@@ -61,6 +91,31 @@ async function processQuery(message: string, from: string = ''): Promise<string>
   if (/^(hi|hello|hey|dumelang|dumela|thobela|lotsha)/.test(msg)) {
     if (lang === 'tn') return tn.greeting;
     return `🏥 *ChekaMeds — Medicine Stock Checker*\n\nDumelang! 👋 I can help you check medicine availability.\n\nSend me:\n📍 A clinic name (e.g. "Princess Marina")\n💊 A medicine name (e.g. "Metformin")\n📊 "status" for a full summary\n🆘 "critical" for urgent shortages\n💊 "prescription: Med1, Med2" to find a clinic with all meds\n🇧🇼 "setswana" to switch language`;
+  }
+
+  // ===== Session-based selection / payment handlers (must run BEFORE inventory fetch) =====
+  const session = await getSession(from);
+
+  // PAY flow
+  if (/^pay$/i.test(msg)) {
+    if (session?.selected) {
+      const s = session.selected;
+      const priceLine = s.price_bwp != null ? `P${Number(s.price_bwp).toFixed(2)}` : 'price on request';
+      return `💳 Preparing your payment request...\n\n💊 ${s.med_name}\n📍 ${s.clinic_name}${s.location ? ' – ' + s.location : ''}\n💰 ${priceLine}\n\nWe'll send your ChekaPay link shortly.`;
+    }
+    return `💳 Please search for a medicine first, then choose a pharmacy before replying PAY.`;
+  }
+
+  // Numeric option selection (1/2/3)
+  if (/^[1-9]$/.test(msg) && session?.options?.length) {
+    const idx = parseInt(msg, 10) - 1;
+    if (idx < 0 || idx >= session.options.length) {
+      return `❌ Invalid selection.\n\nPlease reply with:\n${session.options.map((_, i) => i + 1).join(' or ')}`;
+    }
+    const choice = session.options[idx];
+    await setSession(from, { medicine: session.medicine, options: session.options, selected: choice });
+    const priceLine = choice.price_bwp != null ? `P${Number(choice.price_bwp).toFixed(2)}` : 'Price not available';
+    return `✅ You selected *${choice.clinic_name}*\n\n💊 ${choice.med_name}\n💰 Price: *${priceLine}*\n📍 Location: ${choice.location || 'N/A'}\n\n👉 Reply *PAY* to continue`;
   }
 
   const inventoryData = await getInventoryData();
@@ -185,16 +240,27 @@ async function processQuery(message: string, from: string = ''): Promise<string>
       return `❌ ${name} is out of stock\n\nReply ALT for alternatives or NOTIFY for updates`;
     }
 
+    // Build session options for selection
+    const sessionOptions: SessionOption[] = unique.slice(0, 5).map((p: any) => ({
+      clinic_name: p.clinic_name,
+      location: p.location || null,
+      price_bwp: p.price_bwp != null ? Number(p.price_bwp) : null,
+      quantity: Number(p.quantity),
+      med_name: name,
+    }));
+
     // Multiple pharmacies have it
     if (unique.length > 1) {
-      const top = unique.slice(0, 2);
-      const lowestPrice = top.find((p: any) => p.price_bwp != null);
-      let reply = `✅ ${name} is available at multiple pharmacies:\n\n`;
-      top.forEach((p: any, idx: number) => {
-        reply += `${idx + 1}. ${p.clinic_name}${p.location ? ' – ' + p.location : ''}\n`;
+      const top = sessionOptions.slice(0, 3);
+      const numEmoji = ['1️⃣', '2️⃣', '3️⃣'];
+      let reply = `✅ *${name}* is available at multiple pharmacies\n\n`;
+      top.forEach((p, idx) => {
+        const priceLine = p.price_bwp != null ? `*P${p.price_bwp.toFixed(2)}*` : '*Price not available*';
+        reply += `${numEmoji[idx]} *${p.clinic_name}*${p.location ? ' – ' + p.location : ''}\n💊 Price: ${priceLine}\n\n`;
       });
-      reply += `\n💊 Price: ${lowestPrice ? 'from P' + Number(lowestPrice.price_bwp).toFixed(2) : 'not available'}\n\n`;
-      reply += `👉 Reply 1 or 2 to choose\n👉 Reply PAY to order`;
+      reply += `👉 Reply *${top.map((_, i) => i + 1).join('* or *')}* to choose a pharmacy\n`;
+      reply += `👉 Reply *PAY* to order immediately`;
+      await setSession(from, { medicine: name, options: top });
       return reply;
     }
 
@@ -202,16 +268,16 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     const best = unique[0];
     const qty = Number(best.quantity);
     const priceLine = best.price_bwp != null
-      ? `💊 Price: P${Number(best.price_bwp).toFixed(2)}`
+      ? `💊 Price: *P${Number(best.price_bwp).toFixed(2)}*`
       : `💊 Price not available`;
-    const status = qty < 20 ? 'Low Stock' : qty <= 100 ? 'Low Stock' : 'In Stock';
     const header = qty < 20
-      ? `⚠️ ${name} is available (Limited stock)`
-      : `✅ ${name} is available`;
+      ? `⚠️ *${name}* is available (Limited stock)`
+      : `✅ *${name}* is available`;
     let reply = `${header}\n${priceLine}\n📦 Status: ${qty < 20 ? 'Low Stock' : 'In Stock'}`;
-    if (best.clinic_name) reply += `\n📍 Pharmacy: ${best.clinic_name}`;
+    if (best.clinic_name) reply += `\n📍 Pharmacy: *${best.clinic_name}*`;
     if (best.location) reply += `\n📍 Location: ${best.location}`;
-    reply += `\n\n👉 Reply 1 to reserve\n👉 Reply PAY to order`;
+    reply += `\n\n👉 Reply *1* to reserve\n👉 Reply *PAY* to order`;
+    await setSession(from, { medicine: name, options: [sessionOptions[0]], selected: sessionOptions[0] });
     return reply;
   }
 
