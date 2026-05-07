@@ -94,7 +94,7 @@ async function processQuery(message: string, from: string = ''): Promise<string>
   }
 
   // ===== Session-based selection / payment handlers (must run BEFORE inventory fetch) =====
-  const session = getSession(from);
+  const session = await getSession(from);
 
   // PAY flow
   if (/^pay$/i.test(msg)) {
