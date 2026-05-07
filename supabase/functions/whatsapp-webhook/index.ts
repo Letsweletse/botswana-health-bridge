@@ -305,12 +305,15 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     return reply;
   }
 
-  // Search by clinic name (only if not a med match)
-  const clinicMatches = inventoryData.filter((i: any) =>
-    i.clinic_name.toLowerCase().includes(msg) &&
-    Number(i.quantity) > 0 &&
-    i.clinic_name !== 'ChekaMeds Admin'
-  );
+  // Search by clinic name (targeted query)
+  const { data: clinicRows } = await cachedSupabase()
+    .from('clinic_inventory')
+    .select('clinic_name,med_name,quantity')
+    .ilike('clinic_name', `%${msg}%`)
+    .gt('quantity', 0)
+    .neq('clinic_name', 'ChekaMeds Admin')
+    .limit(15);
+  const clinicMatches = clinicRows || [];
   if (clinicMatches.length > 0) {
     const clinicName = clinicMatches[0].clinic_name;
     const stockLabel = (q: number) => q > 100 ? 'In Stock' : q >= 20 ? 'Low Stock' : 'Limited';
