@@ -229,16 +229,27 @@ async function processQuery(message: string, from: string = ''): Promise<string>
       return `❌ ${name} is out of stock\n\nReply ALT for alternatives or NOTIFY for updates`;
     }
 
+    // Build session options for selection
+    const sessionOptions: SessionOption[] = unique.slice(0, 5).map((p: any) => ({
+      clinic_name: p.clinic_name,
+      location: p.location || null,
+      price_bwp: p.price_bwp != null ? Number(p.price_bwp) : null,
+      quantity: Number(p.quantity),
+      med_name: name,
+    }));
+
     // Multiple pharmacies have it
     if (unique.length > 1) {
-      const top = unique.slice(0, 2);
-      const lowestPrice = top.find((p: any) => p.price_bwp != null);
-      let reply = `✅ ${name} is available at multiple pharmacies:\n\n`;
-      top.forEach((p: any, idx: number) => {
-        reply += `${idx + 1}. ${p.clinic_name}${p.location ? ' – ' + p.location : ''}\n`;
+      const top = sessionOptions.slice(0, 3);
+      const numEmoji = ['1️⃣', '2️⃣', '3️⃣'];
+      let reply = `✅ *${name}* is available at multiple pharmacies\n\n`;
+      top.forEach((p, idx) => {
+        const priceLine = p.price_bwp != null ? `*P${p.price_bwp.toFixed(2)}*` : '*Price not available*';
+        reply += `${numEmoji[idx]} *${p.clinic_name}*${p.location ? ' – ' + p.location : ''}\n💊 Price: ${priceLine}\n\n`;
       });
-      reply += `\n💊 Price: ${lowestPrice ? 'from P' + Number(lowestPrice.price_bwp).toFixed(2) : 'not available'}\n\n`;
-      reply += `👉 Reply 1 or 2 to choose\n👉 Reply PAY to order`;
+      reply += `👉 Reply *${top.map((_, i) => i + 1).join('* or *')}* to choose a pharmacy\n`;
+      reply += `👉 Reply *PAY* to order immediately`;
+      setSession(from, { medicine: name, options: top, updated: Date.now() });
       return reply;
     }
 
@@ -246,16 +257,16 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     const best = unique[0];
     const qty = Number(best.quantity);
     const priceLine = best.price_bwp != null
-      ? `💊 Price: P${Number(best.price_bwp).toFixed(2)}`
+      ? `💊 Price: *P${Number(best.price_bwp).toFixed(2)}*`
       : `💊 Price not available`;
-    const status = qty < 20 ? 'Low Stock' : qty <= 100 ? 'Low Stock' : 'In Stock';
     const header = qty < 20
-      ? `⚠️ ${name} is available (Limited stock)`
-      : `✅ ${name} is available`;
+      ? `⚠️ *${name}* is available (Limited stock)`
+      : `✅ *${name}* is available`;
     let reply = `${header}\n${priceLine}\n📦 Status: ${qty < 20 ? 'Low Stock' : 'In Stock'}`;
-    if (best.clinic_name) reply += `\n📍 Pharmacy: ${best.clinic_name}`;
+    if (best.clinic_name) reply += `\n📍 Pharmacy: *${best.clinic_name}*`;
     if (best.location) reply += `\n📍 Location: ${best.location}`;
-    reply += `\n\n👉 Reply 1 to reserve\n👉 Reply PAY to order`;
+    reply += `\n\n👉 Reply *1* to reserve\n👉 Reply *PAY* to order`;
+    setSession(from, { medicine: name, options: [sessionOptions[0]], selected: sessionOptions[0], updated: Date.now() });
     return reply;
   }
 
