@@ -424,7 +424,19 @@ serve(async (req) => {
         });
       }
 
-      const reply = await processQuery(messageBody, from);
+      // Race the query against a 1s timer — if slow, send an interim "checking..." ping.
+      const queryPromise = processQuery(messageBody, from);
+      let interimSent = false;
+      if (!isTest) {
+        const interimTimer = setTimeout(() => {
+          interimSent = true;
+          sendWhatsAppReply(from, '🔎 Checking nearby pharmacies...').catch(
+            (e) => console.error('interim send failed', e)
+          );
+        }, 1000);
+        queryPromise.finally(() => clearTimeout(interimTimer));
+      }
+      const reply = await queryPromise;
 
       let sendError: string | undefined;
       if (!isTest) {
