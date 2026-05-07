@@ -236,11 +236,8 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     return `📊 *ChekaMeds Stock Summary*\n\n💊 Medicines tracked: ${total}\n✅ Healthy stock (100+): ${healthy}\n⚠️ Critical (<20 units): ${critical}\n📉 Depleting fast: ${depleting}\n\n_Send a clinic or medicine name for details._`;
   }
 
-  // Product search — short, WhatsApp-friendly response
-  const medMatchesRaw = inventoryData.filter((i: any) =>
-    i.med_name && i.med_name.toLowerCase().includes(msg) &&
-    i.clinic_name !== 'ChekaMeds Admin'
-  );
+  // Product search — targeted, cached query (no full-table scan, no AI)
+  const medMatchesRaw = await searchMedicine(msg);
 
   if (medMatchesRaw.length > 0) {
     const inStock = medMatchesRaw.filter((i: any) => Number(i.quantity) > 0);
