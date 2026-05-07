@@ -82,6 +82,31 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     return `🏥 *ChekaMeds — Medicine Stock Checker*\n\nDumelang! 👋 I can help you check medicine availability.\n\nSend me:\n📍 A clinic name (e.g. "Princess Marina")\n💊 A medicine name (e.g. "Metformin")\n📊 "status" for a full summary\n🆘 "critical" for urgent shortages\n💊 "prescription: Med1, Med2" to find a clinic with all meds\n🇧🇼 "setswana" to switch language`;
   }
 
+  // ===== Session-based selection / payment handlers (must run BEFORE inventory fetch) =====
+  const session = getSession(from);
+
+  // PAY flow
+  if (/^pay$/i.test(msg)) {
+    if (session?.selected) {
+      const s = session.selected;
+      const priceLine = s.price_bwp != null ? `P${Number(s.price_bwp).toFixed(2)}` : 'price on request';
+      return `💳 Preparing your payment request...\n\n💊 ${s.med_name}\n📍 ${s.clinic_name}${s.location ? ' – ' + s.location : ''}\n💰 ${priceLine}\n\nWe'll send your ChekaPay link shortly.`;
+    }
+    return `💳 Please search for a medicine first, then choose a pharmacy before replying PAY.`;
+  }
+
+  // Numeric option selection (1/2/3)
+  if (/^[1-9]$/.test(msg) && session?.options?.length) {
+    const idx = parseInt(msg, 10) - 1;
+    if (idx < 0 || idx >= session.options.length) {
+      return `❌ Invalid selection.\n\nPlease reply with:\n${session.options.map((_, i) => i + 1).join(' or ')}`;
+    }
+    const choice = session.options[idx];
+    setSession(from, { ...session, selected: choice, updated: Date.now() });
+    const priceLine = choice.price_bwp != null ? `P${Number(choice.price_bwp).toFixed(2)}` : 'Price not available';
+    return `✅ You selected *${choice.clinic_name}*\n\n💊 ${choice.med_name}\n💰 Price: *${priceLine}*\n📍 Location: ${choice.location || 'N/A'}\n\n👉 Reply *PAY* to continue`;
+  }
+
   const inventoryData = await getInventoryData();
 
   // Prescription matching
