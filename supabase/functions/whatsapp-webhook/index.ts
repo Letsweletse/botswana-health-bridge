@@ -56,21 +56,46 @@ const tn: Record<string, string> = {
   prescription_partial: '⚠️ *PARTIAL MATCH*',
 };
 
+// ===== Performance: in-memory caches (per warm instance) =====
+const INVENTORY_TTL_MS = 60_000;
+const SEARCH_TTL_MS = 60_000;
+let inventoryCache: { data: any[]; ts: number } | null = null;
+const searchCache = new Map<string, { data: any[]; ts: number }>();
+
+function cachedSupabase() {
+  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+}
+
 async function getInventoryData() {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
-  const { data, error } = await supabase
-    .from('clinic_inventory')
-    .select('*')
-    .order('clinic_name');
-
-  if (error) {
-    console.error('DB query error:', error);
-    return [];
+  if (inventoryCache && Date.now() - inventoryCache.ts < INVENTORY_TTL_MS) {
+    return inventoryCache.data;
   }
-  return data || [];
+  const { data, error } = await cachedSupabase()
+    .from('clinic_inventory')
+    .select('clinic_name,med_name,quantity,price_bwp,location,trend,category')
+    .order('clinic_name');
+  if (error) { console.error('DB query error:', error); return []; }
+  inventoryCache = { data: data || [], ts: Date.now() };
+  return inventoryCache.data;
+}
+
+/** Fast targeted medicine search — only reads matching rows. */
+async function searchMedicine(term: string) {
+  const key = term.toLowerCase().trim();
+  const hit = searchCache.get(key);
+  if (hit && Date.now() - hit.ts < SEARCH_TTL_MS) return hit.data;
+
+  const { data, error } = await cachedSupabase()
+    .from('clinic_inventory')
+    .select('clinic_name,med_name,quantity,price_bwp,location')
+    .ilike('med_name', `%${key}%`)
+    .neq('clinic_name', 'ChekaMeds Admin')
+    .limit(50);
+  if (error) { console.error('searchMedicine error:', error); return []; }
+  const rows = data || [];
+  searchCache.set(key, { data: rows, ts: Date.now() });
+  if (searchCache.size > 200) searchCache.delete(searchCache.keys().next().value);
+  return rows;
 }
 
 async function processQuery(message: string, from: string = ''): Promise<string> {
