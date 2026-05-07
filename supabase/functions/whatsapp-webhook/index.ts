@@ -143,7 +143,9 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     return `✅ You selected *${choice.clinic_name}*\n\n💊 ${choice.med_name}\n💰 Price: *${priceLine}*\n📍 Location: ${choice.location || 'N/A'}\n\n👉 Reply *PAY* to continue`;
   }
 
-  const inventoryData = await getInventoryData();
+  // Lazy-load full inventory only for aggregate queries below
+  const needsFullInventory = /^prescription[:\s]|critical|urgent|shortage|emergency|low|tlhaelo|status|summary|overview|report|kakaretso/.test(msg);
+  const inventoryData: any[] = needsFullInventory ? await getInventoryData() : [];
 
   // Prescription matching
   if (/^prescription[:\s]/.test(msg)) {
