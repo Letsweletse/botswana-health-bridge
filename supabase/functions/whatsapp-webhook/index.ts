@@ -9,6 +9,25 @@ const corsHeaders = {
 // Language state per user session (in production, persist in DB)
 const userLanguages: Record<string, 'en' | 'tn'> = {};
 
+// Session memory: last search results per user (in-memory; resets on cold start)
+type SessionOption = { clinic_name: string; location: string | null; price_bwp: number | null; quantity: number; med_name: string };
+type Session = { medicine: string; options: SessionOption[]; selected?: SessionOption; updated: number };
+const userSessions: Record<string, Session> = {};
+
+function setSession(from: string, s: Session) {
+  userSessions[from] = s;
+}
+function getSession(from: string): Session | undefined {
+  const s = userSessions[from];
+  if (!s) return undefined;
+  // expire after 30 min
+  if (Date.now() - s.updated > 30 * 60 * 1000) {
+    delete userSessions[from];
+    return undefined;
+  }
+  return s;
+}
+
 function getLang(from: string): 'en' | 'tn' {
   return userLanguages[from] || 'en';
 }
