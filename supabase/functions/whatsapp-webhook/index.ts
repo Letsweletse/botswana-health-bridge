@@ -10,7 +10,7 @@ const corsHeaders = {
 const userLanguages: Record<string, 'en' | 'tn'> = {};
 
 // Session memory persisted in DB so replies survive cold starts
-type SessionOption = { clinic_name: string; location: string | null; price_bwp: number | null; quantity: number; med_name: string };
+type SessionOption = { clinic_name: string; location: string | null; price_bwp: number | null; quantity: number; med_name: string; directions_link?: string | null };
 type Session = { medicine: string; options: SessionOption[]; selected?: SessionOption };
 
 function sessionClient() {
@@ -66,6 +66,17 @@ function cachedSupabase() {
   return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 }
 
+// Helper function to get directions link
+function getDirectionsLink(pharmacy: { clinic_name: string; directions_link?: string | null; location?: string | null }): string {
+  if (pharmacy.directions_link && pharmacy.directions_link.trim() !== '') {
+    return pharmacy.directions_link;
+  }
+  if (pharmacy.location && pharmacy.location.trim() !== '' && pharmacy.location !== 'N/A') {
+    return `https://maps.google.com/?q=${encodeURIComponent(pharmacy.location + ', Botswana')}`;
+  }
+  return `https://maps.google.com/?q=${encodeURIComponent(pharmacy.clinic_name + ', Botswana')}`;
+}
+
 async function getInventoryData() {
   if (inventoryCache && Date.now() - inventoryCache.ts < INVENTORY_TTL_MS) {
     return inventoryCache.data;
@@ -87,7 +98,7 @@ async function searchMedicine(term: string) {
 
   const { data, error } = await cachedSupabase()
     .from('clinic_inventory')
-    .select('clinic_name,med_name,quantity,price_bwp,location')
+    .select('clinic_name,med_name,quantity,price_bwp,location,directions_link')
     .ilike('med_name', `%${key}%`)
     .neq('clinic_name', 'ChekaMeds Admin')
     .limit(50);
@@ -126,7 +137,8 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     if (session?.selected) {
       const s = session.selected;
       const priceLine = s.price_bwp != null ? `P${Number(s.price_bwp).toFixed(2)}` : 'price on request';
-      return `💳 Preparing your payment request...\n\n💊 ${s.med_name}\n📍 ${s.clinic_name}${s.location ? ' – ' + s.location : ''}\n💰 ${priceLine}\n\nWe'll send your ChekaPay link shortly.`;
+      const directionsLink = getDirectionsLink(s);
+      return `💳 Preparing your payment request...\n\n💊 ${s.med_name}\n📍 ${s.clinic_name}\n🗺️ *Directions*: ${directionsLink}\n💰 ${priceLine}\n\nWe'll send your ChekaPay link shortly.`;
     }
     return `💳 Please search for a medicine first, then choose a pharmacy before replying PAY.`;
   }
@@ -140,7 +152,8 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     const choice = session.options[idx];
     await setSession(from, { medicine: session.medicine, options: session.options, selected: choice });
     const priceLine = choice.price_bwp != null ? `P${Number(choice.price_bwp).toFixed(2)}` : 'Price not available';
-    return `✅ You selected *${choice.clinic_name}*\n\n💊 ${choice.med_name}\n💰 Price: *${priceLine}*\n📍 Location: ${choice.location || 'N/A'}\n\n👉 Reply *PAY* to continue`;
+    const directionsLink = getDirectionsLink(choice);
+    return `✅ You selected *${choice.clinic_name}*\n\n💊 ${choice.med_name}\n💰 Price: *${priceLine}*\n🗺️ *Directions*: ${directionsLink}\n\n👉 Reply *PAY* to continue`;
   }
 
   // Lazy-load full inventory only for aggregate queries below
@@ -271,6 +284,7 @@ async function processQuery(message: string, from: string = ''): Promise<string>
       price_bwp: p.price_bwp != null ? Number(p.price_bwp) : null,
       quantity: Number(p.quantity),
       med_name: name,
+      directions_link: p.directions_link || null,
     }));
 
     // Multiple pharmacies have it
@@ -280,7 +294,10 @@ async function processQuery(message: string, from: string = ''): Promise<string>
       let reply = `✅ *${name}* is available at multiple pharmacies\n\n`;
       top.forEach((p, idx) => {
         const priceLine = p.price_bwp != null ? `*P${p.price_bwp.toFixed(2)}*` : '*Price not available*';
-        reply += `${numEmoji[idx]} *${p.clinic_name}*${p.location ? ' – ' + p.location : ''}\n💊 Price: ${priceLine}\n\n`;
+        const dirLink = getDirectionsLink(p);
+        reply += `${numEmoji[idx]} *${p.clinic_name}*\n`;
+        reply += `💊 Price: ${priceLine}\n`;
+        reply += `🗺️ *Directions*: ${dirLink}\n\n`;
       });
       reply += `👉 Reply *${top.map((_, i) => i + 1).join('* or *')}* to choose a pharmacy\n`;
       reply += `👉 Reply *PAY* to order immediately`;
@@ -297,9 +314,10 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     const header = qty < 20
       ? `⚠️ *${name}* is available (Limited stock)`
       : `✅ *${name}* is available`;
+    const directionsLink = getDirectionsLink(best);
     let reply = `${header}\n${priceLine}\n📦 Status: ${qty < 20 ? 'Low Stock' : 'In Stock'}`;
     if (best.clinic_name) reply += `\n📍 Pharmacy: *${best.clinic_name}*`;
-    if (best.location) reply += `\n📍 Location: ${best.location}`;
+    reply += `\n🗺️ *Directions*: ${directionsLink}`;
     reply += `\n\n👉 Reply *1* to reserve\n👉 Reply *PAY* to order`;
     await setSession(from, { medicine: name, options: [sessionOptions[0]], selected: sessionOptions[0] });
     return reply;
@@ -399,12 +417,9 @@ serve(async (req) => {
         }
       }
 
-      // UltraMsg nests payload under `data`. Support both flat + nested.
-      const data: Record<string, string> = (body as any).data && typeof (body as any).data === 'object'
-        ? (body as any).data
-        : body;
-      const from = (data.from || data.sender || (body as any).from || '').toString().replace('@c.us', '');
-      const messageBody = (data.body || data.message || (body as any).body || '').toString();
+      // UltraMsg webhook sends flat structure directly at root
+      const from = (body.from || "").toString().replace('@c.us', '');
+      const messageBody = (body.body || "").toString();
       const source = isTest ? 'test' : 'incoming';
 
       console.log('Incoming WhatsApp message:', { from, messageBody, isTest });
