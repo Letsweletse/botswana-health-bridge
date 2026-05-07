@@ -260,7 +260,7 @@ async function processQuery(message: string, from: string = ''): Promise<string>
       });
       reply += `👉 Reply *${top.map((_, i) => i + 1).join('* or *')}* to choose a pharmacy\n`;
       reply += `👉 Reply *PAY* to order immediately`;
-      setSession(from, { medicine: name, options: top, updated: Date.now() });
+      await setSession(from, { medicine: name, options: top });
       return reply;
     }
 
