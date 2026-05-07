@@ -9,23 +9,34 @@ const corsHeaders = {
 // Language state per user session (in production, persist in DB)
 const userLanguages: Record<string, 'en' | 'tn'> = {};
 
-// Session memory: last search results per user (in-memory; resets on cold start)
+// Session memory persisted in DB so replies survive cold starts
 type SessionOption = { clinic_name: string; location: string | null; price_bwp: number | null; quantity: number; med_name: string };
-type Session = { medicine: string; options: SessionOption[]; selected?: SessionOption; updated: number };
-const userSessions: Record<string, Session> = {};
+type Session = { medicine: string; options: SessionOption[]; selected?: SessionOption };
 
-function setSession(from: string, s: Session) {
-  userSessions[from] = s;
+function sessionClient() {
+  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 }
-function getSession(from: string): Session | undefined {
-  const s = userSessions[from];
-  if (!s) return undefined;
-  // expire after 30 min
-  if (Date.now() - s.updated > 30 * 60 * 1000) {
-    delete userSessions[from];
-    return undefined;
-  }
-  return s;
+
+async function setSession(from: string, s: Session) {
+  try {
+    await sessionClient().from('whatsapp_sessions').upsert({
+      from_number: from,
+      medicine: s.medicine,
+      options: s.options as any,
+      selected: (s.selected ?? null) as any,
+      updated_at: new Date().toISOString(),
+    });
+  } catch (e) { console.error('setSession error', e); }
+}
+
+async function getSession(from: string): Promise<Session | undefined> {
+  try {
+    const { data } = await sessionClient()
+      .from('whatsapp_sessions').select('*').eq('from_number', from).maybeSingle();
+    if (!data) return undefined;
+    if (Date.now() - new Date(data.updated_at).getTime() > 30 * 60 * 1000) return undefined;
+    return { medicine: data.medicine, options: (data.options || []) as SessionOption[], selected: data.selected || undefined };
+  } catch { return undefined; }
 }
 
 function getLang(from: string): 'en' | 'tn' {
