@@ -83,7 +83,7 @@ async function getInventoryData() {
   }
   const { data, error } = await cachedSupabase()
     .from('clinic_inventory')
-    .select('clinic_name,med_name,quantity,price_bwp,location,trend,category')
+    .select('clinic_name,med_name,quantity,price_bwp,location,trend,category,directions_link')
     .order('clinic_name');
   if (error) { console.error('DB query error:', error); return []; }
   inventoryCache = { data: data || [], ts: Date.now() };
@@ -326,7 +326,7 @@ async function processQuery(message: string, from: string = ''): Promise<string>
   // Search by clinic name (targeted query)
   const { data: clinicRows } = await cachedSupabase()
     .from('clinic_inventory')
-    .select('clinic_name,med_name,quantity')
+    .select('clinic_name,med_name,quantity,directions_link')
     .ilike('clinic_name', `%${msg}%`)
     .gt('quantity', 0)
     .neq('clinic_name', 'ChekaMeds Admin')
@@ -522,6 +522,9 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
     });
   }
 });
