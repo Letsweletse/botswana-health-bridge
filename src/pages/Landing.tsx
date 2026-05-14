@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, Search, ArrowRight, CheckCircle2, Activity, Pill, Shield, MessageCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +15,7 @@ const Landing = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const signupLockRef = useRef(false);
   const navigate = useNavigate();
 
   const handleForgotPassword = async () => {
@@ -38,6 +39,7 @@ const Landing = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -52,33 +54,53 @@ const Landing = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (signupLockRef.current || isLoading) return;
+
     if (!clinicName.trim()) {
       toast({ title: 'Clinic required', description: 'Please enter your clinic or hospital name.', variant: 'destructive' });
       return;
     }
+
+    signupLockRef.current = true;
     setIsLoading(true);
+
     try {
+      const cleanEmail = email.trim();
+      const cleanClinicName = clinicName.trim();
+      const cleanFullName = fullName.trim();
+
       const { error } = await supabase.auth.signUp({
-        email,
+        email: cleanEmail,
         password,
         options: {
           emailRedirectTo: window.location.origin,
-          data: { full_name: fullName.trim(), clinic_name: clinicName.trim() },
+          data: { full_name: cleanFullName, clinic_name: cleanClinicName },
         },
       });
+
       if (error) throw error;
-      const { error: notifyError } = await supabase.functions.invoke('notify-facility-registration', {
-        body: { clinicName: clinicName.trim(), fullName: fullName.trim(), email: email.trim() },
-      });
-      if (notifyError) {
-        console.error('Registration notification email failed:', notifyError);
-        throw new Error(`Account created, but the admin notification email failed: ${notifyError.message}`);
-      }
+
       setConfirmed(true);
+
+      try {
+        const { error: notifyError } = await supabase.functions.invoke('notify-facility-registration', {
+          body: { clinicName: cleanClinicName, fullName: cleanFullName, email: cleanEmail },
+        });
+
+        if (notifyError) {
+          console.warn('Registration notification failed but signup succeeded:', notifyError);
+        }
+      } catch (notifyError) {
+        console.warn('Registration notification failed but signup succeeded:', notifyError);
+      }
     } catch (err: any) {
       toast({ title: 'Registration failed', description: err.message, variant: 'destructive' });
     } finally {
       setIsLoading(false);
+      setTimeout(() => {
+        signupLockRef.current = false;
+      }, 2500);
     }
   };
 
@@ -172,16 +194,16 @@ const Landing = () => {
                     </div>
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Account created!</h2>
+                    <h2 className="text-xl font-bold text-white">Registration received</h2>
                     <p className="text-sm text-white/50 mt-2 leading-relaxed">
-                      Your facility is approved. A confirmation email has been sent, and you can sign in now.
+                      Your account has been created successfully and is pending admin approval. Once reviewed, your facility profile will be activated.
                     </p>
                   </div>
                   <button
                     onClick={() => { setConfirmed(false); setIsSignUp(false); }}
                     className="w-full py-3 text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-all flex items-center justify-center gap-2"
                   >
-                    Sign in now <ArrowRight className="h-4 w-4" />
+                    Return to sign in <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
@@ -194,7 +216,7 @@ const Landing = () => {
                       {isSignUp ? 'Join ChekaMeds' : 'Welcome back'}
                     </h2>
                     <p className="text-sm text-white/40 mt-1 font-light">
-                      {isSignUp ? 'Register your clinic to manage stock in real time' : 'Sign in to access your facility dashboard'}
+                      {isSignUp ? 'Register your clinic or pharmacy for admin approval before appearing in search' : 'Sign in to access your facility dashboard'}
                     </p>
                   </div>
 
@@ -203,33 +225,33 @@ const Landing = () => {
                       <>
                         <div className="space-y-1.5">
                           <label className="text-xs font-semibold text-white/60 tracking-wide">Full name</label>
-                          <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. Kgosi Moyo" className={inputClass} />
+                          <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. Kgosi Moyo" className={inputClass} disabled={isLoading} />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-white/60 tracking-wide">Clinic / Hospital name</label>
-                          <input type="text" required value={clinicName} onChange={(e) => setClinicName(e.target.value)} placeholder="e.g. Princess Marina Hospital" className={inputClass} />
-                          <p className="text-[11px] text-white/20 px-1">Use your facility's official name.</p>
+                          <label className="text-xs font-semibold text-white/60 tracking-wide">Clinic / Pharmacy name</label>
+                          <input type="text" required value={clinicName} onChange={(e) => setClinicName(e.target.value)} placeholder="e.g. South West Pharma" className={inputClass} disabled={isLoading} />
+                          <p className="text-[11px] text-white/20 px-1">Use your facility's official name. New facilities are reviewed before appearing in search.</p>
                         </div>
                       </>
                     )}
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-white/60 tracking-wide">Email address</label>
-                      <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="operator@health.gov.bw" className={inputClass} />
+                      <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="operator@health.gov.bw" className={inputClass} disabled={isLoading} />
                     </div>
 
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-semibold text-white/60 tracking-wide">Password</label>
                         {!isSignUp && (
-                          <button type="button" onClick={handleForgotPassword} className="text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
+                          <button type="button" onClick={handleForgotPassword} disabled={isLoading} className="text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors disabled:opacity-50">
                             Forgot password?
                           </button>
                         )}
                       </div>
                       <div className="relative">
-                        <input type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} className={inputClass + ' pr-11'} />
-                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
+                        <input type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} className={inputClass + ' pr-11'} disabled={isLoading} />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} disabled={isLoading} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors disabled:opacity-50">
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
@@ -243,11 +265,11 @@ const Landing = () => {
                       {isLoading ? (
                         <>
                           <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          {isSignUp ? 'Creating account...' : 'Signing in...'}
+                          {isSignUp ? 'Submitting registration...' : 'Signing in...'}
                         </>
                       ) : (
                         <>
-                          {isSignUp ? 'Create clinic account' : 'Sign in to dashboard'}
+                          {isSignUp ? 'Submit registration' : 'Sign in to dashboard'}
                           <ArrowRight className="h-4 w-4" />
                         </>
                       )}
@@ -262,7 +284,8 @@ const Landing = () => {
                     </div>
                     <button
                       onClick={() => { setIsSignUp(!isSignUp); setIsLoading(false); setConfirmed(false); }}
-                      className="w-full py-2.5 text-sm font-medium border border-white/[0.1] text-white/50 hover:text-white hover:bg-white/[0.04] transition-all"
+                      disabled={isLoading}
+                      className="w-full py-2.5 text-sm font-medium border border-white/[0.1] text-white/50 hover:text-white hover:bg-white/[0.04] transition-all disabled:opacity-50"
                     >
                       {isSignUp ? 'Already registered? Sign in' : 'New facility? Register here'}
                     </button>
