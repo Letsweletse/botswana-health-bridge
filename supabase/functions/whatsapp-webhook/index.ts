@@ -2,371 +2,323 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Language state per user session (in production, persist in DB)
-const userLanguages: Record<string, 'en' | 'tn'> = {};
+type SessionOption = {
+  clinic_name: string;
+  location: string | null;
+  price_bwp: number | null;
+  quantity: number;
+  med_name: string;
+  directions_link?: string | null;
+};
 
-// Session memory persisted in DB so replies survive cold starts
-type SessionOption = { clinic_name: string; location: string | null; price_bwp: number | null; quantity: number; med_name: string; directions_link?: string | null };
-type Session = { medicine: string; options: SessionOption[]; selected?: SessionOption };
+type Session = {
+  medicine: string;
+  options: SessionOption[];
+  selected?: SessionOption;
+};
 
-function sessionClient() {
-  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+type InventoryRow = {
+  id?: string;
+  clinic_name: string;
+  med_name: string;
+  quantity: number;
+  price_bwp: number | null;
+  location?: string | null;
+  directions_link?: string | null;
+  category?: string | null;
+  strength?: string | null;
+  dosage_form?: string | null;
+  generic_name?: string | null;
+  brand_name?: string | null;
+  search_tokens?: string | null;
+};
+
+const userLanguages: Record<string, "en" | "tn"> = {};
+const SEARCH_TTL_MS = 60_000;
+const searchCache = new Map<string, { data: InventoryRow[]; terms: string[]; ts: number }>();
+
+function db() {
+  return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+}
+
+function normalize(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function unique(items: string[]) {
+  return Array.from(new Set(items.map(normalize).filter(Boolean)));
+}
+
+function getLang(from: string): "en" | "tn" {
+  return userLanguages[from] || "en";
+}
+
+function getDirectionsLink(pharmacy: { clinic_name: string; directions_link?: string | null; location?: string | null }) {
+  if (pharmacy.directions_link && pharmacy.directions_link.trim() !== "") return pharmacy.directions_link;
+  if (pharmacy.location && pharmacy.location.trim() !== "" && pharmacy.location !== "N/A") {
+    return `https://maps.google.com/?q=${encodeURIComponent(pharmacy.location + ", Botswana")}`;
+  }
+  return `https://maps.google.com/?q=${encodeURIComponent(pharmacy.clinic_name + ", Botswana")}`;
 }
 
 async function setSession(from: string, s: Session) {
   try {
-    await sessionClient().from('whatsapp_sessions').upsert({
+    await db().from("whatsapp_sessions").upsert({
       from_number: from,
       medicine: s.medicine,
       options: s.options as any,
       selected: (s.selected ?? null) as any,
       updated_at: new Date().toISOString(),
     });
-  } catch (e) { console.error('setSession error', e); }
+  } catch (error) {
+    console.error("setSession error", error);
+  }
 }
 
 async function getSession(from: string): Promise<Session | undefined> {
   try {
-    const { data } = await sessionClient()
-      .from('whatsapp_sessions').select('*').eq('from_number', from).maybeSingle();
+    const { data } = await db().from("whatsapp_sessions").select("*").eq("from_number", from).maybeSingle();
     if (!data) return undefined;
     if (Date.now() - new Date(data.updated_at).getTime() > 30 * 60 * 1000) return undefined;
-    return { medicine: data.medicine, options: (data.options || []) as SessionOption[], selected: data.selected || undefined };
-  } catch { return undefined; }
-}
-
-function getLang(from: string): 'en' | 'tn' {
-  return userLanguages[from] || 'en';
-}
-
-const tn: Record<string, string> = {
-  greeting: '🏥 *ChekaMeds — Tlhatlhobo ya Ditlhare*\n\nDumelang! 👋 Ke ka go thusa go bona ditlhare.\n\nRomela:\n📍 Leina la kliniiki (jk. "Princess Marina")\n💊 Leina la setlhare (jk. "Metformin")\n📊 "status" go bona kakaretso\n🆘 "critical" go bona tlhaelo e kgolo\n💊 "prescription: Med1, Med2" go bona kliniiki e e nang le tsotlhe',
-  no_critical: '✅ Ga go na tlhaelo e kgolo ga jaana! Dikliniiki tsotlhe di na le ditlhare.',
-  critical_header: '🚨 *TLHAELO E KGOLO',
-  status_header: '📊 *Kakaretso ya ChekaMeds*',
-  not_found: '🤔 Ga ke a bona sepe ka',
-  lang_switch: '🇧🇼 Puo e fetoletswe go Setswana! Romela molaetsa ope.',
-  lang_en: '🇬🇧 Language switched to English! Send any message.',
-  prescription_header: '💊 *Prescription Matching*',
-  prescription_full: '✅ *FULL MATCH*',
-  prescription_partial: '⚠️ *PARTIAL MATCH*',
-};
-
-// ===== Performance: in-memory caches (per warm instance) =====
-const INVENTORY_TTL_MS = 60_000;
-const SEARCH_TTL_MS = 60_000;
-let inventoryCache: { data: any[]; ts: number } | null = null;
-const searchCache = new Map<string, { data: any[]; ts: number }>();
-
-function cachedSupabase() {
-  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-}
-
-// Helper function to get directions link
-function getDirectionsLink(pharmacy: { clinic_name: string; directions_link?: string | null; location?: string | null }): string {
-  if (pharmacy.directions_link && pharmacy.directions_link.trim() !== '') {
-    return pharmacy.directions_link;
+    return {
+      medicine: data.medicine,
+      options: (data.options || []) as SessionOption[],
+      selected: data.selected || undefined,
+    };
+  } catch {
+    return undefined;
   }
-  if (pharmacy.location && pharmacy.location.trim() !== '' && pharmacy.location !== 'N/A') {
-    return `https://maps.google.com/?q=${encodeURIComponent(pharmacy.location + ', Botswana')}`;
-  }
-  return `https://maps.google.com/?q=${encodeURIComponent(pharmacy.clinic_name + ', Botswana')}`;
 }
 
-async function getInventoryData() {
-  if (inventoryCache && Date.now() - inventoryCache.ts < INVENTORY_TTL_MS) {
-    return inventoryCache.data;
+async function fetchAliases(term: string) {
+  try {
+    const { data } = await db()
+      .from("medicine_aliases")
+      .select("alias, canonical_name")
+      .or(`alias.ilike.%${term}%,canonical_name.ilike.%${term}%`)
+      .limit(15);
+    return (data || []) as { alias: string; canonical_name: string }[];
+  } catch (error) {
+    console.warn("Alias lookup skipped", error);
+    return [];
   }
-  const { data, error } = await cachedSupabase()
-    .from('clinic_inventory')
-    .select('clinic_name,med_name,quantity,price_bwp,location,trend,category,directions_link')
-    .order('clinic_name');
-  if (error) { console.error('DB query error:', error); return []; }
-  inventoryCache = { data: data || [], ts: Date.now() };
-  return inventoryCache.data;
 }
 
-/** Fast targeted medicine search — only reads matching rows. */
-async function searchMedicine(term: string) {
-  const key = term.toLowerCase().trim();
-  const hit = searchCache.get(key);
-  if (hit && Date.now() - hit.ts < SEARCH_TTL_MS) return hit.data;
+async function logFailedSearch(query: string, from: string) {
+  try {
+    await db().from("failed_searches").insert({ query, source: "whatsapp", user_phone: from || null });
+  } catch (error) {
+    console.warn("failed_searches insert skipped", error);
+  }
+}
 
-  const { data, error } = await cachedSupabase()
-    .from('clinic_inventory')
-    .select('clinic_name,med_name,quantity,price_bwp,location,directions_link')
-    .ilike('med_name', `%${key}%`)
-    .neq('clinic_name', 'ChekaMeds Admin')
-    .limit(50);
-  if (error) { console.error('searchMedicine error:', error); return []; }
-  const rows = data || [];
-  searchCache.set(key, { data: rows, ts: Date.now() });
+function scoreItem(item: InventoryRow, terms: string[]) {
+  const haystack = normalize([
+    item.med_name,
+    item.generic_name,
+    item.brand_name,
+    item.strength,
+    item.dosage_form,
+    item.category,
+    item.search_tokens,
+  ].filter(Boolean).join(" "));
+
+  let score = 0;
+  for (const term of terms) {
+    const med = normalize(item.med_name || "");
+    if (med === term) score += 120;
+    if (med.startsWith(term)) score += 80;
+    if (haystack.includes(term)) score += 45;
+    for (const part of term.split(" ")) {
+      if (part.length >= 3 && haystack.includes(part)) score += 12;
+    }
+  }
+  if (item.price_bwp != null) score += 8;
+  if (Number(item.quantity) >= 100) score += 6;
+  if (Number(item.quantity) > 0) score += 10;
+  return score;
+}
+
+async function runInventorySearch(terms: string[]) {
+  const selectFields = "id,clinic_name,med_name,quantity,price_bwp,location,directions_link,category,strength,dosage_form,generic_name,brand_name,search_tokens";
+  const orFilter = terms.flatMap((term) => [
+    `med_name.ilike.%${term}%`,
+    `generic_name.ilike.%${term}%`,
+    `brand_name.ilike.%${term}%`,
+    `search_tokens.ilike.%${term}%`,
+  ]).join(",");
+
+  try {
+    const { data, error } = await db()
+      .from("active_pharmacy_inventory")
+      .select(selectFields)
+      .or(orFilter)
+      .gt("quantity", 0)
+      .limit(120);
+    if (error) throw error;
+    return (data || []) as InventoryRow[];
+  } catch (viewError) {
+    console.warn("active_pharmacy_inventory unavailable, using clinic_inventory", viewError);
+    const fallbackOr = terms.map((term) => `med_name.ilike.%${term}%`).join(",");
+    const { data, error } = await db()
+      .from("clinic_inventory")
+      .select("clinic_name,med_name,quantity,price_bwp,location,directions_link,category,strength,dosage_form")
+      .or(fallbackOr)
+      .gt("quantity", 0)
+      .neq("clinic_name", "ChekaMeds Admin")
+      .limit(120);
+    if (error) throw error;
+    return (data || []) as InventoryRow[];
+  }
+}
+
+async function searchMedicine(rawTerm: string, from: string) {
+  const key = normalize(rawTerm);
+  const cached = searchCache.get(key);
+  if (cached && Date.now() - cached.ts < SEARCH_TTL_MS) return cached;
+
+  const aliases = await fetchAliases(key);
+  const terms = unique([key, ...aliases.map((a) => a.alias), ...aliases.map((a) => a.canonical_name)]);
+  const rows = await runInventorySearch(terms);
+
+  const deduped = new Map<string, InventoryRow & { score: number }>();
+  for (const row of rows) {
+    const item = { ...row, score: scoreItem(row, terms) };
+    const dedupeKey = `${row.clinic_name}|${row.med_name}|${row.strength || ""}`.toLowerCase();
+    const existing = deduped.get(dedupeKey);
+    if (!existing || item.score > existing.score || Number(item.quantity) > Number(existing.quantity)) deduped.set(dedupeKey, item);
+  }
+
+  const data = Array.from(deduped.values()).sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    const ap = a.price_bwp != null ? Number(a.price_bwp) : Infinity;
+    const bp = b.price_bwp != null ? Number(b.price_bwp) : Infinity;
+    if (ap !== bp) return ap - bp;
+    return Number(b.quantity) - Number(a.quantity);
+  });
+
+  if (data.length === 0) await logFailedSearch(rawTerm, from);
+  const result = { data, terms, ts: Date.now() };
+  searchCache.set(key, result);
   if (searchCache.size > 200) searchCache.delete(searchCache.keys().next().value);
-  return rows;
+  return result;
 }
 
-async function processQuery(message: string, from: string = ''): Promise<string> {
-  const msg = message.toLowerCase().trim();
+function formatSearchResults(rows: InventoryRow[], originalQuery: string, terms: string[], from: string) {
+  const byClinic: Record<string, InventoryRow> = {};
+  for (const row of rows) {
+    const existing = byClinic[row.clinic_name];
+    if (!existing) byClinic[row.clinic_name] = row;
+    else {
+      const currentPrice = row.price_bwp != null ? Number(row.price_bwp) : Infinity;
+      const oldPrice = existing.price_bwp != null ? Number(existing.price_bwp) : Infinity;
+      if (currentPrice < oldPrice || Number(row.quantity) > Number(existing.quantity)) byClinic[row.clinic_name] = row;
+    }
+  }
+
+  const options = Object.values(byClinic).slice(0, 5);
+  const bestName = options[0]?.med_name || originalQuery;
+  const sessionOptions: SessionOption[] = options.map((p) => ({
+    clinic_name: p.clinic_name,
+    location: p.location || null,
+    price_bwp: p.price_bwp != null ? Number(p.price_bwp) : null,
+    quantity: Number(p.quantity),
+    med_name: p.med_name,
+    directions_link: p.directions_link || null,
+  }));
+
+  const aliasTerms = terms.filter((t) => t !== normalize(originalQuery)).slice(0, 2);
+  let reply = `💊 *ChekaMeds Results*\n`;
+  if (aliasTerms.length > 0) reply += `_Also searched: ${aliasTerms.join(", ")}_\n`;
+  reply += `\n✅ *${bestName}* found at ${options.length} facilit${options.length === 1 ? "y" : "ies"}\n\n`;
+
+  const num = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"];
+  options.slice(0, 5).forEach((p, idx) => {
+    const priceLine = p.price_bwp != null ? `P${Number(p.price_bwp).toFixed(2)}` : "Price not available";
+    const stock = Number(p.quantity) < 20 ? "Limited stock" : "In stock";
+    reply += `${num[idx]} *${p.clinic_name}*\n`;
+    if (p.location) reply += `📍 ${p.location}\n`;
+    reply += `💰 ${priceLine}\n`;
+    reply += `📦 ${stock}\n`;
+    const directions = getDirectionsLink(p);
+    if (directions) reply += `🗺️ ${directions}\n`;
+    reply += `\n`;
+  });
+
+  reply += `👉 Reply *1-${Math.min(options.length, 5)}* to choose\n`;
+  reply += `👉 Reply *PAY* after choosing\n\n`;
+  reply += `⚠️ ChekaMeds helps you find listed stock. It does not diagnose. Please consult a pharmacist or healthcare professional.`;
+
+  setSession(from, { medicine: bestName, options: sessionOptions.slice(0, 5) });
+  return reply;
+}
+
+async function processQuery(message: string, from = ""): Promise<string> {
+  const msg = normalize(message);
   const lang = getLang(from);
-
-  // Language switching
-  if (/^setswana$/.test(msg)) {
-    userLanguages[from] = 'tn';
-    return tn.lang_switch;
-  }
-  if (/^english$/.test(msg)) {
-    userLanguages[from] = 'en';
-    return tn.lang_en;
-  }
-
-  // Greeting
-  if (/^(hi|hello|hey|dumelang|dumela|thobela|lotsha)/.test(msg)) {
-    if (lang === 'tn') return tn.greeting;
-    return `🏥 *ChekaMeds — Medicine Stock Checker*\n\nDumelang! 👋 I can help you check medicine availability.\n\nSend me:\n📍 A clinic name (e.g. "Princess Marina")\n💊 A medicine name (e.g. "Metformin")\n📊 "status" for a full summary\n🆘 "critical" for urgent shortages\n💊 "prescription: Med1, Med2" to find a clinic with all meds\n🇧🇼 "setswana" to switch language`;
-  }
-
-  // ===== Session-based selection / payment handlers (must run BEFORE inventory fetch) =====
   const session = await getSession(from);
 
-  // PAY flow
-  if (/^pay$/i.test(msg)) {
+  if (/^setswana$/.test(msg)) {
+    userLanguages[from] = "tn";
+    return "🇧🇼 Puo e fetoletswe go Setswana! Romela molaetsa ope.";
+  }
+  if (/^english$/.test(msg)) {
+    userLanguages[from] = "en";
+    return "🇬🇧 Language switched to English. Send any medicine or health need.";
+  }
+
+  if (/^(hi|hello|hey|dumelang|dumela|thobela|lotsha|help)$/.test(msg)) {
+    return `🏥 *ChekaMeds Botswana*\n\nFind medicines and health essentials faster.\n\nTry searching:\n💊 Panado / Paracetamol\n🤧 Flu\n🤕 Headache\n🩹 Wound care / Cuts\n🔥 Burn care\n🩺 BP tablets\n\nWhatsApp line: *+267 71 424 486*\nWebsite: https://chekameds.co.bw\n\n⚠️ We help you find listed stock. We do not diagnose.`;
+  }
+
+  if (/^pay$/.test(msg)) {
     if (session?.selected) {
       const s = session.selected;
-      const priceLine = s.price_bwp != null ? `P${Number(s.price_bwp).toFixed(2)}` : 'price on request';
-      const directionsLink = getDirectionsLink(s);
-      return `💳 Preparing your payment request...\n\n💊 ${s.med_name}\n📍 ${s.clinic_name}\n🗺️ *Directions*: ${directionsLink}\n💰 ${priceLine}\n\nWe'll send your ChekaPay link shortly.`;
+      const priceLine = s.price_bwp != null ? `P${Number(s.price_bwp).toFixed(2)}` : "price on request";
+      return `💳 *Payment / Collection Request*\n\n💊 ${s.med_name}\n📍 ${s.clinic_name}\n💰 ${priceLine}\n🗺️ ${getDirectionsLink(s)}\n\nOnline payment activation is in progress. For now, please visit the pharmacy or contact support for collection confirmation.\n\nChekaMeds Botswana`;
     }
-    return `💳 Please search for a medicine first, then choose a pharmacy before replying PAY.`;
+    return "Please search for a medicine first, choose a pharmacy by replying with a number, then reply PAY.";
   }
 
-  // Numeric option selection (1/2/3)
-  if (/^[1-9]$/.test(msg) && session?.options?.length) {
+  if (/^[1-5]$/.test(msg) && session?.options?.length) {
     const idx = parseInt(msg, 10) - 1;
-    if (idx < 0 || idx >= session.options.length) {
-      return `❌ Invalid selection.\n\nPlease reply with:\n${session.options.map((_, i) => i + 1).join(' or ')}`;
-    }
+    if (idx < 0 || idx >= session.options.length) return `Invalid selection. Reply with 1-${session.options.length}.`;
     const choice = session.options[idx];
     await setSession(from, { medicine: session.medicine, options: session.options, selected: choice });
-    const priceLine = choice.price_bwp != null ? `P${Number(choice.price_bwp).toFixed(2)}` : 'Price not available';
-    const directionsLink = getDirectionsLink(choice);
-    return `✅ You selected *${choice.clinic_name}*\n\n💊 ${choice.med_name}\n💰 Price: *${priceLine}*\n🗺️ *Directions*: ${directionsLink}\n\n👉 Reply *PAY* to continue`;
+    const priceLine = choice.price_bwp != null ? `P${Number(choice.price_bwp).toFixed(2)}` : "Price not available";
+    return `✅ *Selected*\n\n💊 ${choice.med_name}\n📍 ${choice.clinic_name}\n${choice.location ? `📌 ${choice.location}\n` : ""}💰 ${priceLine}\n📦 ${Number(choice.quantity) < 20 ? "Limited stock" : "In stock"}\n🗺️ ${getDirectionsLink(choice)}\n\n👉 Reply *PAY* to continue.`;
   }
 
-  // Lazy-load full inventory only for aggregate queries below
-  const needsFullInventory = /^prescription[:\s]|critical|urgent|shortage|emergency|low|tlhaelo|status|summary|overview|report|kakaretso/.test(msg);
-  const inventoryData: any[] = needsFullInventory ? await getInventoryData() : [];
-
-  // Prescription matching
-  if (/^prescription[:\s]/.test(msg)) {
-    const rxPart = msg.replace(/^prescription[:\s]+/, '');
-    const medicines = rxPart.split(/[,;]+/).map(m => m.trim()).filter(Boolean);
-    
-    if (medicines.length === 0) {
-      return lang === 'tn' 
-        ? '💊 Romela lenaane la ditlhare: "prescription: Metformin, Paracetamol"'
-        : '💊 Send your list like: "prescription: Metformin, Paracetamol"';
-    }
-
-    // Group inventory by clinic
-    const clinicMap: Record<string, any[]> = {};
-    inventoryData.forEach((item: any) => {
-      if (!clinicMap[item.clinic_name]) clinicMap[item.clinic_name] = [];
-      clinicMap[item.clinic_name].push(item);
-    });
-
-    const results: { clinic: string; matched: string[]; missing: string[]; pct: number }[] = [];
-    
-    for (const [clinic, meds] of Object.entries(clinicMap)) {
-      const matched: string[] = [];
-      const missing: string[] = [];
-      medicines.forEach(rx => {
-        const found = meds.some(m => m.med_name.toLowerCase().includes(rx) && m.quantity > 0);
-        if (found) matched.push(rx);
-        else missing.push(rx);
-      });
-      if (matched.length > 0) {
-        results.push({ clinic, matched, missing, pct: Math.round((matched.length / medicines.length) * 100) });
-      }
-    }
-
-    results.sort((a, b) => b.pct - a.pct);
-
-    if (results.length === 0) {
-      return lang === 'tn'
-        ? '😞 Ga go na kliniiki e e nang le ditlhare tseo.'
-        : '😞 No clinic has any of those medicines in stock right now.';
-    }
-
-    let reply = lang === 'tn' ? `${tn.prescription_header}\n\n` : `💊 *Prescription Matching Results*\n\n`;
-    reply += `🔍 Searched: ${medicines.join(', ')}\n\n`;
-
-    results.slice(0, 5).forEach(r => {
-      const icon = r.pct === 100 ? '✅' : '⚠️';
-      reply += `${icon} *${r.clinic}* — ${r.pct}% match\n`;
-      reply += `  ✓ Has: ${r.matched.join(', ')}\n`;
-      if (r.missing.length > 0) reply += `  ✗ Missing: ${r.missing.join(', ')}\n`;
-      reply += `\n`;
-    });
-
-    const fullMatch = results.find(r => r.pct === 100);
-    if (fullMatch) {
-      reply += `🎯 *Best option: ${fullMatch.clinic}* has ALL your medicines!`;
-    } else {
-      reply += `⚠️ No single clinic has everything. ${results[0].clinic} is the closest match.`;
-    }
-
-    return reply;
+  if (/^status|summary|overview|report$/.test(msg)) {
+    const { count } = await db().from("clinic_inventory").select("*", { count: "exact", head: true });
+    return `📊 *ChekaMeds Status*\n\n💊 Inventory records: ${count || 0}\n🌐 Website: https://chekameds.co.bw\n📱 WhatsApp: +267 71 424 486\n\nSearch any medicine or health need to continue.`;
   }
 
-  // Critical shortages
-  if (/critical|urgent|shortage|emergency|low|tlhaelo/.test(msg)) {
-    const critical = inventoryData.filter((i: any) => i.quantity < 20).sort((a: any, b: any) => a.quantity - b.quantity);
-    if (critical.length === 0) return lang === 'tn' ? tn.no_critical : "✅ No critical shortages right now! All clinics are well-stocked.";
-    let reply = lang === 'tn' 
-      ? `${tn.critical_header} (${critical.length})*\n\n`
-      : `🚨 *CRITICAL SHORTAGES (${critical.length} items)*\n\n`;
-    critical.forEach((item: any) => {
-      reply += `⚠️ *${item.med_name}* — ${item.quantity} units\n   📍 ${item.clinic_name}\n\n`;
-    });
-    reply += lang === 'tn' ? `_Data ya sebele go tswa mo database_` : `_Updated in real-time from database_`;
-    return reply;
-  }
+  const { data, terms } = await searchMedicine(message, from);
+  if (data.length > 0) return formatSearchResults(data, message, terms, from);
 
-  // Full status
-  if (/status|summary|overview|report|kakaretso/.test(msg)) {
-    const total = inventoryData.length;
-    const critical = inventoryData.filter((i: any) => i.quantity < 20).length;
-    const healthy = inventoryData.filter((i: any) => i.quantity >= 100).length;
-    const depleting = inventoryData.filter((i: any) => i.trend === 'Depleting Fast').length;
-    
-    if (lang === 'tn') {
-      return `${tn.status_header}*\n\n💊 Ditlhare tse di latedisiwang: ${total}\n✅ Setoko se se siameng (100+): ${healthy}\n⚠️ Tlhaelo e kgolo (<20): ${critical}\n📉 Di a fela ka bonako: ${depleting}\n\n_Romela leina la kliniiki kgotsa setlhare go bona dintlha._`;
-    }
-    return `📊 *ChekaMeds Stock Summary*\n\n💊 Medicines tracked: ${total}\n✅ Healthy stock (100+): ${healthy}\n⚠️ Critical (<20 units): ${critical}\n📉 Depleting fast: ${depleting}\n\n_Send a clinic or medicine name for details._`;
-  }
-
-  // Product search — targeted, cached query (no full-table scan, no AI)
-  const medMatchesRaw = await searchMedicine(msg);
-
-  if (medMatchesRaw.length > 0) {
-    const inStock = medMatchesRaw.filter((i: any) => Number(i.quantity) > 0);
-    const sortByPrice = (a: any, b: any) => {
-      const ap = a.price_bwp != null ? Number(a.price_bwp) : Infinity;
-      const bp = b.price_bwp != null ? Number(b.price_bwp) : Infinity;
-      if (ap !== bp) return ap - bp;
-      return Number(b.quantity) - Number(a.quantity);
-    };
-
-    // Dedupe by pharmacy/clinic — keep best record per pharmacy
-    const byPharmacy: Record<string, any> = {};
-    (inStock.length > 0 ? inStock : medMatchesRaw)
-      .sort(sortByPrice)
-      .forEach((it: any) => {
-        if (!byPharmacy[it.clinic_name]) byPharmacy[it.clinic_name] = it;
-      });
-    const unique = Object.values(byPharmacy);
-
-    const name = unique[0].med_name;
-
-    // Out of stock — suggest nearest alternative if any
-    if (inStock.length === 0) {
-      return `❌ ${name} is out of stock\n\nReply ALT for alternatives or NOTIFY for updates`;
-    }
-
-    // Build session options for selection
-    const sessionOptions: SessionOption[] = unique.slice(0, 5).map((p: any) => ({
-      clinic_name: p.clinic_name,
-      location: p.location || null,
-      price_bwp: p.price_bwp != null ? Number(p.price_bwp) : null,
-      quantity: Number(p.quantity),
-      med_name: name,
-      directions_link: p.directions_link || null,
-    }));
-
-    // Multiple pharmacies have it
-    if (unique.length > 1) {
-      const top = sessionOptions.slice(0, 3);
-      const numEmoji = ['1️⃣', '2️⃣', '3️⃣'];
-      let reply = `✅ *${name}* is available at multiple pharmacies\n\n`;
-      top.forEach((p, idx) => {
-        const priceLine = p.price_bwp != null ? `*P${p.price_bwp.toFixed(2)}*` : '*Price not available*';
-        const dirLink = getDirectionsLink(p);
-        reply += `${numEmoji[idx]} *${p.clinic_name}*\n`;
-        reply += `💊 Price: ${priceLine}\n`;
-        reply += `🗺️ *Directions*: ${dirLink}\n\n`;
-      });
-      reply += `👉 Reply *${top.map((_, i) => i + 1).join('* or *')}* to choose a pharmacy\n`;
-      reply += `👉 Reply *PAY* to order immediately`;
-      await setSession(from, { medicine: name, options: top });
-      return reply;
-    }
-
-    // Single pharmacy
-    const best = unique[0];
-    const qty = Number(best.quantity);
-    const priceLine = best.price_bwp != null
-      ? `💊 Price: *P${Number(best.price_bwp).toFixed(2)}*`
-      : `💊 Price not available`;
-    const header = qty < 20
-      ? `⚠️ *${name}* is available (Limited stock)`
-      : `✅ *${name}* is available`;
-    const directionsLink = getDirectionsLink(best);
-    let reply = `${header}\n${priceLine}\n📦 Status: ${qty < 20 ? 'Low Stock' : 'In Stock'}`;
-    if (best.clinic_name) reply += `\n📍 Pharmacy: *${best.clinic_name}*`;
-    reply += `\n🗺️ *Directions*: ${directionsLink}`;
-    reply += `\n\n👉 Reply *1* to reserve\n👉 Reply *PAY* to order`;
-    await setSession(from, { medicine: name, options: [sessionOptions[0]], selected: sessionOptions[0] });
-    return reply;
-  }
-
-  // Search by clinic name (targeted query)
-  const { data: clinicRows } = await cachedSupabase()
-    .from('clinic_inventory')
-    .select('clinic_name,med_name,quantity,directions_link')
-    .ilike('clinic_name', `%${msg}%`)
-    .gt('quantity', 0)
-    .neq('clinic_name', 'ChekaMeds Admin')
-    .limit(15);
-  const clinicMatches = clinicRows || [];
-  if (clinicMatches.length > 0) {
-    const clinicName = clinicMatches[0].clinic_name;
-    const stockLabel = (q: number) => q > 100 ? 'In Stock' : q >= 20 ? 'Low Stock' : 'Limited';
-    let reply = `📍 *${clinicName}*\n\n`;
-    clinicMatches.slice(0, 15).forEach((item: any) => {
-      reply += `💊 ${item.med_name} — 📦 ${stockLabel(Number(item.quantity))}\n`;
-    });
-    reply += `\nReply with another medicine to search again.`;
-    return reply;
-  }
-
-  if (lang === 'tn') {
-    return `❌ Setlhare ga se a bonwa. Tlhola mokwalo kgotsa leka leina le lengwe.`;
-  }
-  return `❌ Medicine not found. Please check spelling or try another name`;
+  return lang === "tn"
+    ? "❌ Ga re a bona se o se batlang. Leka leina le lengwe kgotsa botsa mo pharmacy."
+    : `❌ No listed stock found for "${message}".\n\nTry a brand name, generic name, or simple wording like:\n• headache\n• flu\n• wound care\n• BP tablets\n\n⚠️ If symptoms are serious, please consult a healthcare professional.`;
 }
 
 async function sendWhatsAppReply(to: string, message: string) {
-  const instanceId = Deno.env.get('ULTRAMSG_INSTANCE_ID');
-  const token = Deno.env.get('ULTRAMSG_TOKEN');
+  const instanceId = Deno.env.get("ULTRAMSG_INSTANCE_ID");
+  const token = Deno.env.get("ULTRAMSG_TOKEN");
+  if (!instanceId) throw new Error("ULTRAMSG_INSTANCE_ID is not configured");
+  if (!token) throw new Error("ULTRAMSG_TOKEN is not configured");
 
-  if (!instanceId) throw new Error('ULTRAMSG_INSTANCE_ID is not configured');
-  if (!token) throw new Error('ULTRAMSG_TOKEN is not configured');
-
-  const url = `https://api.ultramsg.com/${instanceId}/messages/chat`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const response = await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token, to, body: message }),
   });
-
   const data = await response.json();
-  if (!response.ok) {
-    throw new Error(`UltraMsg API failed [${response.status}]: ${JSON.stringify(data)}`);
-  }
+  if (!response.ok) throw new Error(`UltraMsg API failed [${response.status}]: ${JSON.stringify(data)}`);
   return data;
 }
 
@@ -380,151 +332,74 @@ async function logWebhook(entry: {
   raw_payload?: unknown;
 }) {
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-    await supabase.from('whatsapp_webhook_logs').insert(entry);
-  } catch (e) {
-    console.error('Failed to log webhook:', e);
+    await db().from("whatsapp_webhook_logs").insert(entry);
+  } catch (error) {
+    console.error("Failed to log webhook", error);
   }
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const url = new URL(req.url);
-  const isTest = url.searchParams.get('test') === 'true';
+  const isTest = url.searchParams.get("test") === "true";
 
   try {
-    if (req.method === 'POST') {
-      const contentType = req.headers.get('content-type') || '';
-      let body: Record<string, string> = {};
-      let rawText = '';
-
-      if (contentType.includes('application/x-www-form-urlencoded')) {
-        rawText = await req.text();
-        const params = new URLSearchParams(rawText);
-        body = Object.fromEntries(params.entries());
-      } else {
-        try {
-          rawText = await req.text();
-          body = rawText ? JSON.parse(rawText) : {};
-        } catch {
-          body = {};
-        }
-      }
-
-      // UltraMsg webhook sends flat structure directly at root
-      const from = (body.from || "").toString().replace('@c.us', '');
-      const messageBody = (body.body || "").toString();
-      const source = isTest ? 'test' : 'incoming';
-
-      console.log('Incoming WhatsApp message:', { from, messageBody, isTest });
-
-      if (!from || !messageBody) {
-        await logWebhook({
-          source,
-          from_number: from,
-          message_body: messageBody,
-          response_status: 200,
-          error_message: 'no_message: missing from or body',
-          raw_payload: body,
-        });
-        return new Response(JSON.stringify({ status: 'no_message' }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // Race the query against a 1s timer — if slow, send an interim "checking..." ping.
-      const queryPromise = processQuery(messageBody, from);
-      let interimSent = false;
-      if (!isTest) {
-        const interimTimer = setTimeout(() => {
-          interimSent = true;
-          sendWhatsAppReply(from, '🔎 Checking nearby pharmacies...').catch(
-            (e) => console.error('interim send failed', e)
-          );
-        }, 1000);
-        queryPromise.finally(() => clearTimeout(interimTimer));
-      }
-      const reply = await queryPromise;
-
-      let sendError: string | undefined;
-      if (!isTest) {
-        try {
-          await sendWhatsAppReply(from, reply);
-        } catch (e) {
-          sendError = e instanceof Error ? e.message : String(e);
-        }
-      }
-
-      await logWebhook({
-        source,
-        from_number: from,
-        message_body: messageBody,
-        reply_text: reply,
-        response_status: sendError ? 500 : 200,
-        error_message: sendError,
-        raw_payload: body,
-      });
-
-      if (sendError) {
-        return new Response(JSON.stringify({ error: sendError, reply }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      return new Response(JSON.stringify({ status: isTest ? 'tested' : 'replied', to: from, reply }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (req.method === 'GET') {
-      const query = url.searchParams.get('query');
+    if (req.method === "GET") {
+      const query = url.searchParams.get("query");
       if (query) {
-        const reply = await processQuery(query);
-        await logWebhook({
-          source: 'test',
-          from_number: 'GET',
-          message_body: query,
-          reply_text: reply,
-          response_status: 200,
-        });
-        return new Response(JSON.stringify({ reply }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        const reply = await processQuery(query, "GET");
+        return new Response(JSON.stringify({ reply }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      return new Response(JSON.stringify({ status: 'ok', message: 'ChekaMeds WhatsApp Webhook is active' }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(JSON.stringify({ status: "ok", message: "ChekaMeds WhatsApp webhook active" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    if (req.method !== "POST") {
+      return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const contentType = req.headers.get("content-type") || "";
+    let body: Record<string, string> = {};
+    let rawText = "";
+
+    if (contentType.includes("application/x-www-form-urlencoded")) {
+      rawText = await req.text();
+      body = Object.fromEntries(new URLSearchParams(rawText).entries());
+    } else {
+      rawText = await req.text();
+      body = rawText ? JSON.parse(rawText) : {};
+    }
+
+    const from = (body.from || "").toString().replace("@c.us", "");
+    const messageBody = (body.body || "").toString();
+    const source = isTest ? "test" : "incoming";
+
+    if (!from || !messageBody) {
+      await logWebhook({ source, from_number: from, message_body: messageBody, response_status: 200, error_message: "no_message", raw_payload: body });
+      return new Response(JSON.stringify({ status: "no_message" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const reply = await processQuery(messageBody, from);
+    let sendError: string | undefined;
+
+    if (!isTest) {
+      try {
+        await sendWhatsAppReply(from, reply);
+      } catch (error) {
+        sendError = error instanceof Error ? error.message : String(error);
+      }
+    }
+
+    await logWebhook({ source, from_number: from, message_body: messageBody, reply_text: reply, response_status: sendError ? 500 : 200, error_message: sendError, raw_payload: body });
+
+    if (sendError) {
+      return new Response(JSON.stringify({ error: sendError, reply }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    return new Response(JSON.stringify({ status: isTest ? "tested" : "replied", to: from, reply }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
-    console.error('WhatsApp webhook error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    await logWebhook({
-      source: isTest ? 'test' : 'incoming',
-      response_status: 500,
-      error_message: errorMessage,
-    });
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-});
-    });
+    console.error("WhatsApp webhook error", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    await logWebhook({ source: isTest ? "test" : "incoming", response_status: 500, error_message: errorMessage });
+    return new Response(JSON.stringify({ error: errorMessage }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
