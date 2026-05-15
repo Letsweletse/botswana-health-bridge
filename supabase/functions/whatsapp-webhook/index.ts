@@ -202,8 +202,9 @@ serve(async (req) => {
     let body: any = {};
     try { body = req.headers.get("content-type")?.includes("x-www-form-urlencoded") ? Object.fromEntries(new URLSearchParams(raw).entries()) : JSON.parse(raw || "{}"); } catch { body = {}; }
 
-    const from = cleanPhone(String(body.from || body.sender || body.author || body.chatId || ""));
-    const messageBody = String(body.body || body.message || body.text || "");
+    const payload = body?.data && typeof body.data === "object" ? body.data : body;
+    const from = cleanPhone(String(payload.from || payload.sender || payload.author || payload.chatId || ""));
+    const messageBody = String(payload.body || payload.message || payload.text || "");
 
     if (!from || !messageBody) {
       await logWebhook({ source: isTest ? "test" : "incoming", from_number: from, message_body: messageBody, response_status: 200, error_message: "no_message", raw_payload: body });
