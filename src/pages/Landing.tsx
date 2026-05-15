@@ -11,12 +11,19 @@ const Landing = () => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [clinicName, setClinicName] = useState('');
+  const [publicSearch, setPublicSearch] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const signupLockRef = useRef(false);
   const navigate = useNavigate();
+
+  const handlePublicSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = publicSearch.trim();
+    navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
+  };
 
   const handleForgotPassword = async () => {
     if (!email.trim()) {
@@ -103,12 +110,12 @@ const Landing = () => {
           <Link to="/" className="flex items-center gap-2.5">
             <img src={logo} alt="ChekaMeds" className="h-8 w-auto object-contain" />
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <Link
               to="/search"
-              className="hidden sm:inline-flex items-center gap-1.5 text-[13px] font-medium text-white/50 hover:text-white transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-4 py-2 text-[13px] font-semibold text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors"
             >
-              <Search className="h-3.5 w-3.5" /> Find Medicine
+              <Search className="h-3.5 w-3.5" /> Search Medicine
             </Link>
           </div>
         </div>
@@ -126,6 +133,32 @@ const Landing = () => {
           <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#020e08] to-transparent" />
         </div>
       </div>
+
+      {/* Public search callout — keeps hero image untouched */}
+      <section className="relative z-20 max-w-4xl mx-auto px-6 lg:px-12 -mt-8 sm:-mt-12">
+        <div className="bg-[#0a1f18]/95 backdrop-blur-xl border border-emerald-500/25 p-5 sm:p-6 shadow-2xl shadow-black/40">
+          <div className="flex items-center gap-2 mb-3">
+            <Search className="h-4 w-4 text-emerald-400" />
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">Find medicine now</p>
+          </div>
+          <form onSubmit={handlePublicSearch} className="flex flex-col sm:flex-row gap-3">
+            <input
+              type="text"
+              value={publicSearch}
+              onChange={(e) => setPublicSearch(e.target.value)}
+              placeholder="Search Panado, Paracetamol, Flu, Cough..."
+              className="min-h-[48px] flex-1 px-4 text-base bg-white text-slate-950 placeholder:text-slate-500 border border-white/20 focus:outline-none focus:border-emerald-400"
+            />
+            <button
+              type="submit"
+              className="min-h-[48px] px-6 bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
+            >
+              Search <ArrowRight className="h-4 w-4" />
+            </button>
+          </form>
+          <p className="mt-3 text-xs text-white/40">No login needed. Patients can search listed stock directly.</p>
+        </div>
+      </section>
 
       {/* ─── Content below the image ─── */}
       <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 py-16 lg:py-24">
