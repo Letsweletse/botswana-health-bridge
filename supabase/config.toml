@@ -1,4 +1,4 @@
-project_id = "vhwuybxljszhgbgtnjiq"
+project_id = "kcgsxxwgzrmsnnxvpkvi"
 
 [functions.whatsapp-webhook]
 verify_jwt = false
@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.notify-facility-registration]
 verify_jwt = false
+
+[functions.chekapay-webhook]
+verify_jwt = false
+
+[functions.admin-sync-users]
+verify_jwt = true

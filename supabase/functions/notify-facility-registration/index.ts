@@ -55,14 +55,14 @@ Deno.serve(async (req) => {
           <h1 style="margin:0;font-size:22px;color:#0f172a">ChekaMeds — New Facility Registered</h1>
           <p style="margin:6px 0 0;color:#64748b;font-size:13px">National Medicine Stock Dashboard · Botswana</p>
         </div>
-        <p style="font-size:14px;line-height:1.6">A new health facility has just registered on ChekaMeds and has been auto-approved for access.</p>
+        <p style="font-size:14px;line-height:1.6">A new health facility has just registered on ChekaMeds and is awaiting admin approval.</p>
         <table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px">
           <tr><td style="padding:10px;background:#f1f5f9;font-weight:600;width:40%">Facility Name</td><td style="padding:10px;background:#f8fafc">${safeClinicName}</td></tr>
           <tr><td style="padding:10px;background:#f1f5f9;font-weight:600">Contact Person</td><td style="padding:10px;background:#f8fafc">${safeFullName}</td></tr>
           <tr><td style="padding:10px;background:#f1f5f9;font-weight:600">Email</td><td style="padding:10px;background:#f8fafc">${safeEmail}</td></tr>
           <tr><td style="padding:10px;background:#f1f5f9;font-weight:600">Registered At</td><td style="padding:10px;background:#f8fafc">${registeredAt}</td></tr>
         </table>
-        <p style="font-size:13px;color:#64748b;line-height:1.6">The facility can now sign in and begin uploading inventory items. No further action is required unless you wish to revoke access.</p>
+        <p style="font-size:13px;color:#64748b;line-height:1.6">Please review the facility in the admin dashboard, then approve, suspend, or keep it under review.</p>
         <p style="font-size:12px;color:#94a3b8;margin-top:32px;border-top:1px solid #e2e8f0;padding-top:16px">ChekaMeds · IBLIM Enterprise · Gaborone, Botswana</p>
       </div>
     `;
@@ -70,13 +70,13 @@ Deno.serve(async (req) => {
     const facilityHtml = `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#ffffff;color:#0f172a">
         <div style="border-bottom:2px solid #10b981;padding-bottom:16px;margin-bottom:24px">
-          <h1 style="margin:0;font-size:22px;color:#0f172a">Your ChekaMeds facility account is active</h1>
+          <h1 style="margin:0;font-size:22px;color:#0f172a">Your ChekaMeds facility registration is pending review</h1>
           <p style="margin:6px 0 0;color:#64748b;font-size:13px">National Medicine Stock Dashboard · Botswana</p>
         </div>
         <p style="font-size:14px;line-height:1.6">Dumela ${safeFullName},</p>
-        <p style="font-size:14px;line-height:1.6">Your facility <strong>${safeClinicName}</strong> has been registered and approved. You can now sign in and start uploading medicine inventory.</p>
+        <p style="font-size:14px;line-height:1.6">Your facility <strong>${safeClinicName}</strong> has been registered and is pending admin review. You will be able to upload medicine inventory after approval.</p>
         <div style="margin:22px 0;padding:16px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;font-size:14px;line-height:1.6">
-          Status: Approved<br />
+          Status: Pending admin review<br />
           Facility: ${safeClinicName}<br />
           Registered: ${registeredAt}
         </div>
@@ -90,16 +90,16 @@ Deno.serve(async (req) => {
         to: ADMIN_EMAIL,
         subject: `New Facility Registered: ${clinicName}`,
         html: adminHtml,
-        text: `New facility registered and auto-approved. Facility: ${clinicName}. Contact: ${fullName || '—'}. Email: ${email}. Registered: ${registeredAt}.`,
+        text: `New facility registered and pending admin approval. Facility: ${clinicName}. Contact: ${fullName || '—'}. Email: ${email}. Registered: ${registeredAt}.`,
         reply_to: email,
         role: 'admin',
         required: true,
       },
       {
         to: email,
-        subject: `ChekaMeds Facility Approved: ${clinicName}`,
+        subject: `ChekaMeds Facility Registration Received: ${clinicName}`,
         html: facilityHtml,
-        text: `Dumela ${fullName || ''}. Your ChekaMeds facility account for ${clinicName} is active and approved. You can now sign in and upload inventory.`,
+        text: `Dumela ${fullName || ''}. Your ChekaMeds facility account for ${clinicName} has been received and is pending admin review.`,
         reply_to: ADMIN_EMAIL,
         role: 'facility',
         required: false,

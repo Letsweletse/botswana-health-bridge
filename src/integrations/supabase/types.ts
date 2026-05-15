@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chekapay_webhook_events: {
+        Row: {
+          event_id: string
+          event_type: string
+          id: string
+          payload: Json
+          payment_id: string | null
+          received_at: string
+          status: string | null
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          id?: string
+          payload?: Json
+          payment_id?: string | null
+          received_at?: string
+          status?: string | null
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          payment_id?: string | null
+          received_at?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
       clinic_inventory: {
         Row: {
           atc_code: string | null
@@ -22,6 +73,7 @@ export type Database = {
           clinic_name: string
           contact: string | null
           dosage_form: string | null
+          directions_link: string | null
           facility_level: string | null
           id: string
           location: string | null
@@ -40,6 +92,7 @@ export type Database = {
           clinic_name: string
           contact?: string | null
           dosage_form?: string | null
+          directions_link?: string | null
           facility_level?: string | null
           id?: string
           location?: string | null
@@ -58,6 +111,7 @@ export type Database = {
           clinic_name?: string
           contact?: string | null
           dosage_form?: string | null
+          directions_link?: string | null
           facility_level?: string | null
           id?: string
           location?: string | null
@@ -68,6 +122,132 @@ export type Database = {
           strength?: string | null
           trend?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      pharmacies: {
+        Row: {
+          approved_at: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          directions_link: string | null
+          id: string
+          name: string
+          payment_required: boolean
+          profile_id: string | null
+          status: Database["public"]["Enums"]["pharmacy_status"]
+          subscription_status: Database["public"]["Enums"]["subscription_status"]
+          suspended_at: string | null
+          suspension_reason: string | null
+          updated_at: string
+          user_id: string | null
+          visible_in_search: boolean
+        }
+        Insert: {
+          approved_at?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          directions_link?: string | null
+          id?: string
+          name: string
+          payment_required?: boolean
+          profile_id?: string | null
+          status?: Database["public"]["Enums"]["pharmacy_status"]
+          subscription_status?: Database["public"]["Enums"]["subscription_status"]
+          suspended_at?: string | null
+          suspension_reason?: string | null
+          updated_at?: string
+          user_id?: string | null
+          visible_in_search?: boolean
+        }
+        Update: {
+          approved_at?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          directions_link?: string | null
+          id?: string
+          name?: string
+          payment_required?: boolean
+          profile_id?: string | null
+          status?: Database["public"]["Enums"]["pharmacy_status"]
+          subscription_status?: Database["public"]["Enums"]["subscription_status"]
+          suspended_at?: string | null
+          suspension_reason?: string | null
+          updated_at?: string
+          user_id?: string | null
+          visible_in_search?: boolean
+        }
+        Relationships: []
+      }
+      order_requests: {
+        Row: {
+          created_at: string
+          from_number: string | null
+          id: string
+          medicine: string
+          notes: string | null
+          payment_status: string
+          pharmacy_name: string
+          price_bwp: number | null
+          request_source: string
+          status: Database["public"]["Enums"]["order_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          from_number?: string | null
+          id?: string
+          medicine: string
+          notes?: string | null
+          payment_status?: string
+          pharmacy_name: string
+          price_bwp?: number | null
+          request_source?: string
+          status?: Database["public"]["Enums"]["order_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          from_number?: string | null
+          id?: string
+          medicine?: string
+          notes?: string | null
+          payment_status?: string
+          pharmacy_name?: string
+          price_bwp?: number | null
+          request_source?: string
+          status?: Database["public"]["Enums"]["order_request_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      failed_searches: {
+        Row: {
+          created_at: string
+          from_number: string | null
+          id: string
+          query: string
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          from_number?: string | null
+          id?: string
+          query: string
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          from_number?: string | null
+          id?: string
+          query?: string
+          source?: string
         }
         Relationships: []
       }
@@ -122,6 +302,7 @@ export type Database = {
       whatsapp_sessions: {
         Row: {
           from_number: string
+          language: string
           medicine: string | null
           options: Json
           selected: Json | null
@@ -129,6 +310,7 @@ export type Database = {
         }
         Insert: {
           from_number: string
+          language?: string
           medicine?: string | null
           options?: Json
           selected?: Json | null
@@ -136,6 +318,7 @@ export type Database = {
         }
         Update: {
           from_number?: string
+          language?: string
           medicine?: string | null
           options?: Json
           selected?: Json | null
@@ -181,7 +364,28 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      active_pharmacy_inventory: {
+        Row: {
+          atc_code: string | null
+          atc_description: string | null
+          category: string | null
+          clinic_name: string | null
+          contact: string | null
+          dosage_form: string | null
+          directions_link: string | null
+          facility_level: string | null
+          id: string | null
+          location: string | null
+          med_name: string | null
+          pack_size: string | null
+          price_bwp: number | null
+          quantity: number | null
+          strength: string | null
+          trend: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_user_clinic: { Args: { _user_id: string }; Returns: string }
@@ -195,6 +399,9 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "clinic_staff"
+      order_request_status: "pending" | "confirmed" | "collected" | "cancelled"
+      pharmacy_status: "pending" | "active" | "suspended"
+      subscription_status: "trial" | "active" | "overdue" | "frozen"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -323,6 +530,9 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "clinic_staff"],
+      order_request_status: ["pending", "confirmed", "collected", "cancelled"],
+      pharmacy_status: ["pending", "active", "suspended"],
+      subscription_status: ["trial", "active", "overdue", "frozen"],
     },
   },
 } as const

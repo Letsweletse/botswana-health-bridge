@@ -40,12 +40,11 @@ const SearchPage = () => {
     queryFn: async () => {
       if (!debouncedQuery || debouncedQuery.length < 2) return [];
       const { data, error } = await supabase
-        .from('clinic_inventory')
+        .from('active_pharmacy_inventory')
         .select('id, med_name, clinic_name, quantity, category, strength, dosage_form, pack_size, facility_level, price_bwp, updated_at')
         .ilike('med_name', `%${debouncedQuery}%`)
         .gt('quantity', 0)
-        .neq('clinic_name', 'ChekaMeds Admin')
-        .limit(100);
+                .limit(100);
       if (error) throw error;
       return data as InventoryItem[];
     },

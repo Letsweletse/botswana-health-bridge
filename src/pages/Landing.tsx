@@ -59,7 +59,7 @@ const Landing = () => {
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: {
           emailRedirectTo: window.location.origin,
@@ -67,14 +67,25 @@ const Landing = () => {
         },
       });
       if (error) throw error;
-      const { error: notifyError } = await supabase.functions.invoke('notify-facility-registration', {
-        body: { clinicName: clinicName.trim(), fullName: fullName.trim(), email: email.trim() },
-      });
-      if (notifyError) {
-        console.error('Registration notification email failed:', notifyError);
-        throw new Error(`Account created, but the admin notification email failed: ${notifyError.message}`);
+
+      // Notifications must never make a successful Auth registration look failed.
+      // The database trigger creates a pending profile/pharmacy row that admins can approve directly.
+      try {
+        const { error: notifyError } = await supabase.functions.invoke('notify-facility-registration', {
+          body: { clinicName: clinicName.trim(), fullName: fullName.trim(), email: email.trim() },
+        });
+        if (notifyError) {
+          console.error('Registration notification email failed, but account registration succeeded:', notifyError);
+        }
+      } catch (notifyError) {
+        console.error('Registration notification request failed, but account registration succeeded:', notifyError);
       }
+
       setConfirmed(true);
+      toast({
+        title: 'Registration received',
+        description: 'Your account is pending admin approval.',
+      });
     } catch (err: any) {
       toast({ title: 'Registration failed', description: err.message, variant: 'destructive' });
     } finally {
@@ -172,16 +183,16 @@ const Landing = () => {
                     </div>
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Account created!</h2>
+                    <h2 className="text-xl font-bold text-white">Registration received!</h2>
                     <p className="text-sm text-white/50 mt-2 leading-relaxed">
-                      Your facility is approved. A confirmation email has been sent, and you can sign in now.
+                      Registration received. Your account is pending admin approval. If email confirmation is enabled, confirm your email first, then sign in to see approval status.
                     </p>
                   </div>
                   <button
                     onClick={() => { setConfirmed(false); setIsSignUp(false); }}
                     className="w-full py-3 text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-all flex items-center justify-center gap-2"
                   >
-                    Sign in now <ArrowRight className="h-4 w-4" />
+                    Go to sign in <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
@@ -194,7 +205,7 @@ const Landing = () => {
                       {isSignUp ? 'Join ChekaMeds' : 'Welcome back'}
                     </h2>
                     <p className="text-sm text-white/40 mt-1 font-light">
-                      {isSignUp ? 'Register your clinic to manage stock in real time' : 'Sign in to access your facility dashboard'}
+                      {isSignUp ? 'Register your pharmacy or clinic for admin approval' : 'Sign in to access your facility dashboard'}
                     </p>
                   </div>
 
@@ -208,7 +219,7 @@ const Landing = () => {
                         <div className="space-y-1.5">
                           <label className="text-xs font-semibold text-white/60 tracking-wide">Clinic / Hospital name</label>
                           <input type="text" required value={clinicName} onChange={(e) => setClinicName(e.target.value)} placeholder="e.g. Princess Marina Hospital" className={inputClass} />
-                          <p className="text-[11px] text-white/20 px-1">Use your facility's official name.</p>
+                          <p className="text-[11px] text-white/20 px-1">Use your official facility name. An admin will approve it before it appears in search.</p>
                         </div>
                       </>
                     )}

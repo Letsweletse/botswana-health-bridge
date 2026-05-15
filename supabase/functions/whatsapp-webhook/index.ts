@@ -6,27 +6,47 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Language state per user session (in production, persist in DB)
-const userLanguages: Record<string, 'en' | 'tn'> = {};
-
-// Session memory persisted in DB so replies survive cold starts
-type SessionOption = { clinic_name: string; location: string | null; price_bwp: number | null; quantity: number; med_name: string; directions_link?: string | null };
-type Session = { medicine: string; options: SessionOption[]; selected?: SessionOption };
+// Session state persisted in DB so replies survive cold starts.
+type SessionOption = {
+  clinic_name: string;
+  location: string | null;
+  price_bwp: number | null;
+  quantity: number;
+  med_name: string;
+  directions_link?: string | null;
+  strength?: string | null;
+  dosage_form?: string | null;
+  pack_size?: string | null;
+  category?: string | null;
+};
+type Session = { medicine: string | null; options: SessionOption[]; selected?: SessionOption; language?: 'en' | 'tn' };
 
 function sessionClient() {
   return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 }
 
 async function setSession(from: string, s: Session) {
+  if (!from) return;
   try {
     await sessionClient().from('whatsapp_sessions').upsert({
       from_number: from,
       medicine: s.medicine,
       options: s.options as any,
       selected: (s.selected ?? null) as any,
+      language: s.language ?? 'en',
       updated_at: new Date().toISOString(),
     });
   } catch (e) { console.error('setSession error', e); }
+}
+
+async function updateSession(from: string, patch: Partial<Session>) {
+  const current = await getSession(from);
+  await setSession(from, {
+    medicine: patch.medicine ?? current?.medicine ?? null,
+    options: patch.options ?? current?.options ?? [],
+    selected: patch.selected ?? current?.selected,
+    language: patch.language ?? current?.language ?? 'en',
+  });
 }
 
 async function getSession(from: string): Promise<Session | undefined> {
@@ -35,12 +55,12 @@ async function getSession(from: string): Promise<Session | undefined> {
       .from('whatsapp_sessions').select('*').eq('from_number', from).maybeSingle();
     if (!data) return undefined;
     if (Date.now() - new Date(data.updated_at).getTime() > 30 * 60 * 1000) return undefined;
-    return { medicine: data.medicine, options: (data.options || []) as SessionOption[], selected: data.selected || undefined };
+    return { medicine: data.medicine, options: (data.options || []) as SessionOption[], selected: data.selected || undefined, language: data.language || 'en' };
   } catch { return undefined; }
 }
 
-function getLang(from: string): 'en' | 'tn' {
-  return userLanguages[from] || 'en';
+function getLang(session?: Session): 'en' | 'tn' {
+  return session?.language || 'en';
 }
 
 const tn: Record<string, string> = {
@@ -59,6 +79,7 @@ const tn: Record<string, string> = {
 // ===== Performance: in-memory caches (per warm instance) =====
 const INVENTORY_TTL_MS = 60_000;
 const SEARCH_TTL_MS = 60_000;
+const MAX_SEARCH_RESULTS = 5;
 let inventoryCache: { data: any[]; ts: number } | null = null;
 const searchCache = new Map<string, { data: any[]; ts: number }>();
 
@@ -66,15 +87,260 @@ function cachedSupabase() {
   return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 }
 
-// Helper function to get directions link
-function getDirectionsLink(pharmacy: { clinic_name: string; directions_link?: string | null; location?: string | null }): string {
-  if (pharmacy.directions_link && pharmacy.directions_link.trim() !== '') {
-    return pharmacy.directions_link;
+function cleanPhone(value: string): string {
+  return value.replace('@c.us', '').trim();
+}
+
+function isAllowedPharmacyName(name: string | null | undefined): boolean {
+  const normalized = (name || '').toLowerCase().trim();
+  if (!normalized || normalized.includes('gaborone community clinic')) return false;
+  return normalized.includes('south west pharma') || normalized === 'chekameds demo pharmacy';
+}
+
+function isValidLocation(location: string | null | undefined): boolean {
+  const normalized = (location || '').trim();
+  if (!normalized) return false;
+  return !/^(n\/?a|na|none|null|botswana)$/i.test(normalized);
+}
+
+function getDirectionsLink(pharmacy: { directions_link?: string | null }): string | null {
+  const configured = pharmacy.directions_link?.trim();
+  return configured && /^https?:\/\//i.test(configured) ? configured : null;
+}
+
+function formatPrice(price: number | null | undefined): string {
+  return price != null ? `P${Number(price).toFixed(2)}` : 'Available on request';
+}
+
+function formatAvailability(quantity: number | null | undefined): string {
+  return Number(quantity || 0) < 20 ? 'Low Stock' : 'In Stock';
+}
+
+function hasRealDirections(pharmacy: { directions_link?: string | null }): boolean {
+  return getDirectionsLink(pharmacy) !== null;
+}
+
+function isVisibleSearchRow(row: any): boolean {
+  if (!isAllowedPharmacyName(row?.clinic_name)) return false;
+  if (!String(row?.med_name || '').trim()) return false;
+  if ('approved' in row && row.approved === false) return false;
+  return Number(row?.quantity ?? 0) > 0;
+}
+
+function normalizeSearchText(value: string | null | undefined): string {
+  return (value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function medicineVariantLabel(item: any): string {
+  const parts = [item.med_name, item.strength, item.dosage_form, item.pack_size]
+    .map((part) => String(part || '').trim())
+    .filter(Boolean);
+  return Array.from(new Set(parts)).join(' ');
+}
+
+function variantContainsAllTokens(row: any, key: string): boolean {
+  const tokens = key.split(/\s+/).filter(Boolean);
+  const variant = normalizeSearchText(medicineVariantLabel(row));
+  return tokens.length > 0 && tokens.every((token) => variant.includes(token));
+}
+
+
+const medicineAliases: Record<string, string[]> = {
+  panado: ['paracetamol', 'acetaminophen'],
+  paracetamol: ['panado', 'acetaminophen'],
+  acetaminophen: ['paracetamol', 'panado'],
+  brufen: ['ibuprofen'],
+  ibuprofen: ['brufen'],
+  disprin: ['aspirin'],
+  aspirin: ['disprin'],
+  voltaren: ['diclofenac'],
+  diclofenac: ['voltaren'],
+  flagyl: ['metronidazole'],
+  metronidazole: ['flagyl'],
+  amoxil: ['amoxicillin'],
+  amoxicillin: ['amoxil'],
+  augmentin: ['amoxicillin clavulanate', 'co amoxiclav'],
+  ventolin: ['salbutamol'],
+  salbutamol: ['ventolin'],
+  zyrtec: ['cetirizine'],
+  cetirizine: ['zyrtec'],
+  claritin: ['loratadine'],
+  loratadine: ['claritin'],
+  imodium: ['loperamide'],
+  loperamide: ['imodium'],
+  ors: ['oral rehydration salts', 'oral rehydration'],
+};
+
+function expandedMedicineSearchTerms(key: string): string[] {
+  const terms = new Set<string>([key]);
+  key.split(/\s+/).filter((token) => token.length >= 3).forEach((token) => terms.add(token));
+  Object.entries(medicineAliases).forEach(([alias, matches]) => {
+    if (key.includes(alias)) matches.forEach((match) => terms.add(normalizeSearchText(match)));
+  });
+  return Array.from(terms).filter(Boolean).slice(0, 8);
+}
+
+function dedupeAndRank(rows: any[]): any[] {
+  const byPharmacyAndVariant = new Map<string, any>();
+  rows
+    .filter((row) => Number(row.quantity) > 0 && isVisibleSearchRow(row))
+    .sort(resultRank)
+    .forEach((row) => {
+      const key = [row.clinic_name, normalizeSearchText(medicineVariantLabel(row))].join('|');
+      if (!byPharmacyAndVariant.has(key)) byPharmacyAndVariant.set(key, row);
+    });
+  return Array.from(byPharmacyAndVariant.values()).sort(resultRank);
+}
+
+function resultRank(a: any, b: any): number {
+  const ae = a.__exact ? 1 : 0;
+  const be = b.__exact ? 1 : 0;
+  if (ae !== be) return be - ae;
+
+  const ad = hasRealDirections(a) ? 1 : 0;
+  const bd = hasRealDirections(b) ? 1 : 0;
+  if (ad !== bd) return bd - ad;
+
+  const al = isValidLocation(a.location) ? 1 : 0;
+  const bl = isValidLocation(b.location) ? 1 : 0;
+  if (al !== bl) return bl - al;
+
+  const ap = a.price_bwp != null ? Number(a.price_bwp) : Infinity;
+  const bp = b.price_bwp != null ? Number(b.price_bwp) : Infinity;
+  if (ap !== bp) return ap - bp;
+
+  return Number(b.quantity || 0) - Number(a.quantity || 0);
+}
+
+function formatPharmacyLine(option: { clinic_name: string; location?: string | null }): string {
+  return `📍 ${option.clinic_name}${isValidLocation(option.location) ? ` — ${String(option.location).trim()}` : ''}`;
+}
+
+function formatDirectionsBlock(option: { directions_link?: string | null }): string {
+  const link = getDirectionsLink(option);
+  return link ? `
+🗺️ Directions:
+${link}` : '';
+}
+
+function formatDirectionsInline(option: { directions_link?: string | null }): string {
+  const link = getDirectionsLink(option);
+  return link ? `
+🗺️ ${link}` : '';
+}
+
+function formatResultItem(option: SessionOption, index: number): string {
+  return `${index + 1}. *${option.med_name}*
+${formatPharmacyLine(option)}
+💰 Price: ${formatPrice(option.price_bwp)}
+📦 Availability: ${formatAvailability(option.quantity)}${formatDirectionsBlock(option)}`;
+}
+
+function helpReply(): string {
+  return `💊 *ChekaMeds Search*
+
+Send a medicine name, brand, or symptom.
+
+Examples:
+• Panado
+• Paracetamol
+• Flu symptoms
+• Headache
+
+ChekaMeds helps find listed stock. It does not diagnose.`;
+}
+
+function noResultReply(query: string): string {
+  return `No listed stock found for “${query.trim()}”.
+
+Try another spelling, brand name, or generic medicine.
+
+For urgent symptoms, please consult a pharmacist or healthcare professional.`;
+}
+
+function manualCollectionReply(selected: SessionOption): string {
+  return `✅ Reservation Request Received
+
+Selected Item:
+${selected.med_name}
+
+${formatPharmacyLine(selected)}${formatDirectionsInline(selected)}
+
+Please contact or visit the pharmacy for collection.
+
+💳 Online payment activation is coming soon with ChekaPay.`;
+}
+
+function buildSelectionReply(choice: SessionOption): string {
+  return `✅ Selected
+
+${choice.med_name}
+${formatPharmacyLine(choice)}
+💰 Price: ${formatPrice(choice.price_bwp)}
+📦 Availability: ${formatAvailability(choice.quantity)}${formatDirectionsBlock(choice)}
+
+Reply PAY to continue.`;
+}
+
+function buildMedicineSearchReply(_medicine: string, options: SessionOption[]): string {
+  let reply = `💊 *ChekaMeds Search Results*
+
+`;
+  reply += options.map((option, index) => formatResultItem(option, index)).join('
+
+');
+  reply += `
+
+Reply with the option number to continue.
+You may search another medicine at any time.`;
+  return reply;
+}
+
+function buildSymptomSearchReply(label: string, options: SessionOption[]): string {
+  let reply = `💊 *ChekaMeds Search Results*
+
+`;
+  reply += `For ${label}-related care, these listed items may be relevant:
+
+`;
+  reply += options.map((option, index) => formatResultItem(option, index)).join('
+
+');
+  reply += `
+
+Reply with the option number to continue.
+
+ChekaMeds helps find listed stock. It does not diagnose.`;
+  return reply;
+}
+
+async function recordOrderRequest(from: string, selected: SessionOption) {
+  try {
+    await cachedSupabase().from('order_requests').insert({
+      from_number: from || null,
+      pharmacy_name: selected.clinic_name,
+      medicine: selected.med_name,
+      price_bwp: selected.price_bwp,
+      payment_status: 'manual_collection_pending',
+      request_source: 'whatsapp',
+      notes: 'PAY fallback: ChekaPay online checkout not active',
+    });
+  } catch (e) {
+    console.error('recordOrderRequest error', e);
   }
-  if (pharmacy.location && pharmacy.location.trim() !== '' && pharmacy.location !== 'N/A') {
-    return `https://maps.google.com/?q=${encodeURIComponent(pharmacy.location + ', Botswana')}`;
+}
+
+async function recordFailedSearch(from: string, query: string) {
+  if (!query) return;
+  try {
+    await cachedSupabase().from('failed_searches').insert({
+      from_number: from || null,
+      query,
+      source: 'whatsapp',
+    });
+  } catch (e) {
+    console.error('recordFailedSearch error', e);
   }
-  return `https://maps.google.com/?q=${encodeURIComponent(pharmacy.clinic_name + ', Botswana')}`;
 }
 
 async function getInventoryData() {
@@ -82,44 +348,102 @@ async function getInventoryData() {
     return inventoryCache.data;
   }
   const { data, error } = await cachedSupabase()
-    .from('clinic_inventory')
-    .select('clinic_name,med_name,quantity,price_bwp,location,trend,category,directions_link')
+    .from('active_pharmacy_inventory')
+    .select('clinic_name,med_name,quantity,price_bwp,location,trend,category,directions_link,strength,dosage_form,pack_size')
     .order('clinic_name');
   if (error) { console.error('DB query error:', error); return []; }
-  inventoryCache = { data: data || [], ts: Date.now() };
+  inventoryCache = { data: (data || []).filter((row: any) => Number(row.quantity) > 0 && isVisibleSearchRow(row)), ts: Date.now() };
   return inventoryCache.data;
 }
 
-/** Fast targeted medicine search — only reads matching rows. */
+const symptomOtcMappings = [
+  { label: 'pain or fever', patterns: [/\b(headache|pain|ache|fever|temperature|migraine|toothache|period pain)\b/], categories: ['analgesic', 'pain', 'fever'], medicines: ['paracetamol', 'ibuprofen', 'aspirin'] },
+  { label: 'flu', patterns: [/\b(cough|flu|cold|blocked nose|runny nose|sore throat|congestion)\b/], categories: ['cough', 'cold', 'respiratory', 'antihistamine'], medicines: ['cough syrup', 'loratadine', 'cetirizine', 'saline'] },
+  { label: 'allergy', patterns: [/\b(allergy|allergies|hay fever|itchy|sneezing|rash)\b/], categories: ['antihistamine', 'allergy'], medicines: ['loratadine', 'cetirizine', 'chlorpheniramine'] },
+  { label: 'stomach symptoms', patterns: [/\b(stomach|heartburn|indigestion|diarrhoea|diarrhea|nausea|vomit|constipation)\b/], categories: ['gastrointestinal', 'antacid', 'anti diarrhoeal', 'laxative'], medicines: ['oral rehydration', 'loperamide', 'antacid', 'omeprazole'] },
+  { label: 'skin symptoms', patterns: [/\b(skin|rash|itch|burn|wound|cut|fungal|athlete)\b/], categories: ['dermatological', 'antifungal', 'antiseptic'], medicines: ['hydrocortisone', 'clotrimazole', 'antiseptic'] },
+];
+
+function symptomMappingFor(term: string) {
+  return symptomOtcMappings.find((mapping) => mapping.patterns.some((pattern) => pattern.test(term)));
+}
+
+function markExactMedicineMatches(rows: any[], terms: string[]): any[] {
+  return rows.map((row) => {
+    const med = normalizeSearchText(row.med_name);
+    const variant = normalizeSearchText(medicineVariantLabel(row));
+    const exact = terms.some((term) => {
+      const normalizedTerm = normalizeSearchText(term);
+      return med === normalizedTerm || variant === normalizedTerm || med.startsWith(`${normalizedTerm} `) || variantContainsAllTokens(row, normalizedTerm);
+    });
+    return { ...row, __exact: exact };
+  });
+}
+
+/** Fast targeted medicine search — exact inventory variants first, then close medicine-name matches. */
 async function searchMedicine(term: string) {
-  const key = term.toLowerCase().trim();
-  const hit = searchCache.get(key);
+  const key = normalizeSearchText(term);
+  const cacheKey = `medicine:${key}`;
+  const hit = searchCache.get(cacheKey);
   if (hit && Date.now() - hit.ts < SEARCH_TTL_MS) return hit.data;
 
+  const terms = expandedMedicineSearchTerms(key);
+  const filters = terms.map((term) => `med_name.ilike.%${term}%`).join(',');
   const { data, error } = await cachedSupabase()
-    .from('clinic_inventory')
-    .select('clinic_name,med_name,quantity,price_bwp,location,directions_link')
-    .ilike('med_name', `%${key}%`)
-    .neq('clinic_name', 'ChekaMeds Admin')
-    .limit(50);
+    .from('active_pharmacy_inventory')
+    .select('clinic_name,med_name,quantity,price_bwp,location,directions_link,strength,dosage_form,pack_size,category')
+    .or(filters)
+    .gt('quantity', 0)
+    .order('quantity', { ascending: false })
+    .limit(100);
   if (error) { console.error('searchMedicine error:', error); return []; }
-  const rows = data || [];
-  searchCache.set(key, { data: rows, ts: Date.now() });
-  if (searchCache.size > 200) searchCache.delete(searchCache.keys().next().value);
+  const rows = dedupeAndRank(markExactMedicineMatches(data || [], terms));
+  searchCache.set(cacheKey, { data: rows, ts: Date.now() });
+  if (searchCache.size > 200) {
+    const oldestKey = searchCache.keys().next().value;
+    if (oldestKey) searchCache.delete(oldestKey);
+  }
   return rows;
+}
+
+async function searchSymptomOtcInventory(term: string) {
+  const mapping = symptomMappingFor(term);
+  if (!mapping) return { mapping: null, rows: [] as any[] };
+
+  const cacheKey = `symptom:${mapping.label}`;
+  const hit = searchCache.get(cacheKey);
+  if (hit && Date.now() - hit.ts < SEARCH_TTL_MS) return { mapping, rows: hit.data };
+
+  const filters = [
+    ...mapping.categories.map((category) => `category.ilike.%${category}%`),
+    ...mapping.medicines.map((medicine) => `med_name.ilike.%${medicine}%`),
+  ].join(',');
+
+  const { data, error } = await cachedSupabase()
+    .from('active_pharmacy_inventory')
+    .select('clinic_name,med_name,quantity,price_bwp,location,directions_link,strength,dosage_form,pack_size,category')
+    .or(filters)
+    .gt('quantity', 0)
+    .order('quantity', { ascending: false })
+    .limit(100);
+  if (error) { console.error('searchSymptomOtcInventory error:', error); return { mapping, rows: [] as any[] }; }
+  const rows = dedupeAndRank(data || []);
+  searchCache.set(cacheKey, { data: rows, ts: Date.now() });
+  return { mapping, rows };
 }
 
 async function processQuery(message: string, from: string = ''): Promise<string> {
   const msg = message.toLowerCase().trim();
-  const lang = getLang(from);
+  const session = await getSession(from);
+  const lang = getLang(session);
 
   // Language switching
   if (/^setswana$/.test(msg)) {
-    userLanguages[from] = 'tn';
+    await updateSession(from, { language: 'tn' });
     return tn.lang_switch;
   }
   if (/^english$/.test(msg)) {
-    userLanguages[from] = 'en';
+    await updateSession(from, { language: 'en' });
     return tn.lang_en;
   }
 
@@ -129,31 +453,36 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     return `🏥 *ChekaMeds — Medicine Stock Checker*\n\nDumelang! 👋 I can help you check medicine availability.\n\nSend me:\n📍 A clinic name (e.g. "Princess Marina")\n💊 A medicine name (e.g. "Metformin")\n📊 "status" for a full summary\n🆘 "critical" for urgent shortages\n💊 "prescription: Med1, Med2" to find a clinic with all meds\n🇧🇼 "setswana" to switch language`;
   }
 
-  // ===== Session-based selection / payment handlers (must run BEFORE inventory fetch) =====
-  const session = await getSession(from);
-
-  // PAY flow
-  if (/^pay$/i.test(msg)) {
-    if (session?.selected) {
-      const s = session.selected;
-      const priceLine = s.price_bwp != null ? `P${Number(s.price_bwp).toFixed(2)}` : 'price on request';
-      const directionsLink = getDirectionsLink(s);
-      return `💳 Preparing your payment request...\n\n💊 ${s.med_name}\n📍 ${s.clinic_name}\n🗺️ *Directions*: ${directionsLink}\n💰 ${priceLine}\n\nWe'll send your ChekaPay link shortly.`;
-    }
-    return `💳 Please search for a medicine first, then choose a pharmacy before replying PAY.`;
+  if (/^(test|testing|ok|yes|no|thanks|thank you)$/i.test(msg)) {
+    return helpReply();
   }
 
-  // Numeric option selection (1/2/3)
-  if (/^[1-9]$/.test(msg) && session?.options?.length) {
+  // ===== Session-based selection / payment handlers (must run BEFORE inventory fetch) =====
+  // PAY flow supports either PAY after selection or PAY 1/PAY 2 directly from results.
+  const payMatch = msg.match(/^pay(?:\s+([1-5]))?$/i);
+  if (payMatch) {
+    const idx = payMatch[1] ? parseInt(payMatch[1], 10) - 1 : -1;
+    const selected = idx >= 0 ? session?.options?.[idx] : session?.selected;
+    if (selected) {
+      await setSession(from, { medicine: session?.medicine ?? null, options: session?.options ?? [], selected, language: lang });
+      await recordOrderRequest(from, selected);
+      return manualCollectionReply(selected);
+    }
+    return `💳 Please search for a medicine first, then reply with the item number or *PAY 1*.`;
+  }
+
+  // Numeric option selection (1-5 for search results)
+  if (/^[1-5]$/.test(msg) && session?.options?.length) {
     const idx = parseInt(msg, 10) - 1;
     if (idx < 0 || idx >= session.options.length) {
-      return `❌ Invalid selection.\n\nPlease reply with:\n${session.options.map((_, i) => i + 1).join(' or ')}`;
+      return `❌ Invalid selection.
+
+Please reply with:
+${session.options.map((_, i) => i + 1).join(' or ')}`;
     }
     const choice = session.options[idx];
-    await setSession(from, { medicine: session.medicine, options: session.options, selected: choice });
-    const priceLine = choice.price_bwp != null ? `P${Number(choice.price_bwp).toFixed(2)}` : 'Price not available';
-    const directionsLink = getDirectionsLink(choice);
-    return `✅ You selected *${choice.clinic_name}*\n\n💊 ${choice.med_name}\n💰 Price: *${priceLine}*\n🗺️ *Directions*: ${directionsLink}\n\n👉 Reply *PAY* to continue`;
+    await setSession(from, { medicine: session.medicine, options: session.options, selected: choice, language: lang });
+    return buildSelectionReply(choice);
   }
 
   // Lazy-load full inventory only for aggregate queries below
@@ -249,104 +578,79 @@ async function processQuery(message: string, from: string = ''): Promise<string>
     return `📊 *ChekaMeds Stock Summary*\n\n💊 Medicines tracked: ${total}\n✅ Healthy stock (100+): ${healthy}\n⚠️ Critical (<20 units): ${critical}\n📉 Depleting fast: ${depleting}\n\n_Send a clinic or medicine name for details._`;
   }
 
+  // Symptom query — map common symptoms to OTC categories, then search approved inventory.
+  const symptomResults = await searchSymptomOtcInventory(msg);
+  if (symptomResults.mapping && symptomResults.rows.length > 0) {
+    const top = symptomResults.rows.slice(0, MAX_SEARCH_RESULTS).map((p: any) => ({
+      clinic_name: p.clinic_name,
+      location: isValidLocation(p.location) ? p.location.trim() : null,
+      price_bwp: p.price_bwp != null ? Number(p.price_bwp) : null,
+      quantity: Number(p.quantity),
+      med_name: medicineVariantLabel(p) || p.med_name,
+      directions_link: getDirectionsLink(p),
+      strength: p.strength,
+      dosage_form: p.dosage_form,
+      pack_size: p.pack_size,
+      category: p.category,
+    }));
+    await setSession(from, { medicine: message.trim(), options: top, language: lang });
+    return buildSymptomSearchReply(symptomResults.mapping.label, top);
+  }
+
   // Product search — targeted, cached query (no full-table scan, no AI)
   const medMatchesRaw = await searchMedicine(msg);
 
   if (medMatchesRaw.length > 0) {
-    const inStock = medMatchesRaw.filter((i: any) => Number(i.quantity) > 0);
-    const sortByPrice = (a: any, b: any) => {
-      const ap = a.price_bwp != null ? Number(a.price_bwp) : Infinity;
-      const bp = b.price_bwp != null ? Number(b.price_bwp) : Infinity;
-      if (ap !== bp) return ap - bp;
-      return Number(b.quantity) - Number(a.quantity);
-    };
+    const unique = dedupeAndRank(medMatchesRaw);
 
-    // Dedupe by pharmacy/clinic — keep best record per pharmacy
-    const byPharmacy: Record<string, any> = {};
-    (inStock.length > 0 ? inStock : medMatchesRaw)
-      .sort(sortByPrice)
-      .forEach((it: any) => {
-        if (!byPharmacy[it.clinic_name]) byPharmacy[it.clinic_name] = it;
-      });
-    const unique = Object.values(byPharmacy);
-
-    const name = unique[0].med_name;
-
-    // Out of stock — suggest nearest alternative if any
-    if (inStock.length === 0) {
-      return `❌ ${name} is out of stock\n\nReply ALT for alternatives or NOTIFY for updates`;
+    if (unique.length === 0) {
+      return noResultReply(message);
     }
 
-    // Build session options for selection
-    const sessionOptions: SessionOption[] = unique.slice(0, 5).map((p: any) => ({
+    const top = unique.slice(0, MAX_SEARCH_RESULTS).map((p: any) => ({
       clinic_name: p.clinic_name,
-      location: p.location || null,
+      location: isValidLocation(p.location) ? p.location.trim() : null,
       price_bwp: p.price_bwp != null ? Number(p.price_bwp) : null,
       quantity: Number(p.quantity),
-      med_name: name,
-      directions_link: p.directions_link || null,
+      med_name: medicineVariantLabel(p) || p.med_name,
+      directions_link: getDirectionsLink(p),
+      strength: p.strength,
+      dosage_form: p.dosage_form,
+      pack_size: p.pack_size,
+      category: p.category,
     }));
 
-    // Multiple pharmacies have it
-    if (unique.length > 1) {
-      const top = sessionOptions.slice(0, 3);
-      const numEmoji = ['1️⃣', '2️⃣', '3️⃣'];
-      let reply = `✅ *${name}* is available at multiple pharmacies\n\n`;
-      top.forEach((p, idx) => {
-        const priceLine = p.price_bwp != null ? `*P${p.price_bwp.toFixed(2)}*` : '*Price not available*';
-        const dirLink = getDirectionsLink(p);
-        reply += `${numEmoji[idx]} *${p.clinic_name}*\n`;
-        reply += `💊 Price: ${priceLine}\n`;
-        reply += `🗺️ *Directions*: ${dirLink}\n\n`;
-      });
-      reply += `👉 Reply *${top.map((_, i) => i + 1).join('* or *')}* to choose a pharmacy\n`;
-      reply += `👉 Reply *PAY* to order immediately`;
-      await setSession(from, { medicine: name, options: top });
-      return reply;
-    }
-
-    // Single pharmacy
-    const best = unique[0];
-    const qty = Number(best.quantity);
-    const priceLine = best.price_bwp != null
-      ? `💊 Price: *P${Number(best.price_bwp).toFixed(2)}*`
-      : `💊 Price not available`;
-    const header = qty < 20
-      ? `⚠️ *${name}* is available (Limited stock)`
-      : `✅ *${name}* is available`;
-    const directionsLink = getDirectionsLink(best);
-    let reply = `${header}\n${priceLine}\n📦 Status: ${qty < 20 ? 'Low Stock' : 'In Stock'}`;
-    if (best.clinic_name) reply += `\n📍 Pharmacy: *${best.clinic_name}*`;
-    reply += `\n🗺️ *Directions*: ${directionsLink}`;
-    reply += `\n\n👉 Reply *1* to reserve\n👉 Reply *PAY* to order`;
-    await setSession(from, { medicine: name, options: [sessionOptions[0]], selected: sessionOptions[0] });
-    return reply;
+    await setSession(from, { medicine: message.trim(), options: top, language: lang });
+    return buildMedicineSearchReply(message.trim(), top);
   }
 
-  // Search by clinic name (targeted query)
+  // Search by clinic name (targeted query), but still return inventory items.
   const { data: clinicRows } = await cachedSupabase()
-    .from('clinic_inventory')
-    .select('clinic_name,med_name,quantity,directions_link')
+    .from('active_pharmacy_inventory')
+    .select('clinic_name,med_name,quantity,price_bwp,location,directions_link,strength,dosage_form,pack_size,category')
     .ilike('clinic_name', `%${msg}%`)
     .gt('quantity', 0)
-    .neq('clinic_name', 'ChekaMeds Admin')
-    .limit(15);
-  const clinicMatches = clinicRows || [];
+    .limit(25);
+  const clinicMatches = dedupeAndRank(clinicRows || []);
   if (clinicMatches.length > 0) {
-    const clinicName = clinicMatches[0].clinic_name;
-    const stockLabel = (q: number) => q > 100 ? 'In Stock' : q >= 20 ? 'Low Stock' : 'Limited';
-    let reply = `📍 *${clinicName}*\n\n`;
-    clinicMatches.slice(0, 15).forEach((item: any) => {
-      reply += `💊 ${item.med_name} — 📦 ${stockLabel(Number(item.quantity))}\n`;
-    });
-    reply += `\nReply with another medicine to search again.`;
-    return reply;
+    const top = clinicMatches.slice(0, MAX_SEARCH_RESULTS).map((p: any) => ({
+      clinic_name: p.clinic_name,
+      location: isValidLocation(p.location) ? p.location.trim() : null,
+      price_bwp: p.price_bwp != null ? Number(p.price_bwp) : null,
+      quantity: Number(p.quantity),
+      med_name: medicineVariantLabel(p) || p.med_name,
+      directions_link: getDirectionsLink(p),
+      strength: p.strength,
+      dosage_form: p.dosage_form,
+      pack_size: p.pack_size,
+      category: p.category,
+    }));
+    await setSession(from, { medicine: message.trim(), options: top, language: lang });
+    return buildMedicineSearchReply(message.trim(), top);
   }
 
-  if (lang === 'tn') {
-    return `❌ Setlhare ga se a bonwa. Tlhola mokwalo kgotsa leka leina le lengwe.`;
-  }
-  return `❌ Medicine not found. Please check spelling or try another name`;
+  await recordFailedSearch(from, message.trim());
+  return noResultReply(message);
 }
 
 async function sendWhatsAppReply(to: string, message: string) {
@@ -401,7 +705,7 @@ serve(async (req) => {
   try {
     if (req.method === 'POST') {
       const contentType = req.headers.get('content-type') || '';
-      let body: Record<string, string> = {};
+      let body: Record<string, any> = {};
       let rawText = '';
 
       if (contentType.includes('application/x-www-form-urlencoded')) {
@@ -417,9 +721,10 @@ serve(async (req) => {
         }
       }
 
-      // UltraMsg webhook sends flat structure directly at root
-      const from = (body.from || "").toString().replace('@c.us', '');
-      const messageBody = (body.body || "").toString();
+      // UltraMsg can send either a flat body or a nested { data } payload.
+      const payload = body?.data && typeof body.data === "object" ? body.data : body;
+      const from = cleanPhone(String(payload.from || ""));
+      const messageBody = String(payload.body || "");
       const source = isTest ? 'test' : 'incoming';
 
       console.log('Incoming WhatsApp message:', { from, messageBody, isTest });
@@ -487,11 +792,12 @@ serve(async (req) => {
 
     if (req.method === 'GET') {
       const query = url.searchParams.get('query');
+      const from = url.searchParams.get('from') || 'GET';
       if (query) {
-        const reply = await processQuery(query);
+        const reply = await processQuery(query, from);
         await logWebhook({
           source: 'test',
-          from_number: 'GET',
+          from_number: from,
           message_body: query,
           reply_text: reply,
           response_status: 200,
@@ -522,9 +828,6 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-});
     });
   }
 });
