@@ -18,6 +18,7 @@ type Row = {
   generic_name?: string | null;
   brand_name?: string | null;
   search_tokens?: string | null;
+  approved?: boolean | null;
 };
 
 type SessionOption = {
@@ -30,6 +31,21 @@ type SessionOption = {
 };
 
 const cache = new Map<string, { rows: Row[]; terms: string[]; ts: number }>();
+
+const SYMPTOM_TERMS: Record<string, string[]> = {
+  flu: ["paracetamol", "cough", "cold", "flu"],
+  cold: ["paracetamol", "cough", "cold", "flu"],
+  cough: ["cough", "syrup", "lozenges"],
+  headache: ["paracetamol", "ibuprofen", "pain"],
+  fever: ["paracetamol", "ibuprofen", "fever"],
+  pain: ["paracetamol", "ibuprofen", "pain"],
+  stomach: ["antacid", "oral rehydration", "diarrhoea", "stomach"],
+  diarrhea: ["oral rehydration", "diarrhoea", "loperamide"],
+  diarrhoea: ["oral rehydration", "diarrhoea", "loperamide"],
+  wound: ["antiseptic", "bandage", "wound"],
+  allergy: ["cetirizine", "loratadine", "allergy"],
+  allergies: ["cetirizine", "loratadine", "allergy"],
+};
 
 function db() {
   return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -49,24 +65,46 @@ function cleanPhone(raw: string) {
 function hasRealLocation(location?: string | null) {
   if (!location) return false;
   const value = cleanText(location);
-  return value !== "" && value !== "n a" && value !== "botswana";
+  return value !== "" && value !== "n a" && value !== "botswana" && value !== "unknown" && value !== "not listed";
 }
 
 function realDirections(link?: string | null) {
   if (!link) return "";
   const value = link.trim();
+  const lower = value.toLowerCase();
   if (!value) return "";
-  if (!/^https?:\/\//i.test(value)) return "";
+  if (!/^https:\/\//i.test(value)) return "";
+  if (lower.includes("example")) return "";
+  if (lower.includes("placeholder")) return "";
+  if (lower.includes("fake")) return "";
+  if (lower.includes("test")) return "";
   return value;
 }
 
 function isProductionRow(row: Row) {
-  const clinic = cleanText(row.clinic_name);
-  if (!clinic) return false;
-  if (clinic.includes("demo")) return false;
-  if (clinic.includes("test")) return false;
+  const clinic = cleanText(row.clinic_name || "");
+  const medicine = cleanText(row.med_name || "");
+  if (!clinic || !medicine) return false;
   if (clinic.includes("chekameds admin")) return false;
+  if (["demo", "test", "sample", "mock", "trial"].some((bad) => clinic.includes(bad))) return false;
+  if (row.approved === false) return false;
   return Number(row.quantity) > 0;
+}
+
+function isSymptomSearch(message: string) {
+  const msg = cleanText(message);
+  if (/\b(i have|i feel|symptom|sick|not well|ke bolawa|ke lwala)\b/i.test(message)) return true;
+  return Object.keys(SYMPTOM_TERMS).some((word) => msg.includes(word));
+}
+
+function symptomSearchTerms(message: string) {
+  const msg = cleanText(message);
+  const terms = new Set<string>();
+  for (const [symptom, mapped] of Object.entries(SYMPTOM_TERMS)) {
+    if (msg.includes(symptom)) mapped.forEach((term) => terms.add(term));
+  }
+  if (!terms.size) terms.add(msg);
+  return Array.from(terms);
 }
 
 async function getAliases(q: string) {
@@ -97,26 +135,45 @@ async function getSession(phone: string) {
 function score(r: Row, terms: string[]) {
   const h = cleanText([r.med_name, r.generic_name, r.brand_name, r.strength, r.dosage_form, r.search_tokens].filter(Boolean).join(" "));
   let s = 0;
-  for (const t of terms) {
+  for (const t of terms.map(cleanText).filter(Boolean)) {
     const m = cleanText(r.med_name);
-    if (m === t) s += 120;
-    if (m.startsWith(t)) s += 80;
-    if (h.includes(t)) s += 45;
-    for (const p of t.split(" ")) if (p.length > 2 && h.includes(p)) s += 10;
+    if (m === t) s += 150;
+    if (m.startsWith(t)) s += 100;
+    if (h.includes(t)) s += 60;
+    for (const p of t.split(" ")) if (p.length > 2 && h.includes(p)) s += 12;
   }
   if (realDirections(r.directions_link)) s += 20;
-  if (hasRealLocation(r.location)) s += 10;
+  if (hasRealLocation(r.location)) s += 12;
   if (r.price_bwp != null) s += 8;
+  s += Math.min(Number(r.quantity) || 0, 50) / 10;
   return s;
 }
 
-async function search(q: string, phone: string) {
-  const key = cleanText(q);
+function dedupeInventoryItems(rows: Row[]) {
+  const seen = new Set<string>();
+  const out: Row[] = [];
+  for (const row of rows) {
+    const key = cleanText(`${row.med_name}|${row.clinic_name}|${row.location || ""}|${row.price_bwp ?? ""}`);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
+async function search(q: string, phone: string, forcedTerms?: string[]) {
+  const key = cleanText([q, ...(forcedTerms || [])].join(" "));
   const hit = cache.get(key);
   if (hit && Date.now() - hit.ts < 60000) return hit;
 
-  const aliases = await getAliases(key);
-  const terms = Array.from(new Set([key, ...aliases.map((a: any) => cleanText(a.alias)), ...aliases.map((a: any) => cleanText(a.canonical_name))].filter(Boolean)));
+  const aliases = await getAliases(cleanText(q));
+  const terms = Array.from(new Set([
+    cleanText(q),
+    ...(forcedTerms || []).map(cleanText),
+    ...aliases.map((a: any) => cleanText(a.alias)),
+    ...aliases.map((a: any) => cleanText(a.canonical_name)),
+  ].filter(Boolean)));
+
   const orFilter = terms.flatMap(t => [`med_name.ilike.%${t}%`, `generic_name.ilike.%${t}%`, `brand_name.ilike.%${t}%`, `search_tokens.ilike.%${t}%`]).join(",");
   let rows: Row[] = [];
   try {
@@ -128,7 +185,8 @@ async function search(q: string, phone: string) {
     const { data } = await db().from("clinic_inventory").select("clinic_name,med_name,quantity,price_bwp,location,directions_link,strength,dosage_form").or(fallback).gt("quantity", 0).neq("clinic_name", "ChekaMeds Admin").limit(100);
     rows = data || [];
   }
-  rows = rows.filter(isProductionRow).sort((a, b) => score(b, terms) - score(a, terms));
+
+  rows = dedupeInventoryItems(rows.filter(isProductionRow).sort((a, b) => score(b, terms) - score(a, terms)));
   if (!rows.length) {
     try { await db().from("failed_searches").insert({ query: q, source: "whatsapp", user_phone: cleanPhone(phone) }); } catch {}
   }
@@ -137,13 +195,31 @@ async function search(q: string, phone: string) {
   return result;
 }
 
-function formatClinicLine(row: Row, index: number) {
-  const price = row.price_bwp != null ? `P${Number(row.price_bwp).toFixed(2)}` : "Price not listed";
-  const location = hasRealLocation(row.location) ? ` — ${row.location}` : "";
+function formatPrice(price: number | null | undefined) {
+  return price != null ? `P${Number(price).toFixed(2)}` : "Price unavailable";
+}
+
+function formatInventoryItem(row: Row | SessionOption, index: number) {
+  const location = hasRealLocation(row.location) ? row.location : "Location unavailable";
   const link = realDirections(row.directions_link);
-  let text = `${index}. ${row.clinic_name}${location}\n${price} • In stock`;
-  if (link) text += `\nMap: ${link}`;
+  let text = `${index}. *${row.med_name}*\n🏥 Pharmacy: ${row.clinic_name}\n📍 Location: ${location}\n💰 Price: ${formatPrice(row.price_bwp)}\n📦 Stock: In stock`;
+  if (link) text += `\n🧭 Directions: ${link}`;
   return text;
+}
+
+function formatMedicineResults(query: string, rows: Row[]) {
+  let reply = `💊 *Search results for: ${query}*\n\n`;
+  rows.forEach((row, i) => { reply += `${formatInventoryItem(row, i + 1)}\n\n`; });
+  reply += `Reply with the item number to reserve.\nReply *PAY 1* to start order payment.`;
+  return reply;
+}
+
+function formatSymptomResults(query: string, rows: Row[]) {
+  let reply = `🩺 *Possible options for: ${query}*\n\n`;
+  reply += `This is not a diagnosis. Please speak to a pharmacist or clinician if symptoms are severe, unusual, or persistent.\n\n`;
+  rows.forEach((row, i) => { reply += `${formatInventoryItem(row, i + 1)}\n\n`; });
+  reply += `Reply with the item number to reserve.\nReply *PAY 1* to start order payment.`;
+  return reply;
 }
 
 async function processQuery(message: string, phone: string) {
@@ -151,48 +227,40 @@ async function processQuery(message: string, phone: string) {
   const session = await getSession(phone);
 
   if (/^(hi|hello|hey|help|dumelang|dumela)$/.test(msg)) {
-    return `ChekaMeds Botswana\n\nSend a medicine or health need.\n\nExamples:\nPanado\nFlu\nHeadache\nWound care\nBP tablets\n\nWebsite: chekameds.co.bw\nWhatsApp: +267 71 424 486`;
+    return `ChekaMeds Botswana\n\nSend a medicine name or symptom.\n\nExamples:\nPanado\nFlu\nHeadache and fever\nWound care\nBP tablets\n\nWebsite: chekameds.co.bw\nWhatsApp: +267 71 424 486`;
+  }
+
+  const payMatch = msg.match(/^pay(?:\s+([1-5]))?$/);
+  if (payMatch) {
+    if (!session?.options?.length) return "Please search first, then reply PAY with the item number, for example PAY 1.";
+    const selected = payMatch[1] ? session.options[Number(payMatch[1]) - 1] : session.selected;
+    if (!selected) return `Please choose an item first. Reply PAY 1 to PAY ${session.options.length}.`;
+    await saveSession(phone, session.medicine, session.options, selected);
+    return `🧾 *Order started*\n\nMedicine: ${selected.med_name}\nPharmacy: ${selected.clinic_name}\nAmount: ${formatPrice(selected.price_bwp)}\n\nOnline payment activation is currently in progress.\nA pharmacy representative or support team member will assist you with payment confirmation and collection arrangements shortly.\n\nThank you for using ChekaMeds Botswana.`;
   }
 
   if (/^[1-5]$/.test(msg) && session?.options?.length) {
     const choice = session.options[Number(msg) - 1];
     if (!choice) return `Invalid selection. Reply with 1-${session.options.length}.`;
     await saveSession(phone, session.medicine, session.options, choice);
-    const price = choice.price_bwp != null ? `P${Number(choice.price_bwp).toFixed(2)}` : "Price not listed";
-    const location = hasRealLocation(choice.location) ? ` — ${choice.location}` : "";
-    const link = realDirections(choice.directions_link);
-    let reply = `Selected:\n${choice.med_name}\n${choice.clinic_name}${location}\n${price}`;
-    if (link) reply += `\nMap: ${link}`;
-    reply += `\n\nReply PAY to continue.`;
-    return reply;
+    return `✅ *Reservation request received*\n\nMedicine: ${choice.med_name}\nPharmacy: ${choice.clinic_name}\nLocation: ${hasRealLocation(choice.location) ? choice.location : "Location unavailable"}\n\nA pharmacy representative will confirm availability before collection.\n\nReply *PAY ${msg}* if you want to start payment/order assistance.`;
   }
 
-  if (msg === "pay") {
-    if (!session?.selected) return "Please search first, choose a pharmacy number, then reply PAY.";
-    const s = session.selected;
-    const price = s.price_bwp != null ? `P${Number(s.price_bwp).toFixed(2)}` : "Price not listed";
-    const location = hasRealLocation(s.location) ? ` — ${s.location}` : "";
-    const link = realDirections(s.directions_link);
-    let reply = `Collection request:\n${s.med_name}\n${s.clinic_name}${location}\n${price}`;
-    if (link) reply += `\nMap: ${link}`;
-    reply += `\n\nOnline payment is coming soon. For now, please contact or visit the pharmacy.`;
-    return reply;
+  const symptom = isSymptomSearch(message);
+  const terms = symptom ? symptomSearchTerms(message) : undefined;
+  const { rows } = await search(message, phone, terms);
+  const options = rows.slice(0, 5);
+
+  if (!options.length) {
+    return symptom
+      ? `No listed stock found for "${message}".\n\nThis is not a diagnosis. If symptoms are severe, unusual, or persistent, please speak to a pharmacist or clinician.`
+      : `No listed stock found for "${message}".\n\nTry another name, brand, or generic medicine.\nFor urgent symptoms, consult a healthcare professional.`;
   }
 
-  const { rows } = await search(message, phone);
-  if (!rows.length) return `No listed stock found for "${message}".\n\nTry another name, brand, or generic medicine.\nFor urgent symptoms, consult a healthcare professional.`;
+  const sessionOptions: SessionOption[] = options.map(r => ({ clinic_name: r.clinic_name, location: r.location || null, price_bwp: r.price_bwp == null ? null : Number(r.price_bwp), quantity: Number(r.quantity), med_name: r.med_name, directions_link: realDirections(r.directions_link) || null }));
+  await saveSession(phone, options[0].med_name, sessionOptions);
 
-  const byClinic = new Map<string, Row>();
-  for (const r of rows) if (!byClinic.has(r.clinic_name)) byClinic.set(r.clinic_name, r);
-  const options = Array.from(byClinic.values()).slice(0, 3);
-  const sessionOptions: SessionOption[] = options.map(r => ({ clinic_name: r.clinic_name, location: r.location || null, price_bwp: r.price_bwp == null ? null : Number(r.price_bwp), quantity: Number(r.quantity), med_name: r.med_name, directions_link: r.directions_link || null }));
-  const best = options[0].med_name;
-  await saveSession(phone, best, sessionOptions);
-
-  let reply = `${best} available:\n\n`;
-  options.forEach((r, i) => { reply += `${formatClinicLine(r, i + 1)}\n\n`; });
-  reply += `Reply 1-${options.length} to select.\nReply PAY after selecting.\n\nChekaMeds helps you find listed stock. It does not diagnose.`;
-  return reply;
+  return symptom ? formatSymptomResults(message, options) : formatMedicineResults(message, options);
 }
 
 async function sendWhatsAppReply(to: string, message: string) {
