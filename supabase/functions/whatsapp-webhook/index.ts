@@ -3,7 +3,21 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+type Row = {
+  clinic_name: string;
+  med_name: string;
+  quantity: number;
+  price_bwp: number | null;
+  location?: string | null;
+  directions_link?: string | null;
+  strength?: string | null;
+  dosage_form?: string | null;
+  generic_name?: string | null;
+  brand_name?: string | null;
+  search_tokens?: string | null;
 };
 
 type SessionOption = {
@@ -15,327 +29,160 @@ type SessionOption = {
   directions_link?: string | null;
 };
 
-type Session = {
-  medicine: string;
-  options: SessionOption[];
-  selected?: SessionOption;
-};
-
-type InventoryRow = {
-  id?: string;
-  clinic_name: string;
-  med_name: string;
-  quantity: number;
-  price_bwp: number | null;
-  location?: string | null;
-  directions_link?: string | null;
-  category?: string | null;
-  strength?: string | null;
-  dosage_form?: string | null;
-  generic_name?: string | null;
-  brand_name?: string | null;
-  search_tokens?: string | null;
-};
-
-const userLanguages: Record<string, "en" | "tn"> = {};
-const SEARCH_TTL_MS = 60_000;
-const searchCache = new Map<string, { data: InventoryRow[]; terms: string[]; ts: number }>();
+const cache = new Map<string, { rows: Row[]; terms: string[]; ts: number }>();
 
 function db() {
   return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 }
 
-function normalize(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+function cleanText(v: string) {
+  return (v || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function unique(items: string[]) {
-  return Array.from(new Set(items.map(normalize).filter(Boolean)));
+function cleanPhone(raw: string) {
+  let p = (raw || "").replace("@c.us", "").replace("@s.whatsapp.net", "").replace(/^\+/, "").replace(/[^0-9]/g, "");
+  if (p.length === 8) p = `267${p}`;
+  if (p.length === 10 && p.startsWith("0")) p = `267${p.slice(1)}`;
+  return p;
 }
 
-function getLang(from: string): "en" | "tn" {
-  return userLanguages[from] || "en";
+function directions(row: { clinic_name: string; location?: string | null; directions_link?: string | null }) {
+  if (row.directions_link?.trim()) return row.directions_link;
+  if (row.location?.trim() && row.location !== "N/A" && row.location.toLowerCase() !== "botswana") return `https://maps.google.com/?q=${encodeURIComponent(row.location + ", Botswana")}`;
+  return `https://maps.google.com/?q=${encodeURIComponent(row.clinic_name + ", Botswana")}`;
 }
 
-function getDirectionsLink(pharmacy: { clinic_name: string; directions_link?: string | null; location?: string | null }) {
-  if (pharmacy.directions_link && pharmacy.directions_link.trim() !== "") return pharmacy.directions_link;
-  if (pharmacy.location && pharmacy.location.trim() !== "" && pharmacy.location !== "N/A") {
-    return `https://maps.google.com/?q=${encodeURIComponent(pharmacy.location + ", Botswana")}`;
-  }
-  return `https://maps.google.com/?q=${encodeURIComponent(pharmacy.clinic_name + ", Botswana")}`;
-}
-
-async function setSession(from: string, s: Session) {
+async function getAliases(q: string) {
   try {
-    await db().from("whatsapp_sessions").upsert({
-      from_number: from,
-      medicine: s.medicine,
-      options: s.options as any,
-      selected: (s.selected ?? null) as any,
-      updated_at: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("setSession error", error);
-  }
-}
-
-async function getSession(from: string): Promise<Session | undefined> {
-  try {
-    const { data } = await db().from("whatsapp_sessions").select("*").eq("from_number", from).maybeSingle();
-    if (!data) return undefined;
-    if (Date.now() - new Date(data.updated_at).getTime() > 30 * 60 * 1000) return undefined;
-    return {
-      medicine: data.medicine,
-      options: (data.options || []) as SessionOption[],
-      selected: data.selected || undefined,
-    };
+    const { data } = await db().from("medicine_aliases").select("alias, canonical_name").or(`alias.ilike.%${q}%,canonical_name.ilike.%${q}%`).limit(12);
+    return data || [];
   } catch {
-    return undefined;
-  }
-}
-
-async function fetchAliases(term: string) {
-  try {
-    const { data } = await db()
-      .from("medicine_aliases")
-      .select("alias, canonical_name")
-      .or(`alias.ilike.%${term}%,canonical_name.ilike.%${term}%`)
-      .limit(15);
-    return (data || []) as { alias: string; canonical_name: string }[];
-  } catch (error) {
-    console.warn("Alias lookup skipped", error);
     return [];
   }
 }
 
-async function logFailedSearch(query: string, from: string) {
+async function saveSession(phone: string, medicine: string, options: SessionOption[], selected?: SessionOption) {
   try {
-    await db().from("failed_searches").insert({ query, source: "whatsapp", user_phone: from || null });
-  } catch (error) {
-    console.warn("failed_searches insert skipped", error);
-  }
+    await db().from("whatsapp_sessions").upsert({
+      from_number: cleanPhone(phone), medicine, options: options as any, selected: (selected || null) as any, updated_at: new Date().toISOString(),
+    });
+  } catch (e) { console.error("session save failed", e); }
 }
 
-function scoreItem(item: InventoryRow, terms: string[]) {
-  const haystack = normalize([
-    item.med_name,
-    item.generic_name,
-    item.brand_name,
-    item.strength,
-    item.dosage_form,
-    item.category,
-    item.search_tokens,
-  ].filter(Boolean).join(" "));
-
-  let score = 0;
-  for (const term of terms) {
-    const med = normalize(item.med_name || "");
-    if (med === term) score += 120;
-    if (med.startsWith(term)) score += 80;
-    if (haystack.includes(term)) score += 45;
-    for (const part of term.split(" ")) {
-      if (part.length >= 3 && haystack.includes(part)) score += 12;
-    }
-  }
-  if (item.price_bwp != null) score += 8;
-  if (Number(item.quantity) >= 100) score += 6;
-  if (Number(item.quantity) > 0) score += 10;
-  return score;
-}
-
-async function runInventorySearch(terms: string[]) {
-  const selectFields = "id,clinic_name,med_name,quantity,price_bwp,location,directions_link,category,strength,dosage_form,generic_name,brand_name,search_tokens";
-  const orFilter = terms.flatMap((term) => [
-    `med_name.ilike.%${term}%`,
-    `generic_name.ilike.%${term}%`,
-    `brand_name.ilike.%${term}%`,
-    `search_tokens.ilike.%${term}%`,
-  ]).join(",");
-
+async function getSession(phone: string) {
   try {
-    const { data, error } = await db()
-      .from("active_pharmacy_inventory")
-      .select(selectFields)
-      .or(orFilter)
-      .gt("quantity", 0)
-      .limit(120);
-    if (error) throw error;
-    return (data || []) as InventoryRow[];
-  } catch (viewError) {
-    console.warn("active_pharmacy_inventory unavailable, using clinic_inventory", viewError);
-    const fallbackOr = terms.map((term) => `med_name.ilike.%${term}%`).join(",");
-    const { data, error } = await db()
-      .from("clinic_inventory")
-      .select("clinic_name,med_name,quantity,price_bwp,location,directions_link,category,strength,dosage_form")
-      .or(fallbackOr)
-      .gt("quantity", 0)
-      .neq("clinic_name", "ChekaMeds Admin")
-      .limit(120);
-    if (error) throw error;
-    return (data || []) as InventoryRow[];
-  }
+    const { data } = await db().from("whatsapp_sessions").select("*").eq("from_number", cleanPhone(phone)).maybeSingle();
+    if (!data) return null;
+    return data as { medicine: string; options: SessionOption[]; selected?: SessionOption };
+  } catch { return null; }
 }
 
-async function searchMedicine(rawTerm: string, from: string) {
-  const key = normalize(rawTerm);
-  const cached = searchCache.get(key);
-  if (cached && Date.now() - cached.ts < SEARCH_TTL_MS) return cached;
-
-  const aliases = await fetchAliases(key);
-  const terms = unique([key, ...aliases.map((a) => a.alias), ...aliases.map((a) => a.canonical_name)]);
-  const rows = await runInventorySearch(terms);
-
-  const deduped = new Map<string, InventoryRow & { score: number }>();
-  for (const row of rows) {
-    const item = { ...row, score: scoreItem(row, terms) };
-    const dedupeKey = `${row.clinic_name}|${row.med_name}|${row.strength || ""}`.toLowerCase();
-    const existing = deduped.get(dedupeKey);
-    if (!existing || item.score > existing.score || Number(item.quantity) > Number(existing.quantity)) deduped.set(dedupeKey, item);
+function score(r: Row, terms: string[]) {
+  const h = cleanText([r.med_name, r.generic_name, r.brand_name, r.strength, r.dosage_form, r.search_tokens].filter(Boolean).join(" "));
+  let s = 0;
+  for (const t of terms) {
+    const m = cleanText(r.med_name);
+    if (m === t) s += 120;
+    if (m.startsWith(t)) s += 80;
+    if (h.includes(t)) s += 45;
+    for (const p of t.split(" ")) if (p.length > 2 && h.includes(p)) s += 10;
   }
+  if (r.price_bwp != null) s += 8;
+  if (Number(r.quantity) > 0) s += 10;
+  return s;
+}
 
-  const data = Array.from(deduped.values()).sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    const ap = a.price_bwp != null ? Number(a.price_bwp) : Infinity;
-    const bp = b.price_bwp != null ? Number(b.price_bwp) : Infinity;
-    if (ap !== bp) return ap - bp;
-    return Number(b.quantity) - Number(a.quantity);
-  });
+async function search(q: string, phone: string) {
+  const key = cleanText(q);
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.ts < 60000) return hit;
 
-  if (data.length === 0) await logFailedSearch(rawTerm, from);
-  const result = { data, terms, ts: Date.now() };
-  searchCache.set(key, result);
-  if (searchCache.size > 200) searchCache.delete(searchCache.keys().next().value);
+  const aliases = await getAliases(key);
+  const terms = Array.from(new Set([key, ...aliases.map((a: any) => cleanText(a.alias)), ...aliases.map((a: any) => cleanText(a.canonical_name))].filter(Boolean)));
+  const orFilter = terms.flatMap(t => [`med_name.ilike.%${t}%`, `generic_name.ilike.%${t}%`, `brand_name.ilike.%${t}%`, `search_tokens.ilike.%${t}%`]).join(",");
+  let rows: Row[] = [];
+  try {
+    const { data, error } = await db().from("active_pharmacy_inventory").select("clinic_name,med_name,quantity,price_bwp,location,directions_link,strength,dosage_form,generic_name,brand_name,search_tokens").or(orFilter).gt("quantity", 0).limit(100);
+    if (error) throw error;
+    rows = data || [];
+  } catch {
+    const fallback = terms.map(t => `med_name.ilike.%${t}%`).join(",");
+    const { data } = await db().from("clinic_inventory").select("clinic_name,med_name,quantity,price_bwp,location,directions_link,strength,dosage_form").or(fallback).gt("quantity", 0).neq("clinic_name", "ChekaMeds Admin").limit(100);
+    rows = data || [];
+  }
+  rows = rows.sort((a, b) => score(b, terms) - score(a, terms));
+  if (!rows.length) {
+    try { await db().from("failed_searches").insert({ query: q, source: "whatsapp", user_phone: cleanPhone(phone) }); } catch {}
+  }
+  const result = { rows, terms, ts: Date.now() };
+  cache.set(key, result);
   return result;
 }
 
-function formatSearchResults(rows: InventoryRow[], originalQuery: string, terms: string[], from: string) {
-  const byClinic: Record<string, InventoryRow> = {};
-  for (const row of rows) {
-    const existing = byClinic[row.clinic_name];
-    if (!existing) byClinic[row.clinic_name] = row;
-    else {
-      const currentPrice = row.price_bwp != null ? Number(row.price_bwp) : Infinity;
-      const oldPrice = existing.price_bwp != null ? Number(existing.price_bwp) : Infinity;
-      if (currentPrice < oldPrice || Number(row.quantity) > Number(existing.quantity)) byClinic[row.clinic_name] = row;
-    }
-  }
+async function processQuery(message: string, phone: string) {
+  const msg = cleanText(message);
+  const session = await getSession(phone);
 
-  const options = Object.values(byClinic).slice(0, 5);
-  const bestName = options[0]?.med_name || originalQuery;
-  const sessionOptions: SessionOption[] = options.map((p) => ({
-    clinic_name: p.clinic_name,
-    location: p.location || null,
-    price_bwp: p.price_bwp != null ? Number(p.price_bwp) : null,
-    quantity: Number(p.quantity),
-    med_name: p.med_name,
-    directions_link: p.directions_link || null,
-  }));
-
-  const aliasTerms = terms.filter((t) => t !== normalize(originalQuery)).slice(0, 2);
-  let reply = `💊 *ChekaMeds Results*\n`;
-  if (aliasTerms.length > 0) reply += `_Also searched: ${aliasTerms.join(", ")}_\n`;
-  reply += `\n✅ *${bestName}* found at ${options.length} facilit${options.length === 1 ? "y" : "ies"}\n\n`;
-
-  const num = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"];
-  options.slice(0, 5).forEach((p, idx) => {
-    const priceLine = p.price_bwp != null ? `P${Number(p.price_bwp).toFixed(2)}` : "Price not available";
-    const stock = Number(p.quantity) < 20 ? "Limited stock" : "In stock";
-    reply += `${num[idx]} *${p.clinic_name}*\n`;
-    if (p.location) reply += `📍 ${p.location}\n`;
-    reply += `💰 ${priceLine}\n`;
-    reply += `📦 ${stock}\n`;
-    const directions = getDirectionsLink(p);
-    if (directions) reply += `🗺️ ${directions}\n`;
-    reply += `\n`;
-  });
-
-  reply += `👉 Reply *1-${Math.min(options.length, 5)}* to choose\n`;
-  reply += `👉 Reply *PAY* after choosing\n\n`;
-  reply += `⚠️ ChekaMeds helps you find listed stock. It does not diagnose. Please consult a pharmacist or healthcare professional.`;
-
-  setSession(from, { medicine: bestName, options: sessionOptions.slice(0, 5) });
-  return reply;
-}
-
-async function processQuery(message: string, from = ""): Promise<string> {
-  const msg = normalize(message);
-  const lang = getLang(from);
-  const session = await getSession(from);
-
-  if (/^setswana$/.test(msg)) {
-    userLanguages[from] = "tn";
-    return "🇧🇼 Puo e fetoletswe go Setswana! Romela molaetsa ope.";
-  }
-  if (/^english$/.test(msg)) {
-    userLanguages[from] = "en";
-    return "🇬🇧 Language switched to English. Send any medicine or health need.";
-  }
-
-  if (/^(hi|hello|hey|dumelang|dumela|thobela|lotsha|help)$/.test(msg)) {
-    return `🏥 *ChekaMeds Botswana*\n\nFind medicines and health essentials faster.\n\nTry searching:\n💊 Panado / Paracetamol\n🤧 Flu\n🤕 Headache\n🩹 Wound care / Cuts\n🔥 Burn care\n🩺 BP tablets\n\nWhatsApp line: *+267 71 424 486*\nWebsite: https://chekameds.co.bw\n\n⚠️ We help you find listed stock. We do not diagnose.`;
-  }
-
-  if (/^pay$/.test(msg)) {
-    if (session?.selected) {
-      const s = session.selected;
-      const priceLine = s.price_bwp != null ? `P${Number(s.price_bwp).toFixed(2)}` : "price on request";
-      return `💳 *Payment / Collection Request*\n\n💊 ${s.med_name}\n📍 ${s.clinic_name}\n💰 ${priceLine}\n🗺️ ${getDirectionsLink(s)}\n\nOnline payment activation is in progress. For now, please visit the pharmacy or contact support for collection confirmation.\n\nChekaMeds Botswana`;
-    }
-    return "Please search for a medicine first, choose a pharmacy by replying with a number, then reply PAY.";
+  if (/^(hi|hello|hey|help|dumelang|dumela)$/.test(msg)) {
+    return `🏥 *ChekaMeds Botswana*\n\nFind medicines and health essentials faster.\n\nTry:\n💊 Panado / Paracetamol\n🤧 Flu\n🤕 Headache\n🩹 Wound care / Cuts\n🔥 Burn care\n🩺 BP tablets\n\n🌐 chekameds.co.bw\n📱 +267 71 424 486\n\n⚠️ We help you find listed stock. We do not diagnose.`;
   }
 
   if (/^[1-5]$/.test(msg) && session?.options?.length) {
-    const idx = parseInt(msg, 10) - 1;
-    if (idx < 0 || idx >= session.options.length) return `Invalid selection. Reply with 1-${session.options.length}.`;
-    const choice = session.options[idx];
-    await setSession(from, { medicine: session.medicine, options: session.options, selected: choice });
-    const priceLine = choice.price_bwp != null ? `P${Number(choice.price_bwp).toFixed(2)}` : "Price not available";
-    return `✅ *Selected*\n\n💊 ${choice.med_name}\n📍 ${choice.clinic_name}\n${choice.location ? `📌 ${choice.location}\n` : ""}💰 ${priceLine}\n📦 ${Number(choice.quantity) < 20 ? "Limited stock" : "In stock"}\n🗺️ ${getDirectionsLink(choice)}\n\n👉 Reply *PAY* to continue.`;
+    const choice = session.options[Number(msg) - 1];
+    if (!choice) return `Invalid selection. Reply with 1-${session.options.length}.`;
+    await saveSession(phone, session.medicine, session.options, choice);
+    const price = choice.price_bwp != null ? `P${Number(choice.price_bwp).toFixed(2)}` : "Price not available";
+    return `✅ *Selected*\n\n💊 ${choice.med_name}\n📍 ${choice.clinic_name}\n${choice.location ? `📌 ${choice.location}\n` : ""}💰 ${price}\n📦 ${Number(choice.quantity) < 20 ? "Limited stock" : "In stock"}\n🗺️ ${directions(choice)}\n\n👉 Reply *PAY* to continue.`;
   }
 
-  if (/^status|summary|overview|report$/.test(msg)) {
-    const { count } = await db().from("clinic_inventory").select("*", { count: "exact", head: true });
-    return `📊 *ChekaMeds Status*\n\n💊 Inventory records: ${count || 0}\n🌐 Website: https://chekameds.co.bw\n📱 WhatsApp: +267 71 424 486\n\nSearch any medicine or health need to continue.`;
+  if (msg === "pay") {
+    if (!session?.selected) return "Please search first, choose a pharmacy by number, then reply PAY.";
+    const s = session.selected;
+    const price = s.price_bwp != null ? `P${Number(s.price_bwp).toFixed(2)}` : "price on request";
+    return `💳 *Payment / Collection Request*\n\n💊 ${s.med_name}\n📍 ${s.clinic_name}\n💰 ${price}\n🗺️ ${directions(s)}\n\nOnline payment activation is in progress. For now, please visit the pharmacy or contact support for collection confirmation.`;
   }
 
-  const { data, terms } = await searchMedicine(message, from);
-  if (data.length > 0) return formatSearchResults(data, message, terms, from);
+  const { rows, terms } = await search(message, phone);
+  if (!rows.length) return `❌ No listed stock found for "${message}".\n\nTry: headache, flu, wound care, BP tablets, Panado.\n\n⚠️ If symptoms are serious, please consult a healthcare professional.`;
 
-  return lang === "tn"
-    ? "❌ Ga re a bona se o se batlang. Leka leina le lengwe kgotsa botsa mo pharmacy."
-    : `❌ No listed stock found for "${message}".\n\nTry a brand name, generic name, or simple wording like:\n• headache\n• flu\n• wound care\n• BP tablets\n\n⚠️ If symptoms are serious, please consult a healthcare professional.`;
+  const byClinic = new Map<string, Row>();
+  for (const r of rows) if (!byClinic.has(r.clinic_name)) byClinic.set(r.clinic_name, r);
+  const options = Array.from(byClinic.values()).slice(0, 5);
+  const sessionOptions: SessionOption[] = options.map(r => ({ clinic_name: r.clinic_name, location: r.location || null, price_bwp: r.price_bwp == null ? null : Number(r.price_bwp), quantity: Number(r.quantity), med_name: r.med_name, directions_link: r.directions_link || null }));
+  const best = options[0].med_name;
+  await saveSession(phone, best, sessionOptions);
+
+  let reply = `💊 *ChekaMeds Results*\n`;
+  const extra = terms.filter(t => t !== cleanText(message)).slice(0, 2);
+  if (extra.length) reply += `_Also searched: ${extra.join(", ")}_\n`;
+  reply += `\n✅ *${best}* found at ${options.length} facilit${options.length === 1 ? "y" : "ies"}\n\n`;
+  options.forEach((r, i) => {
+    reply += `${i + 1}️⃣ *${r.clinic_name}*\n`;
+    if (r.location && r.location.toLowerCase() !== "botswana") reply += `📍 ${r.location}\n`;
+    reply += `💰 ${r.price_bwp != null ? `P${Number(r.price_bwp).toFixed(2)}` : "Price not available"}\n`;
+    reply += `📦 ${Number(r.quantity) < 20 ? "Limited stock" : "In stock"}\n`;
+    reply += `🗺️ ${directions(r)}\n\n`;
+  });
+  reply += `👉 Reply *1-${options.length}* to choose\n👉 Reply *PAY* after choosing\n\n⚠️ ChekaMeds helps you find listed stock. It does not diagnose.`;
+  return reply;
 }
 
 async function sendWhatsAppReply(to: string, message: string) {
   const instanceId = Deno.env.get("ULTRAMSG_INSTANCE_ID");
   const token = Deno.env.get("ULTRAMSG_TOKEN");
-  if (!instanceId) throw new Error("ULTRAMSG_INSTANCE_ID is not configured");
-  if (!token) throw new Error("ULTRAMSG_TOKEN is not configured");
-
-  const response = await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`, {
+  if (!instanceId || !token) throw new Error("UltraMsg secrets missing");
+  const recipient = cleanPhone(to);
+  const res = await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, to, body: message }),
+    body: JSON.stringify({ token, to: recipient, body: message, priority: 10 }),
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(`UltraMsg API failed [${response.status}]: ${JSON.stringify(data)}`);
-  return data;
+  const data = await res.json();
+  if (!res.ok || data?.sent === "false") throw new Error(`UltraMsg API failed: ${JSON.stringify(data)}`);
 }
 
-async function logWebhook(entry: {
-  source: string;
-  from_number?: string;
-  message_body?: string;
-  reply_text?: string;
-  response_status?: number;
-  error_message?: string;
-  raw_payload?: unknown;
-}) {
-  try {
-    await db().from("whatsapp_webhook_logs").insert(entry);
-  } catch (error) {
-    console.error("Failed to log webhook", error);
-  }
+async function logWebhook(entry: any) {
+  try { await db().from("whatsapp_webhook_logs").insert(entry); } catch (e) { console.error("log failed", e); }
 }
 
 serve(async (req) => {
@@ -346,60 +193,35 @@ serve(async (req) => {
   try {
     if (req.method === "GET") {
       const query = url.searchParams.get("query");
-      if (query) {
-        const reply = await processQuery(query, "GET");
-        return new Response(JSON.stringify({ reply }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      return new Response(JSON.stringify({ status: "ok", message: "ChekaMeds WhatsApp webhook active" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!query) return new Response(JSON.stringify({ status: "ok", message: "ChekaMeds WhatsApp webhook active" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const reply = await processQuery(query, "GET");
+      return new Response(JSON.stringify({ reply }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    if (req.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    const raw = await req.text();
+    let body: any = {};
+    try { body = req.headers.get("content-type")?.includes("x-www-form-urlencoded") ? Object.fromEntries(new URLSearchParams(raw).entries()) : JSON.parse(raw || "{}"); } catch { body = {}; }
 
-    const contentType = req.headers.get("content-type") || "";
-    let body: Record<string, string> = {};
-    let rawText = "";
-
-    if (contentType.includes("application/x-www-form-urlencoded")) {
-      rawText = await req.text();
-      body = Object.fromEntries(new URLSearchParams(rawText).entries());
-    } else {
-      rawText = await req.text();
-      body = rawText ? JSON.parse(rawText) : {};
-    }
-
-    const from = (body.from || "").toString().replace("@c.us", "");
-    const messageBody = (body.body || "").toString();
-    const source = isTest ? "test" : "incoming";
+    const from = cleanPhone(String(body.from || body.sender || body.author || body.chatId || ""));
+    const messageBody = String(body.body || body.message || body.text || "");
 
     if (!from || !messageBody) {
-      await logWebhook({ source, from_number: from, message_body: messageBody, response_status: 200, error_message: "no_message", raw_payload: body });
-      return new Response(JSON.stringify({ status: "no_message" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      await logWebhook({ source: isTest ? "test" : "incoming", from_number: from, message_body: messageBody, response_status: 200, error_message: "no_message", raw_payload: body });
+      return new Response(JSON.stringify({ status: "no_message" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const reply = await processQuery(messageBody, from);
-    let sendError: string | undefined;
-
+    let sendError = "";
     if (!isTest) {
-      try {
-        await sendWhatsAppReply(from, reply);
-      } catch (error) {
-        sendError = error instanceof Error ? error.message : String(error);
-      }
+      try { await sendWhatsAppReply(from, reply); } catch (e) { sendError = e instanceof Error ? e.message : String(e); }
     }
 
-    await logWebhook({ source, from_number: from, message_body: messageBody, reply_text: reply, response_status: sendError ? 500 : 200, error_message: sendError, raw_payload: body });
-
-    if (sendError) {
-      return new Response(JSON.stringify({ error: sendError, reply }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    return new Response(JSON.stringify({ status: isTest ? "tested" : "replied", to: from, reply }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (error) {
-    console.error("WhatsApp webhook error", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    await logWebhook({ source: isTest ? "test" : "incoming", response_status: 500, error_message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    await logWebhook({ source: isTest ? "test" : "incoming", from_number: from, message_body: messageBody, reply_text: reply, response_status: sendError ? 500 : 200, error_message: sendError || null, raw_payload: body });
+    if (sendError) return new Response(JSON.stringify({ error: sendError, reply }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ status: isTest ? "tested" : "replied", to: from, reply }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    await logWebhook({ source: isTest ? "test" : "incoming", response_status: 500, error_message: error });
+    return new Response(JSON.stringify({ error }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
