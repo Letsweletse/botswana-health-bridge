@@ -82,18 +82,7 @@ const Landing = () => {
       if (error) throw error;
 
       setConfirmed(true);
-
-      try {
-        const { error: notifyError } = await supabase.functions.invoke('notify-facility-registration', {
-          body: { clinicName: cleanClinicName, fullName: cleanFullName, email: cleanEmail },
-        });
-
-        if (notifyError) {
-          console.warn('Registration notification failed but signup succeeded:', notifyError);
-        }
-      } catch (notifyError) {
-        console.warn('Registration notification failed but signup succeeded:', notifyError);
-      }
+      toast({ title: 'Registration received', description: 'Your account is pending admin approval.' });
     } catch (err: any) {
       toast({ title: 'Registration failed', description: err.message, variant: 'destructive' });
     } finally {
