@@ -46,10 +46,27 @@ function cleanPhone(raw: string) {
   return p;
 }
 
-function directions(row: { clinic_name: string; location?: string | null; directions_link?: string | null }) {
-  if (row.directions_link?.trim()) return row.directions_link;
-  if (row.location?.trim() && row.location !== "N/A" && row.location.toLowerCase() !== "botswana") return `https://maps.google.com/?q=${encodeURIComponent(row.location + ", Botswana")}`;
-  return `https://maps.google.com/?q=${encodeURIComponent(row.clinic_name + ", Botswana")}`;
+function hasRealLocation(location?: string | null) {
+  if (!location) return false;
+  const value = cleanText(location);
+  return value !== "" && value !== "n a" && value !== "botswana";
+}
+
+function realDirections(link?: string | null) {
+  if (!link) return "";
+  const value = link.trim();
+  if (!value) return "";
+  if (!/^https?:\/\//i.test(value)) return "";
+  return value;
+}
+
+function isProductionRow(row: Row) {
+  const clinic = cleanText(row.clinic_name);
+  if (!clinic) return false;
+  if (clinic.includes("demo")) return false;
+  if (clinic.includes("test")) return false;
+  if (clinic.includes("chekameds admin")) return false;
+  return Number(row.quantity) > 0;
 }
 
 async function getAliases(q: string) {
@@ -87,8 +104,9 @@ function score(r: Row, terms: string[]) {
     if (h.includes(t)) s += 45;
     for (const p of t.split(" ")) if (p.length > 2 && h.includes(p)) s += 10;
   }
+  if (realDirections(r.directions_link)) s += 20;
+  if (hasRealLocation(r.location)) s += 10;
   if (r.price_bwp != null) s += 8;
-  if (Number(r.quantity) > 0) s += 10;
   return s;
 }
 
@@ -110,7 +128,7 @@ async function search(q: string, phone: string) {
     const { data } = await db().from("clinic_inventory").select("clinic_name,med_name,quantity,price_bwp,location,directions_link,strength,dosage_form").or(fallback).gt("quantity", 0).neq("clinic_name", "ChekaMeds Admin").limit(100);
     rows = data || [];
   }
-  rows = rows.sort((a, b) => score(b, terms) - score(a, terms));
+  rows = rows.filter(isProductionRow).sort((a, b) => score(b, terms) - score(a, terms));
   if (!rows.length) {
     try { await db().from("failed_searches").insert({ query: q, source: "whatsapp", user_phone: cleanPhone(phone) }); } catch {}
   }
@@ -119,51 +137,61 @@ async function search(q: string, phone: string) {
   return result;
 }
 
+function formatClinicLine(row: Row, index: number) {
+  const price = row.price_bwp != null ? `P${Number(row.price_bwp).toFixed(2)}` : "Price not listed";
+  const location = hasRealLocation(row.location) ? ` — ${row.location}` : "";
+  const link = realDirections(row.directions_link);
+  let text = `${index}. ${row.clinic_name}${location}\n${price} • In stock`;
+  if (link) text += `\nMap: ${link}`;
+  return text;
+}
+
 async function processQuery(message: string, phone: string) {
   const msg = cleanText(message);
   const session = await getSession(phone);
 
   if (/^(hi|hello|hey|help|dumelang|dumela)$/.test(msg)) {
-    return `🏥 *ChekaMeds Botswana*\n\nFind medicines and health essentials faster.\n\nTry:\n💊 Panado / Paracetamol\n🤧 Flu\n🤕 Headache\n🩹 Wound care / Cuts\n🔥 Burn care\n🩺 BP tablets\n\n🌐 chekameds.co.bw\n📱 +267 71 424 486\n\n⚠️ We help you find listed stock. We do not diagnose.`;
+    return `ChekaMeds Botswana\n\nSend a medicine or health need.\n\nExamples:\nPanado\nFlu\nHeadache\nWound care\nBP tablets\n\nWebsite: chekameds.co.bw\nWhatsApp: +267 71 424 486`;
   }
 
   if (/^[1-5]$/.test(msg) && session?.options?.length) {
     const choice = session.options[Number(msg) - 1];
     if (!choice) return `Invalid selection. Reply with 1-${session.options.length}.`;
     await saveSession(phone, session.medicine, session.options, choice);
-    const price = choice.price_bwp != null ? `P${Number(choice.price_bwp).toFixed(2)}` : "Price not available";
-    return `✅ *Selected*\n\n💊 ${choice.med_name}\n📍 ${choice.clinic_name}\n${choice.location ? `📌 ${choice.location}\n` : ""}💰 ${price}\n📦 ${Number(choice.quantity) < 20 ? "Limited stock" : "In stock"}\n🗺️ ${directions(choice)}\n\n👉 Reply *PAY* to continue.`;
+    const price = choice.price_bwp != null ? `P${Number(choice.price_bwp).toFixed(2)}` : "Price not listed";
+    const location = hasRealLocation(choice.location) ? ` — ${choice.location}` : "";
+    const link = realDirections(choice.directions_link);
+    let reply = `Selected:\n${choice.med_name}\n${choice.clinic_name}${location}\n${price}`;
+    if (link) reply += `\nMap: ${link}`;
+    reply += `\n\nReply PAY to continue.`;
+    return reply;
   }
 
   if (msg === "pay") {
-    if (!session?.selected) return "Please search first, choose a pharmacy by number, then reply PAY.";
+    if (!session?.selected) return "Please search first, choose a pharmacy number, then reply PAY.";
     const s = session.selected;
-    const price = s.price_bwp != null ? `P${Number(s.price_bwp).toFixed(2)}` : "price on request";
-    return `💳 *Payment / Collection Request*\n\n💊 ${s.med_name}\n📍 ${s.clinic_name}\n💰 ${price}\n🗺️ ${directions(s)}\n\nOnline payment activation is in progress. For now, please visit the pharmacy or contact support for collection confirmation.`;
+    const price = s.price_bwp != null ? `P${Number(s.price_bwp).toFixed(2)}` : "Price not listed";
+    const location = hasRealLocation(s.location) ? ` — ${s.location}` : "";
+    const link = realDirections(s.directions_link);
+    let reply = `Collection request:\n${s.med_name}\n${s.clinic_name}${location}\n${price}`;
+    if (link) reply += `\nMap: ${link}`;
+    reply += `\n\nOnline payment is coming soon. For now, please contact or visit the pharmacy.`;
+    return reply;
   }
 
-  const { rows, terms } = await search(message, phone);
-  if (!rows.length) return `❌ No listed stock found for "${message}".\n\nTry: headache, flu, wound care, BP tablets, Panado.\n\n⚠️ If symptoms are serious, please consult a healthcare professional.`;
+  const { rows } = await search(message, phone);
+  if (!rows.length) return `No listed stock found for "${message}".\n\nTry another name, brand, or generic medicine.\nFor urgent symptoms, consult a healthcare professional.`;
 
   const byClinic = new Map<string, Row>();
   for (const r of rows) if (!byClinic.has(r.clinic_name)) byClinic.set(r.clinic_name, r);
-  const options = Array.from(byClinic.values()).slice(0, 5);
+  const options = Array.from(byClinic.values()).slice(0, 3);
   const sessionOptions: SessionOption[] = options.map(r => ({ clinic_name: r.clinic_name, location: r.location || null, price_bwp: r.price_bwp == null ? null : Number(r.price_bwp), quantity: Number(r.quantity), med_name: r.med_name, directions_link: r.directions_link || null }));
   const best = options[0].med_name;
   await saveSession(phone, best, sessionOptions);
 
-  let reply = `💊 *ChekaMeds Results*\n`;
-  const extra = terms.filter(t => t !== cleanText(message)).slice(0, 2);
-  if (extra.length) reply += `_Also searched: ${extra.join(", ")}_\n`;
-  reply += `\n✅ *${best}* found at ${options.length} facilit${options.length === 1 ? "y" : "ies"}\n\n`;
-  options.forEach((r, i) => {
-    reply += `${i + 1}️⃣ *${r.clinic_name}*\n`;
-    if (r.location && r.location.toLowerCase() !== "botswana") reply += `📍 ${r.location}\n`;
-    reply += `💰 ${r.price_bwp != null ? `P${Number(r.price_bwp).toFixed(2)}` : "Price not available"}\n`;
-    reply += `📦 ${Number(r.quantity) < 20 ? "Limited stock" : "In stock"}\n`;
-    reply += `🗺️ ${directions(r)}\n\n`;
-  });
-  reply += `👉 Reply *1-${options.length}* to choose\n👉 Reply *PAY* after choosing\n\n⚠️ ChekaMeds helps you find listed stock. It does not diagnose.`;
+  let reply = `${best} available:\n\n`;
+  options.forEach((r, i) => { reply += `${formatClinicLine(r, i + 1)}\n\n`; });
+  reply += `Reply 1-${options.length} to select.\nReply PAY after selecting.\n\nChekaMeds helps you find listed stock. It does not diagnose.`;
   return reply;
 }
 
