@@ -60,13 +60,14 @@ const InventoryTable = () => {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const clinicName = profile?.clinic_name || 'My Clinic';
+  const clinicName = profile?.clinic_name || '';
+  const displayClinicName = clinicName || 'My Clinic';
 
   const downloadTemplate = () => {
     const templateData = [
-      { 'Product Name': 'Panado', 'Category': 'Essential', 'Stock Quantity': 200, 'Price (BWP)': 25, 'Availability': 'In Stock', 'Pharmacy Name': clinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567', 'Directions Link': '' },
-      { 'Product Name': 'Metformin', 'Category': 'Chronic', 'Stock Quantity': 45, 'Price (BWP)': 48, 'Availability': 'Low Stock', 'Pharmacy Name': clinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567', 'Directions Link': '' },
-      { 'Product Name': 'Amoxicillin', 'Category': 'Acute', 'Stock Quantity': 0, 'Price (BWP)': '', 'Availability': 'Out of Stock', 'Pharmacy Name': clinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567', 'Directions Link': '' },
+      { 'Product Name': 'Panado', 'Category': 'Essential', 'Stock Quantity': 200, 'Price (BWP)': 25, 'Availability': 'In Stock', 'Pharmacy Name': displayClinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567', 'Directions Link': '' },
+      { 'Product Name': 'Metformin', 'Category': 'Chronic', 'Stock Quantity': 45, 'Price (BWP)': 48, 'Availability': 'Low Stock', 'Pharmacy Name': displayClinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567', 'Directions Link': '' },
+      { 'Product Name': 'Amoxicillin', 'Category': 'Acute', 'Stock Quantity': 0, 'Price (BWP)': '', 'Availability': 'Out of Stock', 'Pharmacy Name': displayClinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567', 'Directions Link': '' },
     ];
     const ws = XLSX.utils.json_to_sheet(templateData);
     const instructions = [
@@ -75,7 +76,7 @@ const InventoryTable = () => {
       { Field: 'Stock Quantity', Notes: 'Required. Whole number of units in stock. Use 0 if out of stock.' },
       { Field: 'Price (BWP)', Notes: 'Optional. Pharmacies should fill price in Botswana Pula. Clinics may leave blank.' },
       { Field: 'Availability', Notes: 'Optional. In Stock / Low Stock / Out of Stock. Auto-derived from quantity if blank.' },
-      { Field: 'Pharmacy Name', Notes: 'Optional. Defaults to your account clinic/pharmacy name if blank.' },
+      { Field: 'Pharmacy Name', Notes: 'Ignored on upload. ChekaMeds uses your approved account clinic name automatically.' },
       { Field: 'Location', Notes: 'Recommended. City/area shown to customers (e.g. Gaborone, Block 6).' },
       { Field: 'Contact', Notes: 'Optional. Phone number for customers to reach the pharmacy.' },
       { Field: 'Directions Link', Notes: 'Optional. Real Google Maps link starting with https:// or http://.' },
@@ -84,8 +85,8 @@ const InventoryTable = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Stock Template');
     XLSX.utils.book_append_sheet(wb, wsInfo, 'Instructions');
-    XLSX.writeFile(wb, `ChekaMeds_Stock_Template_${clinicName.replace(/\s+/g, '_')}.xlsx`);
-    toast({ title: 'Template downloaded', description: 'Includes Pharmacy Name, Location, Contact and Directions Link columns.' });
+    XLSX.writeFile(wb, `ChekaMeds_Stock_Template_${displayClinicName.replace(/\s+/g, '_')}.xlsx`);
+    toast({ title: 'Template downloaded', description: 'Upload will use your approved account clinic name automatically.' });
   };
 
   const downloadCurrentStock = () => {
@@ -110,13 +111,19 @@ const InventoryTable = () => {
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Current Stock');
-    XLSX.writeFile(wb, `ChekaMeds_Stock_${clinicName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `ChekaMeds_Stock_${displayClinicName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
     toast({ title: 'Stock exported', description: `${exportData.length} medicines exported to Excel.` });
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!clinicName) {
+      toast({ title: 'Account not linked', description: 'Your account is not linked to an approved pharmacy yet. Please contact admin.', variant: 'destructive' });
+      return;
+    }
+
     setUploading(true);
 
     try {
@@ -149,7 +156,6 @@ const InventoryTable = () => {
         const priceStr = String(priceRaw).trim();
         const priceParsed = priceStr === '' ? null : parseFloat(priceStr);
         const price_bwp = priceParsed !== null && !isNaN(priceParsed) && priceParsed >= 0 ? priceParsed : null;
-        const pharmacyName = String(row['Pharmacy Name'] || row.pharmacy_name || '').trim();
         const location = String(row['Location'] || row.location || '').trim();
         const contact = String(row['Contact'] || row.contact || '').trim();
         const rawDirectionsLink = String(row['Directions Link'] || row.directions_link || row['directions_link'] || '').trim();
@@ -159,7 +165,7 @@ const InventoryTable = () => {
         if (isNaN(quantity) || quantity < 0) throw new Error(`Row ${idx + 2}: Invalid Stock Quantity for "${medName}".`);
 
         return {
-          clinic_name: pharmacyName || clinicName,
+          clinic_name: clinicName,
           med_name: medName,
           strength,
           dosage_form: dosageForm,
@@ -188,7 +194,7 @@ const InventoryTable = () => {
         .insert(records);
       if (insErr) throw insErr;
 
-      toast({ title: 'Stock uploaded', description: `${records.length} medicines imported from Excel.` });
+      toast({ title: 'Stock uploaded', description: `${records.length} medicines imported for ${clinicName}.` });
       refreshInventory();
     } catch (err: any) {
       toast({ title: 'Upload failed', description: err.message || 'Could not process the file.', variant: 'destructive' });
@@ -271,7 +277,7 @@ const InventoryTable = () => {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <h2 className="text-base font-display font-semibold text-foreground">
-                {clinicName} — Stock Inventory
+                {displayClinicName} — Stock Inventory
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">{filtered.length} items · Upload Excel to bulk-update</p>
             </div>
@@ -290,8 +296,8 @@ const InventoryTable = () => {
               </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm shadow-primary/20"
+                disabled={uploading || !clinicName}
+                className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 disabled:opacity-50"
               >
                 {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                 {uploading ? 'Uploading...' : 'Upload Excel'}
