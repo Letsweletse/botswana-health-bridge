@@ -31,6 +31,21 @@ const categoryColors: Record<string, string> = {
   Essential: 'bg-muted text-muted-foreground border-border',
 };
 
+function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read the selected file.'));
+    reader.onload = () => {
+      if (!(reader.result instanceof ArrayBuffer)) {
+        reject(new Error('Could not read the selected file as an Excel workbook.'));
+        return;
+      }
+      resolve(reader.result);
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 const InventoryTable = () => {
   const { data: inventoryData = [], isLoading } = useClinicInventory();
   const { profile } = useAuth();
@@ -49,9 +64,9 @@ const InventoryTable = () => {
 
   const downloadTemplate = () => {
     const templateData = [
-      { 'Product Name': 'Panado', 'Category': 'Essential', 'Stock Quantity': 200, 'Price (BWP)': 25, 'Availability': 'In Stock', 'Pharmacy Name': clinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567' },
-      { 'Product Name': 'Metformin', 'Category': 'Chronic', 'Stock Quantity': 45, 'Price (BWP)': 48, 'Availability': 'Low Stock', 'Pharmacy Name': clinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567' },
-      { 'Product Name': 'Amoxicillin', 'Category': 'Acute', 'Stock Quantity': 0, 'Price (BWP)': '', 'Availability': 'Out of Stock', 'Pharmacy Name': clinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567' },
+      { 'Product Name': 'Panado', 'Category': 'Essential', 'Stock Quantity': 200, 'Price (BWP)': 25, 'Availability': 'In Stock', 'Pharmacy Name': clinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567', 'Directions Link': '' },
+      { 'Product Name': 'Metformin', 'Category': 'Chronic', 'Stock Quantity': 45, 'Price (BWP)': 48, 'Availability': 'Low Stock', 'Pharmacy Name': clinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567', 'Directions Link': '' },
+      { 'Product Name': 'Amoxicillin', 'Category': 'Acute', 'Stock Quantity': 0, 'Price (BWP)': '', 'Availability': 'Out of Stock', 'Pharmacy Name': clinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567', 'Directions Link': '' },
     ];
     const ws = XLSX.utils.json_to_sheet(templateData);
     const instructions = [
@@ -63,13 +78,14 @@ const InventoryTable = () => {
       { Field: 'Pharmacy Name', Notes: 'Optional. Defaults to your account clinic/pharmacy name if blank.' },
       { Field: 'Location', Notes: 'Recommended. City/area shown to customers (e.g. Gaborone, Block 6).' },
       { Field: 'Contact', Notes: 'Optional. Phone number for customers to reach the pharmacy.' },
+      { Field: 'Directions Link', Notes: 'Optional. Real Google Maps link starting with https:// or http://.' },
     ];
     const wsInfo = XLSX.utils.json_to_sheet(instructions);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Stock Template');
     XLSX.utils.book_append_sheet(wb, wsInfo, 'Instructions');
     XLSX.writeFile(wb, `ChekaMeds_Stock_Template_${clinicName.replace(/\s+/g, '_')}.xlsx`);
-    toast({ title: 'Template downloaded', description: 'Includes Pharmacy Name, Location and Contact columns.' });
+    toast({ title: 'Template downloaded', description: 'Includes Pharmacy Name, Location, Contact and Directions Link columns.' });
   };
 
   const downloadCurrentStock = () => {
@@ -104,7 +120,7 @@ const InventoryTable = () => {
     setUploading(true);
 
     try {
-      const data = await file.arrayBuffer();
+      const data = await readFileAsArrayBuffer(file);
       const wb = XLSX.read(data);
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows: any[] = XLSX.utils.sheet_to_json(ws);
@@ -136,6 +152,8 @@ const InventoryTable = () => {
         const pharmacyName = String(row['Pharmacy Name'] || row.pharmacy_name || '').trim();
         const location = String(row['Location'] || row.location || '').trim();
         const contact = String(row['Contact'] || row.contact || '').trim();
+        const rawDirectionsLink = String(row['Directions Link'] || row.directions_link || row['directions_link'] || '').trim();
+        const directions_link = /^https?:\/\//i.test(rawDirectionsLink) ? rawDirectionsLink : null;
 
         if (!medName) throw new Error(`Row ${idx + 2}: Product Name is required.`);
         if (isNaN(quantity) || quantity < 0) throw new Error(`Row ${idx + 2}: Invalid Stock Quantity for "${medName}".`);
@@ -155,6 +173,7 @@ const InventoryTable = () => {
           price_bwp,
           location,
           contact,
+          directions_link,
         };
       });
 
@@ -191,17 +210,6 @@ const InventoryTable = () => {
     const matchesCategory = filterCategory === 'All' || item.category === filterCategory;
     return matchesSearch && matchesCategory;
   });
-
-  const formatTime = (iso: string) => {
-    const d = new Date(iso);
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHrs = Math.floor(diffMins / 60);
-    if (diffHrs < 24) return `${diffHrs}h ago`;
-    return d.toLocaleDateString('en-BW', { day: 'numeric', month: 'short' });
-  };
 
   const startEdit = (id: string, currentQty: number) => {
     setEditingId(id);
@@ -259,7 +267,6 @@ const InventoryTable = () => {
   return (
     <>
       <div className="bg-card rounded-2xl border border-border overflow-hidden card-premium">
-        {/* Header */}
         <div className="px-5 py-4 border-b border-border space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
@@ -329,7 +336,6 @@ const InventoryTable = () => {
           </div>
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
           <table className="w-full text-xs">
             <thead className="sticky top-0 z-10">
@@ -454,7 +460,6 @@ const InventoryTable = () => {
         </div>
       </div>
 
-      {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
