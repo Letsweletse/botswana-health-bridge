@@ -207,10 +207,14 @@ function formatInventoryItem(row: Row | SessionOption, index: number) {
   return text;
 }
 
+function formatPaymentChoice(selected: SessionOption) {
+  return `✅ *Reservation request received*\n\nMedicine: ${selected.med_name}\nPharmacy: ${selected.clinic_name}\nLocation: ${hasRealLocation(selected.location) ? selected.location : "Location unavailable"}\nAmount: ${formatPrice(selected.price_bwp)}\n\nChoose payment method:\n\n⚡ Reply *CPAY*\nPay with ChekaPay\nInstant confirmation • Priority pickup • Digital receipt\n\n🏪 Reply *STORE*\nReserve now and pay physically on collection.`;
+}
+
 function formatMedicineResults(query: string, rows: Row[]) {
   let reply = `💊 *Search results for: ${query}*\n\n`;
   rows.forEach((row, i) => { reply += `${formatInventoryItem(row, i + 1)}\n\n`; });
-  reply += `Reply with the item number to reserve.\nReply *PAY 1* to start order payment.`;
+  reply += `Reply with the item number to reserve.\nExample: Reply *1*`;
   return reply;
 }
 
@@ -218,7 +222,7 @@ function formatSymptomResults(query: string, rows: Row[]) {
   let reply = `🩺 *Possible options for: ${query}*\n\n`;
   reply += `This is not a diagnosis. Please speak to a pharmacist or clinician if symptoms are severe, unusual, or persistent.\n\n`;
   rows.forEach((row, i) => { reply += `${formatInventoryItem(row, i + 1)}\n\n`; });
-  reply += `Reply with the item number to reserve.\nReply *PAY 1* to start order payment.`;
+  reply += `Reply with the item number to reserve.\nExample: Reply *1*`;
   return reply;
 }
 
@@ -230,20 +234,32 @@ async function processQuery(message: string, phone: string) {
     return `ChekaMeds Botswana\n\nSend a medicine name or symptom.\n\nExamples:\nPanado\nFlu\nHeadache and fever\nWound care\nBP tablets\n\nWebsite: chekameds.co.bw\nWhatsApp: +267 71 424 486`;
   }
 
+  if (/^(cpay|chekapay|pay with chekapay)$/.test(msg)) {
+    if (!session?.selected) return "Please search first, reply with an item number to reserve, then reply CPAY.";
+    const selected = session.selected;
+    return `⚡ *ChekaPay selected*\n\nMedicine: ${selected.med_name}\nPharmacy: ${selected.clinic_name}\nAmount: ${formatPrice(selected.price_bwp)}\n\nYour reservation is marked for ChekaPay payment.\nA ChekaPay payment confirmation/receipt will be sent once payment is completed.\n\nIf you need help, a support representative will assist with collection arrangements.`;
+  }
+
+  if (/^(store|pay at store|cash|cash payment)$/.test(msg)) {
+    if (!session?.selected) return "Please search first, reply with an item number to reserve, then reply STORE.";
+    const selected = session.selected;
+    return `🏪 *Pay at Store selected*\n\nMedicine: ${selected.med_name}\nPharmacy: ${selected.clinic_name}\nLocation: ${hasRealLocation(selected.location) ? selected.location : "Location unavailable"}\n\nYour reservation request has been kept for standard pickup.\nPlease pay physically at the pharmacy on collection.\n\nA pharmacy representative may confirm final availability before pickup.`;
+  }
+
   const payMatch = msg.match(/^pay(?:\s+([1-5]))?$/);
   if (payMatch) {
-    if (!session?.options?.length) return "Please search first, then reply PAY with the item number, for example PAY 1.";
+    if (!session?.options?.length) return "Please search first, then reply with the item number to reserve, for example 1.";
     const selected = payMatch[1] ? session.options[Number(payMatch[1]) - 1] : session.selected;
-    if (!selected) return `Please choose an item first. Reply PAY 1 to PAY ${session.options.length}.`;
+    if (!selected) return `Please choose an item first. Reply with 1-${session.options.length}.`;
     await saveSession(phone, session.medicine, session.options, selected);
-    return `🧾 *Order started*\n\nMedicine: ${selected.med_name}\nPharmacy: ${selected.clinic_name}\nAmount: ${formatPrice(selected.price_bwp)}\n\nOnline payment activation is currently in progress.\nA pharmacy representative or support team member will assist you with payment confirmation and collection arrangements shortly.\n\nThank you for using ChekaMeds Botswana.`;
+    return formatPaymentChoice(selected);
   }
 
   if (/^[1-5]$/.test(msg) && session?.options?.length) {
     const choice = session.options[Number(msg) - 1];
     if (!choice) return `Invalid selection. Reply with 1-${session.options.length}.`;
     await saveSession(phone, session.medicine, session.options, choice);
-    return `✅ *Reservation request received*\n\nMedicine: ${choice.med_name}\nPharmacy: ${choice.clinic_name}\nLocation: ${hasRealLocation(choice.location) ? choice.location : "Location unavailable"}\n\nA pharmacy representative will confirm availability before collection.\n\nReply *PAY ${msg}* if you want to start payment/order assistance.`;
+    return formatPaymentChoice(choice);
   }
 
   const symptom = isSymptomSearch(message);
