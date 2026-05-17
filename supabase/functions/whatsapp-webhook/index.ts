@@ -80,6 +80,11 @@ const tn: Record<string, string> = {
 const INVENTORY_TTL_MS = 60_000;
 const SEARCH_TTL_MS = 60_000;
 const MAX_SEARCH_RESULTS = 5;
+const PRICE_ON_REQUEST = 'Available on request';
+const SELECTION_HEADER = '✅ Selected';
+const RESERVATION_HEADER = '✅ Reservation Request Received';
+const COLLECTION_INSTRUCTIONS = 'Please contact or visit the pharmacy for collection.';
+const CHEKAPAY_COMING_SOON = '💳 Online payment activation is coming soon with ChekaPay.';
 let inventoryCache: { data: any[]; ts: number } | null = null;
 const searchCache = new Map<string, { data: any[]; ts: number }>();
 
@@ -109,7 +114,7 @@ function getDirectionsLink(pharmacy: { directions_link?: string | null }): strin
 }
 
 function formatPrice(price: number | null | undefined): string {
-  return price != null ? `P${Number(price).toFixed(2)}` : 'Available on request';
+  return price != null ? `P${Number(price).toFixed(2)}` : PRICE_ON_REQUEST;
 }
 
 function formatAvailability(quantity: number | null | undefined): string {
@@ -259,20 +264,20 @@ For urgent symptoms, please consult a pharmacist or healthcare professional.`;
 }
 
 function manualCollectionReply(selected: SessionOption): string {
-  return `✅ Reservation Request Received
+  return `${RESERVATION_HEADER}
 
 Selected Item:
 ${selected.med_name}
 
 ${formatPharmacyLine(selected)}${formatDirectionsInline(selected)}
 
-Please contact or visit the pharmacy for collection.
+${COLLECTION_INSTRUCTIONS}
 
-💳 Online payment activation is coming soon with ChekaPay.`;
+${CHEKAPAY_COMING_SOON}`;
 }
 
 function buildSelectionReply(choice: SessionOption): string {
-  return `✅ Selected
+  return `${SELECTION_HEADER}
 
 ${choice.med_name}
 ${formatPharmacyLine(choice)}
