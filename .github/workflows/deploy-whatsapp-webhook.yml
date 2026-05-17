@@ -1,19 +1,19 @@
-name: Deploy WhatsApp Webhook
+name: Deploy ChekaMeds Edge Functions
 
-# Force redeploy after production formatter fix
 on:
   workflow_dispatch:
   push:
     branches:
       - main
     paths:
-      - 'supabase/functions/whatsapp-webhook/**'
+      - 'supabase/functions/**'
       - 'supabase/config.toml'
       - '.github/workflows/deploy-whatsapp-webhook.yml'
 
 jobs:
-  deploy-whatsapp-webhook:
+  deploy-edge-functions:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,3 +28,33 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase functions deploy whatsapp-webhook --project-ref kcgsxxwgzrmsnnxvpkvi
+
+      - name: Deploy checkout-reservation if present
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -d "supabase/functions/checkout-reservation" ]; then
+            supabase functions deploy checkout-reservation --project-ref kcgsxxwgzrmsnnxvpkvi
+          else
+            echo "checkout-reservation function folder not found; skipping."
+          fi
+
+      - name: Deploy chekapay-webhook if present
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -d "supabase/functions/chekapay-webhook" ]; then
+            supabase functions deploy chekapay-webhook --project-ref kcgsxxwgzrmsnnxvpkvi
+          else
+            echo "chekapay-webhook function folder not found; skipping."
+          fi
+
+      - name: Deploy admin-sync-users if present
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -d "supabase/functions/admin-sync-users" ]; then
+            supabase functions deploy admin-sync-users --project-ref kcgsxxwgzrmsnnxvpkvi
+          else
+            echo "admin-sync-users function folder not found; skipping."
+          fi
