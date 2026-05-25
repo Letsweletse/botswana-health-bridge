@@ -18,10 +18,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+const TEMPLATE_PATH = '/templates/chekameds_inventory_upload_template.xlsx';
+
 const trendConfig: Record<string, { icon: typeof TrendingDown; className: string }> = {
   'Depleting Fast': { icon: TrendingDown, className: 'bg-critical/10 text-critical border-critical/20' },
-  'Stable': { icon: Minus, className: 'bg-muted text-muted-foreground border-border' },
-  'Restocked': { icon: ArrowUpRight, className: 'bg-success/10 text-success border-success/20' },
+  Stable: { icon: Minus, className: 'bg-muted text-muted-foreground border-border' },
+  Restocked: { icon: ArrowUpRight, className: 'bg-success/10 text-success border-success/20' },
 };
 
 const categoryColors: Record<string, string> = {
@@ -46,6 +48,13 @@ function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
   });
 }
 
+function cleanNumber(value: unknown): number | null {
+  const raw = String(value ?? '').replace(/[Pp,\s]/g, '').trim();
+  if (!raw) return null;
+  const parsed = parseFloat(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
 const InventoryTable = () => {
   const { data: inventoryData = [], isLoading } = useClinicInventory();
   const { profile } = useAuth();
@@ -64,29 +73,13 @@ const InventoryTable = () => {
   const displayClinicName = clinicName || 'My Clinic';
 
   const downloadTemplate = () => {
-    const templateData = [
-      { 'Product Name': 'Panado', 'Category': 'Essential', 'Stock Quantity': 200, 'Price (BWP)': 25, 'Availability': 'In Stock', 'Pharmacy Name': displayClinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567', 'Directions Link': '' },
-      { 'Product Name': 'Metformin', 'Category': 'Chronic', 'Stock Quantity': 45, 'Price (BWP)': 48, 'Availability': 'Low Stock', 'Pharmacy Name': displayClinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567', 'Directions Link': '' },
-      { 'Product Name': 'Amoxicillin', 'Category': 'Acute', 'Stock Quantity': 0, 'Price (BWP)': '', 'Availability': 'Out of Stock', 'Pharmacy Name': displayClinicName, 'Location': 'Gaborone', 'Contact': '+267 71234567', 'Directions Link': '' },
-    ];
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const instructions = [
-      { Field: 'Product Name', Notes: 'Required. The medicine/product name customers will search for.' },
-      { Field: 'Category', Notes: 'Optional. e.g. Chronic, Acute, Preventive, Essential.' },
-      { Field: 'Stock Quantity', Notes: 'Required. Whole number of units in stock. Use 0 if out of stock.' },
-      { Field: 'Price (BWP)', Notes: 'Optional. Pharmacies should fill price in Botswana Pula. Clinics may leave blank.' },
-      { Field: 'Availability', Notes: 'Optional. In Stock / Low Stock / Out of Stock. Auto-derived from quantity if blank.' },
-      { Field: 'Pharmacy Name', Notes: 'Ignored on upload. ChekaMeds uses your approved account clinic name automatically.' },
-      { Field: 'Location', Notes: 'Recommended. City/area shown to customers (e.g. Gaborone, Block 6).' },
-      { Field: 'Contact', Notes: 'Optional. Phone number for customers to reach the pharmacy.' },
-      { Field: 'Directions Link', Notes: 'Optional. Real Google Maps link starting with https:// or http://.' },
-    ];
-    const wsInfo = XLSX.utils.json_to_sheet(instructions);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Stock Template');
-    XLSX.utils.book_append_sheet(wb, wsInfo, 'Instructions');
-    XLSX.writeFile(wb, `ChekaMeds_Stock_Template_${displayClinicName.replace(/\s+/g, '_')}.xlsx`);
-    toast({ title: 'Template downloaded', description: 'Upload will use your approved account clinic name automatically.' });
+    const a = document.createElement('a');
+    a.href = TEMPLATE_PATH;
+    a.download = 'chekameds_inventory_upload_template.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    toast({ title: 'Template downloaded', description: 'The official ChekaMeds Excel inventory template has been downloaded.' });
   };
 
   const downloadCurrentStock = () => {
@@ -94,7 +87,8 @@ const InventoryTable = () => {
       toast({ title: 'No data', description: 'Your inventory is empty.', variant: 'destructive' });
       return;
     }
-    const exportData = inventoryData.map(i => ({
+
+    const exportData = inventoryData.map((i: any) => ({
       med_name: i.med_name,
       strength: i.strength || '',
       dosage_form: i.dosage_form || '',
@@ -108,6 +102,7 @@ const InventoryTable = () => {
       price_bwp: i.price_bwp ?? '',
       updated_at: i.updated_at,
     }));
+
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Current Stock');
@@ -138,31 +133,29 @@ const InventoryTable = () => {
       const validTrends = ['Stable', 'Depleting Fast', 'Restocked'];
 
       const records = rows.map((row, idx) => {
-        const medName = String(row['Product Name'] || row.med_name || row['Medicine Name'] || row['medicine'] || '').trim();
+        const medName = String(row.med_name || row['Product Name'] || row['Medicine Name'] || row.medicine || '').trim();
         const strength = String(row.strength || row['Strength'] || '').trim();
         const dosageForm = String(row.dosage_form || row['Dosage Form'] || '').trim();
         const packSize = String(row.pack_size || row['Pack Size'] || '').trim();
         const atcCode = String(row.atc_code || row['ATC Code'] || '').trim();
         const atcDescription = String(row.atc_description || row['ATC Description'] || '').trim();
-        const category = String(row['Category'] || row.category || 'Essential').trim();
-        const facilityLevel = String(row.facility_level || row['Facility Level'] || '').trim();
-        const qtyRaw = row['Stock Quantity'] ?? row.quantity ?? row['Quantity'] ?? '0';
+        const category = String(row.category || row['Category'] || 'Essential').trim();
+        const facilityLevel = String(row.facility_level || row['Facility Level'] || row.facility_type || '').trim();
+        const qtyRaw = row.quantity ?? row['Stock Quantity'] ?? row['Quantity'] ?? '0';
         const quantity = parseInt(String(qtyRaw), 10);
-        const availability = String(row['Availability'] || '').trim().toLowerCase();
+        const availability = String(row.stock_status || row['Availability'] || '').trim().toLowerCase();
         let trend = String(row.trend || row['Trend'] || 'Stable').trim();
         if (availability === 'low stock') trend = 'Depleting Fast';
         else if (availability === 'in stock') trend = 'Stable';
-        const priceRaw = row['Price (BWP)'] ?? row.price_bwp ?? row['price_bwp'] ?? row['price'] ?? '';
-        const priceStr = String(priceRaw).trim();
-        const priceParsed = priceStr === '' ? null : parseFloat(priceStr);
-        const price_bwp = priceParsed !== null && !isNaN(priceParsed) && priceParsed >= 0 ? priceParsed : null;
-        const location = String(row['Location'] || row.location || '').trim();
-        const contact = String(row['Contact'] || row.contact || '').trim();
-        const rawDirectionsLink = String(row['Directions Link'] || row.directions_link || row['directions_link'] || '').trim();
+        else if (availability === 'out of stock') trend = 'Stable';
+        const price_bwp = cleanNumber(row.price_bwp ?? row['Price (BWP)'] ?? row.price ?? '');
+        const location = String(row.location || row['Location'] || '').trim();
+        const contact = String(row.contact || row['Contact'] || row.whatsapp || '').trim();
+        const rawDirectionsLink = String(row.directions_link || row['Directions Link'] || '').trim();
         const directions_link = /^https?:\/\//i.test(rawDirectionsLink) ? rawDirectionsLink : null;
 
-        if (!medName) throw new Error(`Row ${idx + 2}: Product Name is required.`);
-        if (isNaN(quantity) || quantity < 0) throw new Error(`Row ${idx + 2}: Invalid Stock Quantity for "${medName}".`);
+        if (!medName) throw new Error(`Row ${idx + 2}: med_name is required.`);
+        if (Number.isNaN(quantity) || quantity < 0) throw new Error(`Row ${idx + 2}: Invalid quantity for "${medName}".`);
 
         return {
           clinic_name: clinicName,
@@ -204,9 +197,9 @@ const InventoryTable = () => {
     }
   };
 
-  const categories = ['All', ...new Set(inventoryData.map(i => i.category))];
+  const categories = ['All', ...new Set(inventoryData.map((i: any) => i.category))];
 
-  const filtered = inventoryData.filter(item => {
+  const filtered = inventoryData.filter((item: any) => {
     const searchLower = search.toLowerCase();
     const matchesSearch =
       item.med_name.toLowerCase().includes(searchLower) ||
@@ -325,7 +318,7 @@ const InventoryTable = () => {
               />
             </div>
             <div className="flex gap-1 flex-wrap">
-              {categories.map(cat => (
+              {categories.map((cat: string) => (
                 <button
                   key={cat}
                   onClick={() => setFilterCategory(cat)}
@@ -372,8 +365,8 @@ const InventoryTable = () => {
                   </td>
                 </tr>
               ) : (
-                filtered.map((item) => {
-                  const trend = trendConfig[item.trend] || trendConfig['Stable'];
+                filtered.map((item: any) => {
+                  const trend = trendConfig[item.trend] || trendConfig.Stable;
                   const TrendIcon = trend.icon;
                   const isLow = item.quantity < 20;
                   const isEditing = editingId === item.id;
@@ -474,7 +467,7 @@ const InventoryTable = () => {
               Remove from inventory?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              <strong className="text-foreground">{deleteTarget?.name}</strong> will be permanently removed from your clinic's inventory. This action cannot be undone.
+              <strong className="text-foreground">{deleteTarget?.name}</strong> will be permanently removed from your clinic&apos;s inventory. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
