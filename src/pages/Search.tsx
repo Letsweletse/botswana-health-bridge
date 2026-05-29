@@ -342,7 +342,19 @@ const SearchPage = () => {
                             {med.pack_size && <span className="text-[10px] text-white/25">· {med.pack_size}</span>}
                             <span className="text-[10px] text-white/25">· {med.category || 'Essential'}</span>
                           </div>
-                          {med.location && <p className="text-[10px] text-white/30 mt-1">Location: {med.location}</p>}
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            {med.location && <p className="text-[10px] text-white/30">Location: {med.location}</p>}
+                            {med.directions_link && (
+                              <a
+                                href={med.directions_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 hover:text-emerald-200 border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 transition-colors"
+                              >
+                                <MapPin className="h-3 w-3" /> Directions
+                              </a>
+                            )}
+                          </div>
                         </div>
                         <div className="text-right flex-shrink-0 ml-4">
                           {med.price_bwp != null && <p className="text-sm font-bold text-emerald-300">P {Number(med.price_bwp).toFixed(2)}</p>}
