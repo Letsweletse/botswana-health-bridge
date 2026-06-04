@@ -13,6 +13,7 @@ import StockForecasting from '@/components/StockForecasting';
 import QRVerification from '@/components/QRVerification';
 import SMSUSSDPanel from '@/components/SMSUSSDPanel';
 import PaymentMethods from '@/components/PaymentMethods';
+import ConsultantDashboard from '@/components/ConsultantDashboard';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wrench, Settings as SettingsIcon } from 'lucide-react';
 
@@ -22,6 +23,7 @@ const tabTitles: Record<TabId, { title: string; subtitle: string }> = {
   inventory: { title: 'My Clinic Inventory', subtitle: 'Manage your facility\'s medicine stock — add, update quantities, or remove records.' },
   analytics: { title: 'Stock Analytics', subtitle: 'Weekly trends, depletion patterns, and alert history across the district.' },
   whatsapp: { title: 'WhatsApp Bot & Clinic Guide', subtitle: 'How patients and health workers access medicine data — and how to join ChekaMeds.' },
+  consultant: { title: 'ChekaMeds Consultant Dashboard', subtitle: 'Review patient requests, create secure Daily.co video links, and track consultation status.' },
   prescriptions: { title: 'Prescription Matching', subtitle: 'Find the nearest clinic that has ALL medicines on a patient\'s prescription list.' },
   forecasting: { title: 'Predictive Stock Forecasting', subtitle: 'AI-powered depletion analysis with automatic supplier alerts before shortages hit.' },
   qr_codes: { title: 'QR Code Verification', subtitle: 'Generate and manage QR codes for medicine authenticity verification.' },
@@ -128,6 +130,7 @@ const Index = () => {
                 </div>
               )}
 
+              {activeTab === 'consultant' && <ConsultantDashboard />}
               {activeTab === 'prescriptions' && <PrescriptionMatcher />}
               {activeTab === 'forecasting' && <StockForecasting />}
               {activeTab === 'qr_codes' && <QRVerification />}
