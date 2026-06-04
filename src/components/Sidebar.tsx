@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Map, Package, BarChart3, MessageCircle, Settings, LogOut,
-  ChevronLeft, ChevronRight, User, Stethoscope, ClipboardList, Brain, QrCode, Phone, CreditCard, Store
+  ChevronLeft, ChevronRight, User, Stethoscope, ClipboardList, Brain, QrCode, Phone, CreditCard, Store, Video
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import logo from '@/assets/ChekaMeds_Logo.png';
 
-export type TabId = 'dashboard' | 'map' | 'inventory' | 'analytics' | 'whatsapp' | 'prescriptions' | 'forecasting' | 'qr_codes' | 'sms_ussd' | 'pricing' | 'settings';
+export type TabId = 'dashboard' | 'map' | 'inventory' | 'analytics' | 'consultant' | 'whatsapp' | 'prescriptions' | 'forecasting' | 'qr_codes' | 'sms_ussd' | 'pricing' | 'settings';
 
 const navItems: { label: string; icon: typeof LayoutDashboard; id: TabId }[] = [
   { label: 'Dashboard', icon: LayoutDashboard, id: 'dashboard' },
@@ -16,6 +16,7 @@ const navItems: { label: string; icon: typeof LayoutDashboard; id: TabId }[] = [
   { label: 'My Inventory', icon: Package, id: 'inventory' },
   { label: 'Analytics', icon: BarChart3, id: 'analytics' },
   { label: 'WhatsApp Bot', icon: MessageCircle, id: 'whatsapp' },
+  { label: 'Consultant', icon: Video, id: 'consultant' },
   { label: 'Prescriptions', icon: ClipboardList, id: 'prescriptions' },
   { label: 'Forecasting', icon: Brain, id: 'forecasting' },
   { label: 'QR Codes', icon: QrCode, id: 'qr_codes' },
