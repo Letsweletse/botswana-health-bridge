@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 
 import Search from "./pages/Search";
 import Facilities from "./pages/Facilities";
+import Consultant from "./pages/Consultant";
 import ResetPassword from "./pages/ResetPassword";
 import AdminPanel from "./pages/AdminPanel";
 import WhatsAppWebhookAdmin from "./pages/WhatsAppWebhookAdmin";
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/search" element={<Search />} />
           <Route path="/facilities" element={<Facilities />} />
+          <Route path="/consultant" element={<Consultant />} />
           <Route path="/admin" element={<AdminPanel />} />
           <Route path="/admin/whatsapp" element={<WhatsAppWebhookAdmin />} />
           <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
