@@ -33,6 +33,14 @@ const readBody = (body: unknown) => {
   return body && typeof body === 'object' ? body as Record<string, unknown> : {};
 };
 
+const pickEnv = (...names: string[]) => {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return undefined;
+};
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   res.setHeader('Allow', ['POST', 'OPTIONS']);
 
@@ -45,18 +53,27 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   try {
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const dailyApiKey = process.env.DAILY_API_KEY;
-    const dailyDomain = process.env.DAILY_DOMAIN;
+    const supabaseUrl = pickEnv('SUPABASE_URL', 'VITE_SUPABASE_URL');
+    const anonKey = pickEnv('SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY', 'VITE_SUPABASE_PUBLISHABLE_KEY', 'VITE_SUPABASE_ANON_KEY');
+    const serviceRoleKey = pickEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_KEY', 'SERVICE_ROLE_KEY');
+    const dailyApiKey = pickEnv('DAILY_API_KEY');
+    const dailyDomain = pickEnv('DAILY_DOMAIN');
 
-    if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-      return json(res, 500, { error: 'Supabase server environment is not configured' });
+    const missingSupabaseEnv = [
+      ['SUPABASE_URL or VITE_SUPABASE_URL', supabaseUrl],
+      ['SUPABASE_ANON_KEY or SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_PUBLISHABLE_KEY', anonKey],
+      ['SUPABASE_SERVICE_ROLE_KEY', serviceRoleKey],
+    ].filter(([, value]) => !value).map(([name]) => name);
+
+    if (missingSupabaseEnv.length > 0) {
+      return json(res, 500, {
+        error: 'Supabase server environment is not configured',
+        missing: missingSupabaseEnv,
+      });
     }
 
     if (!dailyApiKey) {
-      return json(res, 500, { error: 'DAILY_API_KEY is not configured' });
+      return json(res, 500, { error: 'DAILY_API_KEY is not configured', missing: ['DAILY_API_KEY'] });
     }
 
     const authorization = Array.isArray(req.headers.authorization)
@@ -67,11 +84,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       return json(res, 401, { error: 'Authentication required' });
     }
 
-    const userClient = createClient(supabaseUrl, anonKey, {
+    const userClient = createClient(supabaseUrl!, anonKey!, {
       global: { headers: { Authorization: authorization } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
+    const serviceClient = createClient(supabaseUrl!, serviceRoleKey!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
