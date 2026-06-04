@@ -71,6 +71,75 @@ export type Database = {
         }
         Relationships: []
       }
+      consultant_requests: {
+        Row: {
+          age_group: string | null
+          allergies: string | null
+          consultation_status: string | null
+          consultation_type: string | null
+          created_at: string
+          emergency_flags: string[] | null
+          existing_conditions: string | null
+          full_name: string
+          id: string
+          location: string
+          phone: string
+          pregnancy_status: string | null
+          prescription_url: string | null
+          request_status: string | null
+          symptom_duration: string | null
+          symptoms: string
+          updated_at: string
+          video_room_created_at: string | null
+          video_room_expires_at: string | null
+          video_room_url: string | null
+        }
+        Insert: {
+          age_group?: string | null
+          allergies?: string | null
+          consultation_status?: string | null
+          consultation_type?: string | null
+          created_at?: string
+          emergency_flags?: string[] | null
+          existing_conditions?: string | null
+          full_name: string
+          id?: string
+          location: string
+          phone: string
+          pregnancy_status?: string | null
+          prescription_url?: string | null
+          request_status?: string | null
+          symptom_duration?: string | null
+          symptoms: string
+          updated_at?: string
+          video_room_created_at?: string | null
+          video_room_expires_at?: string | null
+          video_room_url?: string | null
+        }
+        Update: {
+          age_group?: string | null
+          allergies?: string | null
+          consultation_status?: string | null
+          consultation_type?: string | null
+          created_at?: string
+          emergency_flags?: string[] | null
+          existing_conditions?: string | null
+          full_name?: string
+          id?: string
+          location?: string
+          phone?: string
+          pregnancy_status?: string | null
+          prescription_url?: string | null
+          request_status?: string | null
+          symptom_duration?: string | null
+          symptoms?: string
+          updated_at?: string
+          video_room_created_at?: string | null
+          video_room_expires_at?: string | null
+          video_room_url?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           approved: boolean
