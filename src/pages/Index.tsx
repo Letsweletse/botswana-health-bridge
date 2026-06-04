@@ -32,6 +32,15 @@ const tabTitles: Record<TabId, { title: string; subtitle: string }> = {
   settings: { title: 'System Settings', subtitle: 'IoT device configuration, notification thresholds, and system preferences.' },
 };
 
+const mobileTabs: { id: TabId; label: string }[] = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'inventory', label: 'Inventory' },
+  { id: 'consultant', label: 'Consultant' },
+  { id: 'whatsapp', label: 'WhatsApp' },
+  { id: 'prescriptions', label: 'Rx' },
+  { id: 'settings', label: 'Settings' },
+];
+
 const Index = () => {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
 
@@ -41,6 +50,25 @@ const Index = () => {
       <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
         <DashboardHeader />
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+          <div className="md:hidden -mx-4 border-b border-border bg-card px-4 pb-3">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {mobileTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`whitespace-nowrap border px-3 py-2 text-xs font-semibold transition ${
+                    activeTab === tab.id
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-muted-foreground'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <motion.div
             key={activeTab}
