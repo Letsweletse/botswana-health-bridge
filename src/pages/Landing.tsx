@@ -112,6 +112,12 @@ const Landing = () => {
           </Link>
           <div className="flex items-center gap-3">
             <Link
+              to="/consultant"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-white/10 px-4 py-2 text-[13px] font-semibold text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+            >
+              Consultant
+            </Link>
+            <Link
               to="/search"
               className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-4 py-2 text-[13px] font-semibold text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors"
             >
@@ -156,7 +162,10 @@ const Landing = () => {
               Search <ArrowRight className="h-4 w-4" />
             </button>
           </form>
-          <p className="mt-3 text-xs text-white/40">No login needed. Patients can search listed stock directly.</p>
+          <div className="mt-3 flex flex-col gap-2 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between">
+            <span>No login needed. Patients can search listed stock directly.</span>
+            <Link to="/consultant" className="font-semibold text-emerald-300 hover:text-emerald-200">Need provider advice? Request Consultant support →</Link>
+          </div>
         </div>
       </section>
 
@@ -272,8 +281,8 @@ const Landing = () => {
                         )}
                       </div>
                       <div className="relative">
-                        <input type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} className={inputClass + ' pr-11'} disabled={isLoading} />
-                        <button type="button" onClick={() => setShowPassword(!showPassword)} disabled={isLoading} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors disabled:opacity-50">
+                        <input type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={`${inputClass} pr-12`} disabled={isLoading} />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60" disabled={isLoading}>
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
@@ -335,6 +344,7 @@ const Landing = () => {
           <p className="text-[11px] text-white/15">© {new Date().getFullYear()} ChekaMeds · Powered by IBLIM ENTERPRISE (Pty) Ltd</p>
           <div className="flex items-center gap-6">
             <Link to="/search" className="text-[11px] text-white/20 hover:text-white/50 transition-colors">Find Medicine</Link>
+            <Link to="/consultant" className="text-[11px] text-white/20 hover:text-white/50 transition-colors">Consultant</Link>
           </div>
         </div>
       </footer>
