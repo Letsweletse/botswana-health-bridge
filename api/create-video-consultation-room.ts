@@ -97,21 +97,38 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       return json(res, 401, { error: 'Authentication required' });
     }
 
-    const [{ data: roleData }, { data: profileData }] = await Promise.all([
-      serviceClient
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', authData.user.id)
-        .eq('role', 'admin')
-        .maybeSingle(),
-      serviceClient
-        .from('profiles')
-        .select('approved')
-        .or(`user_id.eq.${authData.user.id},id.eq.${authData.user.id}`)
-        .maybeSingle(),
-    ]);
+    const userId = authData.user.id;
 
-    if (!roleData && profileData?.approved !== true) {
+    // This project schema uses profiles.id as the auth user id. Some older/newer copies may also have user_id.
+    // Check the schema that exists without failing when optional tables/columns do not exist.
+    const { data: profileById, error: profileByIdError } = await serviceClient
+      .from('profiles')
+      .select('approved')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileByIdError) {
+      console.error('Profile approval lookup failed:', profileByIdError);
+    }
+
+    let isApproved = profileById?.approved === true;
+    let isAdmin = false;
+
+    // user_roles is optional in this deployed database. If missing, approval alone is enough.
+    const { data: roleData, error: roleError } = await serviceClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('role', 'admin')
+      .maybeSingle();
+
+    if (!roleError && roleData) {
+      isAdmin = true;
+    } else if (roleError) {
+      console.warn('user_roles admin lookup skipped:', roleError.message);
+    }
+
+    if (!isAdmin && !isApproved) {
       return json(res, 403, { error: 'Only approved facility/admin users can create video consultation rooms' });
     }
 
