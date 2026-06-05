@@ -1,377 +1,228 @@
-import { useRef, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, Search, ArrowRight, CheckCircle2, Activity, Pill, Shield, MessageCircle, Video, Home, Building2, LockKeyhole } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
-import logo from '@/assets/ChekaMeds_Logo.png';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import heroBg from '@/assets/hero-bg.png';
 import { consultantVideoImage } from '@/assets/consultantVideoImage';
 
 const Landing = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [clinicName, setClinicName] = useState('');
-  const [publicSearch, setPublicSearch] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
-  const signupLockRef = useRef(false);
+  const [typedWord, setTypedWord] = useState('faster');
   const navigate = useNavigate();
 
-  const handlePublicSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const query = publicSearch.trim();
-    navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
-  };
+  useEffect(() => {
+    const progress = document.getElementById('progress');
+    const nav = document.querySelector('.cm-nav') as HTMLElement | null;
 
-  const handleForgotPassword = async () => {
-    if (!email.trim()) {
-      toast({ title: 'Enter your email', description: 'Please enter your email address first, then click Forgot password.', variant: 'destructive' });
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/reset-password',
+    const onScroll = () => {
+      if (progress) {
+        const max = document.body.scrollHeight - window.innerHeight;
+        progress.style.width = max > 0 ? `${(window.scrollY / max) * 100}%` : '0%';
+      }
+      if (nav) nav.style.boxShadow = window.scrollY > 10 ? '0 2px 20px rgba(13,27,42,0.07)' : 'none';
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) entry.target.classList.add('visible');
       });
-      if (error) throw error;
-      toast({ title: 'Reset link sent', description: 'Check your email for a password reset link.' });
-    } catch (err: any) {
-      toast({ title: 'Request failed', description: err.message, variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    }, { threshold: 0.12 });
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isLoading) return;
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      navigate('/dashboard');
-    } catch (err: any) {
-      toast({ title: 'Sign in failed', description: err.message, variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    document.querySelectorAll('.reveal, .feat-item, .s-card, .rating-badge, .section-eyebrow, .section-title, .section-body, .consult-btns, .secure-row').forEach((el) => observer.observe(el));
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (signupLockRef.current || isLoading) return;
+    const words = ['faster', 'smarter', 'safely', 'instantly'];
+    let index = 0;
+    const wordTimer = window.setInterval(() => {
+      index = (index + 1) % words.length;
+      setTypedWord(words[index]);
+    }, 2400);
 
-    if (!clinicName.trim()) {
-      toast({ title: 'Clinic required', description: 'Please enter your clinic or pharmacy name.', variant: 'destructive' });
-      return;
-    }
+    window.addEventListener('scroll', onScroll);
+    onScroll();
 
-    signupLockRef.current = true;
-    setIsLoading(true);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.clearInterval(wordTimer);
+      observer.disconnect();
+    };
+  }, []);
 
-    try {
-      const cleanEmail = email.trim();
-      const cleanClinicName = clinicName.trim();
-      const cleanFullName = fullName.trim();
-
-      const { error } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: { full_name: cleanFullName, clinic_name: cleanClinicName },
-        },
-      });
-
-      if (error) throw error;
-      setConfirmed(true);
-      toast({ title: 'Registration received', description: 'Your account is pending admin approval.' });
-    } catch (err: any) {
-      toast({ title: 'Registration failed', description: err.message, variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-      setTimeout(() => {
-        signupLockRef.current = false;
-      }, 2500);
-    }
-  };
-
-  const inputClass = 'w-full px-4 py-3 text-sm bg-white/[0.06] border border-white/[0.1] text-white placeholder:text-white/25 focus:outline-none focus:border-emerald-500/50 transition-colors';
+  const goSearch = () => navigate('/search');
+  const goConsult = () => navigate('/consultant');
 
   return (
-    <div className="min-h-screen font-[Gordita,system-ui,sans-serif] antialiased bg-[#020e08]">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#020e08]/70 backdrop-blur-xl border-b border-white/[0.06]">
-        <div className="max-w-7xl mx-auto px-5 lg:px-12 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <img src={logo} alt="ChekaMeds" className="h-8 w-auto object-contain" />
-          </Link>
-          <div className="hidden md:flex items-center gap-6 text-sm text-white/65">
-            <a href="#how" className="hover:text-white transition-colors">How it works</a>
-            <a href="#virtual-care" className="hover:text-white transition-colors">Virtual Care</a>
-            <Link to="/facilities" className="hover:text-white transition-colors">Pharmacies</Link>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link to="/consultant" className="hidden sm:inline-flex items-center gap-1.5 border border-white/10 px-4 py-2 text-[13px] font-semibold text-white/70 hover:bg-white/10 hover:text-white transition-colors">
-              Consultant
-            </Link>
-            <Link to="/search" className="inline-flex items-center gap-1.5 bg-emerald-500 px-4 py-2 text-[13px] font-semibold text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors">
-              <Search className="h-3.5 w-3.5" /> Search Medicine
-            </Link>
-          </div>
+    <div className="cm-page">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap');
+        .cm-page{--ink:#0d1b2a;--ink-mid:#2c3e50;--ink-soft:#6b7c93;--ink-faint:#a8b8c8;--white:#fff;--off-white:#f6f8fa;--accent:#1a6b4a;--accent-light:#e6f3ed;--accent-mid:#2d9768;--rule:rgba(13,27,42,.08);--shadow-sm:0 2px 12px rgba(13,27,42,.06);--shadow-md:0 8px 40px rgba(13,27,42,.10);--shadow-lg:0 24px 64px rgba(13,27,42,.14);font-family:'DM Sans',sans-serif;background:var(--white);color:var(--ink);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+        .cm-page *,.cm-page *::before,.cm-page *::after{box-sizing:border-box}
+        #progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--accent);z-index:500;transition:width .08s linear}
+        .cm-nav{position:fixed;top:0;left:0;right:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:0 4rem;height:68px;background:rgba(255,255,255,.97);backdrop-filter:blur(20px) saturate(1.4);border-bottom:1px solid var(--rule);opacity:0;animation:navIn .5s .1s ease forwards}
+        @keyframes navIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+        .logo{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--ink);letter-spacing:-.3px;text-decoration:none}.logo em{color:var(--accent);font-style:normal}
+        .nav-links{display:flex;gap:2.4rem;list-style:none;margin:0;padding:0}.nav-links a{font-size:.83rem;font-weight:400;letter-spacing:.3px;color:var(--ink-soft);text-decoration:none;transition:color .2s;position:relative;padding-bottom:2px}.nav-links a::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:1px;background:var(--accent);transform:scaleX(0);transform-origin:left;transition:transform .25s ease}.nav-links a:hover{color:var(--ink)}.nav-links a:hover::after{transform:scaleX(1)}
+        .nav-actions{display:flex;align-items:center;gap:1rem}.btn-ghost{font-size:.83rem;color:var(--ink-mid);background:none;border:none;cursor:pointer;padding:.45rem .9rem;border-radius:4px;transition:background .2s,color .2s;text-decoration:none}.btn-ghost:hover{background:var(--off-white);color:var(--ink)}.btn-cta{font-size:.83rem;font-weight:500;letter-spacing:.2px;padding:.52rem 1.3rem;background:var(--ink);color:white;border:none;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:.45rem;transition:background .2s,transform .15s;text-decoration:none}.btn-cta:hover{background:var(--accent);transform:translateY(-1px)}
+        .hero{padding-top:68px;display:flex;flex-direction:column;position:relative}.hero-visual{position:relative;width:100%;overflow:hidden;background:var(--ink)}.hero-visual img{width:100%;display:block;opacity:0;animation:imgFadeIn 1.1s .4s ease forwards}@keyframes imgFadeIn{from{opacity:0;transform:scale(1.03)}to{opacity:1;transform:scale(1)}}.hero-overlay{position:absolute;inset:0;background:linear-gradient(105deg,rgba(13,27,42,.72) 0%,rgba(13,27,42,.45) 45%,rgba(13,27,42,.10) 75%,transparent 100%)}
+        .hero-text{position:absolute;top:50%;left:0;transform:translateY(-50%);padding:0 4.5rem;max-width:680px;z-index:2}.eyebrow{display:inline-flex;align-items:center;gap:.6rem;font-size:.7rem;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--accent-mid);margin-bottom:1.6rem;opacity:0;animation:fadeUp .6s .7s ease forwards}.eyebrow-line{width:24px;height:1px;background:var(--accent-mid)}
+        .hero-title{font-family:'DM Serif Display',serif;font-size:4.2rem;line-height:1.07;letter-spacing:-.5px;color:white;margin:0 0 1.4rem;opacity:0;animation:fadeUp .7s .85s ease forwards}.hero-title em{color:var(--accent-mid);font-style:italic;display:inline-block;position:relative}.hero-title em::after{content:'';position:absolute;bottom:4px;left:0;right:0;height:2px;background:var(--accent-mid);opacity:.5;transform:scaleX(0);transform-origin:left;animation:lineGrow .6s 1.6s ease forwards}@keyframes lineGrow{to{transform:scaleX(1)}}
+        .hero-body{font-size:1.05rem;line-height:1.8;color:rgba(255,255,255,.78);max-width:460px;font-weight:300;margin-bottom:2.2rem;opacity:0;animation:fadeUp .7s 1s ease forwards}.hero-actions{display:flex;gap:.9rem;align-items:center;opacity:0;animation:fadeUp .7s 1.15s ease forwards}.btn-primary{display:inline-flex;align-items:center;gap:.6rem;font-size:.88rem;font-weight:500;letter-spacing:.2px;padding:.85rem 1.9rem;background:var(--accent);color:white;border:none;border-radius:4px;cursor:pointer;transition:all .2s;box-shadow:0 4px 24px rgba(26,107,74,.30);text-decoration:none}.btn-primary:hover{background:#155c3e;transform:translateY(-2px);box-shadow:0 8px 32px rgba(26,107,74,.35)}.btn-secondary{display:inline-flex;align-items:center;gap:.5rem;font-size:.88rem;font-weight:400;color:rgba(255,255,255,.85);background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);padding:.85rem 1.6rem;border-radius:4px;cursor:pointer;backdrop-filter:blur(8px);transition:all .2s;text-decoration:none}.btn-secondary:hover{background:rgba(255,255,255,.2);color:white}
+        .hero-stats{background:var(--ink);padding:1.8rem 4.5rem;display:flex;align-items:center;gap:0;opacity:0;animation:fadeUp .6s 1.3s ease forwards}.stat-item{flex:1;padding:0 2.5rem;border-right:1px solid rgba(255,255,255,.08)}.stat-item:first-child{padding-left:0}.stat-item:last-child{border-right:none}.stat-num{font-family:'DM Serif Display',serif;font-size:2rem;color:white;line-height:1;display:flex;align-items:baseline;gap:.1rem}.stat-num sup{font-size:1.1rem;color:var(--accent-mid);font-family:'DM Sans',sans-serif;font-weight:500}.stat-label{font-size:.73rem;color:rgba(255,255,255,.4);margin-top:.3rem;letter-spacing:.5px;font-weight:300}
+        .live-card{position:absolute;bottom:2.5rem;right:4.5rem;background:white;border-radius:8px;padding:1.2rem 1.5rem;box-shadow:var(--shadow-lg);min-width:240px;z-index:3;opacity:0;animation:cardIn .7s 1.4s ease forwards}@keyframes cardIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:.5rem;animation:livePulse 1.8s ease-in-out infinite}@keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}.card-label{font-size:.67rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:.7rem;font-weight:500}.card-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem}.card-pharm{font-size:.85rem;font-weight:500;color:var(--ink)}.card-avail{font-size:.78rem;color:var(--accent);font-weight:500}.card-divider{height:1px;background:var(--rule);margin:.7rem 0}.card-footer{font-size:.72rem;color:var(--accent);font-weight:500;cursor:pointer}
+        .features-strip{border-bottom:1px solid var(--rule);padding:2.4rem 4.5rem;display:grid;grid-template-columns:repeat(4,1fr);background:var(--white)}.feat-item{display:flex;align-items:flex-start;gap:1rem;padding-right:2.5rem;border-right:1px solid var(--rule);opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}.feat-item:last-child{border-right:none;padding-right:0}.feat-item.visible{opacity:1;transform:translateY(0)}.feat-icon{width:38px;height:38px;flex-shrink:0;border-radius:6px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;transition:background .2s}.feat-item:hover .feat-icon{background:var(--accent)}.feat-item:hover .feat-icon svg{stroke:white}.feat-icon svg{width:17px;height:17px;stroke:var(--accent);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:stroke .2s}.feat-title{font-size:.86rem;font-weight:500;color:var(--ink);margin-bottom:.2rem}.feat-desc{font-size:.77rem;color:var(--ink-soft);line-height:1.65;font-weight:300}
+        .consult{display:grid;grid-template-columns:1fr 1fr;overflow:hidden;border-top:1px solid var(--rule)}.consult-img-col{position:relative;overflow:hidden;background:var(--off-white)}.consult-img-col img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;transition:transform .8s ease}.consult-img-col:hover img{transform:scale(1.02)}.consult-img-gradient{position:absolute;inset:0;background:linear-gradient(to right,transparent 60%,var(--white) 100%);pointer-events:none}.rating-badge{position:absolute;bottom:2rem;left:2rem;background:white;border-radius:8px;padding:.9rem 1.2rem;box-shadow:var(--shadow-md);display:flex;align-items:center;gap:.9rem;opacity:0;transform:translateY(10px);transition:opacity .6s ease,transform .6s ease}.rating-badge.visible{opacity:1;transform:translateY(0)}.r-faces{display:flex}.r-face{width:30px;height:30px;border-radius:50%;background:var(--accent-light);border:2px solid white;margin-left:-8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:500;color:var(--accent)}.r-face:first-child{margin-left:0}.r-num{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--ink)}.r-label{font-size:.67rem;color:var(--ink-faint);font-weight:300}
+        .consult-content{display:flex;flex-direction:column;justify-content:center;padding:5.5rem 5rem 5.5rem 4rem}.section-eyebrow{font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--accent);font-weight:500;display:flex;align-items:center;gap:.6rem;margin-bottom:1.4rem;opacity:0;transition:opacity .5s ease,transform .5s ease;transform:translateY(12px)}.section-eyebrow::before{content:'';width:20px;height:1px;background:var(--accent)}.section-eyebrow.visible{opacity:1;transform:translateY(0)}.section-title{font-family:'DM Serif Display',serif;font-size:3rem;line-height:1.1;letter-spacing:-.3px;color:var(--ink);margin:0 0 1.3rem;opacity:0;transform:translateY(16px);transition:opacity .6s .1s ease,transform .6s .1s ease}.section-title.visible{opacity:1;transform:translateY(0)}.section-title em{color:var(--accent);font-style:italic}.section-body{font-size:.98rem;line-height:1.85;color:var(--ink-soft);font-weight:300;max-width:420px;margin-bottom:2.2rem;opacity:0;transform:translateY(16px);transition:opacity .6s .2s ease,transform .6s .2s ease}.section-body.visible{opacity:1;transform:translateY(0)}.consult-btns{display:flex;gap:.9rem;margin-bottom:1.6rem;opacity:0;transform:translateY(12px);transition:opacity .5s .3s ease,transform .5s .3s ease}.consult-btns.visible{opacity:1;transform:translateY(0)}.btn-p{display:inline-flex;align-items:center;gap:.55rem;font-size:.86rem;font-weight:500;padding:.8rem 1.7rem;background:var(--accent);color:white;border:none;border-radius:4px;cursor:pointer;box-shadow:0 4px 20px rgba(26,107,74,.22);transition:all .2s;text-decoration:none}.btn-p:hover{background:#155c3e;transform:translateY(-1px)}.btn-s{display:inline-flex;align-items:center;gap:.5rem;font-size:.86rem;font-weight:400;color:var(--ink-mid);background:none;border:1px solid var(--rule);padding:.8rem 1.5rem;border-radius:4px;cursor:pointer;transition:all .2s;text-decoration:none}.btn-s:hover{border-color:rgba(13,27,42,.2);color:var(--ink)}.secure-row{font-size:.73rem;color:var(--ink-faint);display:flex;align-items:center;gap:.45rem;font-weight:300;opacity:0;transition:opacity .5s .4s ease}.secure-row.visible{opacity:1}
+        .services{padding:6rem 4.5rem;background:var(--off-white);border-top:1px solid var(--rule)}.services-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:3rem}.services-header .section-title{margin-bottom:0;font-size:2.5rem}.services-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.2rem}.s-card{background:white;border-radius:8px;border:1px solid var(--rule);overflow:hidden;opacity:0;transform:translateY(18px);transition:opacity .55s ease,transform .55s ease,box-shadow .3s,border-color .3s;cursor:pointer}.s-card.visible{opacity:1;transform:translateY(0)}.s-card:hover{box-shadow:var(--shadow-md);border-color:rgba(26,107,74,.2);transform:translateY(-4px)!important}.s-img-wrap{overflow:hidden;width:100%;height:145px;background:linear-gradient(135deg,#e6f3ed,#fff);display:flex;align-items:center;justify-content:center}.s-img-icon{width:54px;height:54px;border-radius:50%;background:var(--accent-light);display:flex;align-items:center;justify-content:center}.s-img-icon svg{width:26px;height:26px;stroke:var(--accent);fill:none;stroke-width:1.8}.s-body{padding:1.1rem 1.2rem 1.3rem}.s-tag{font-size:.65rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);font-weight:500;margin-bottom:.5rem}.s-name{font-size:.92rem;font-weight:500;color:var(--ink);margin-bottom:.3rem;line-height:1.3}.s-desc{font-size:.77rem;color:var(--ink-soft);line-height:1.6;font-weight:300}.s-link{display:inline-flex;align-items:center;gap:.3rem;font-size:.74rem;color:var(--accent);font-weight:500;margin-top:.7rem;text-decoration:none;transition:gap .2s}.s-card:hover .s-link{gap:.55rem}
+        .partners{padding:2rem 4.5rem;display:flex;align-items:center;gap:4rem;border-top:1px solid var(--rule);background:var(--white)}.p-label{font-size:.72rem;color:var(--ink-faint);letter-spacing:.5px;white-space:nowrap;font-weight:300}.p-row{display:flex;align-items:center;gap:3.5rem;flex:1}.p-name{font-family:'DM Serif Display',serif;font-size:.95rem;color:var(--ink-faint);transition:color .2s;cursor:default}.p-name:hover{color:var(--accent)}.cm-footer{padding:2rem 4.5rem;background:var(--ink);display:flex;align-items:center;justify-content:space-between}.f-logo{font-family:'DM Serif Display',serif;font-size:1.25rem;color:white}.f-logo em{color:var(--accent-mid);font-style:normal}.f-links{display:flex;gap:2rem;list-style:none;margin:0;padding:0}.f-links a{font-size:.77rem;color:rgba(255,255,255,.35);text-decoration:none;transition:color .2s;letter-spacing:.2px}.f-links a:hover{color:rgba(255,255,255,.75)}.f-copy{font-size:.72rem;color:rgba(255,255,255,.25);font-weight:300}.typed-cursor{display:inline-block;width:2px;height:.85em;background:var(--accent-mid);margin-left:1px;vertical-align:middle;animation:blink .9s step-end infinite}@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}.reveal{opacity:0;transform:translateY(20px);transition:opacity .7s ease,transform .7s ease}.reveal.visible{opacity:1;transform:translateY(0)}@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+        @media(max-width:980px){.cm-nav{padding:0 1.25rem}.nav-links{display:none}.hero-text{position:relative;transform:none;top:auto;padding:2rem 1.25rem;background:var(--ink);max-width:none}.hero-overlay,.live-card{display:none}.hero-title{font-size:2.8rem}.hero-stats,.features-strip,.services,.partners,.cm-footer{padding-left:1.25rem;padding-right:1.25rem}.hero-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}.stat-item{border-right:0;padding:0}.features-strip,.services-grid{grid-template-columns:1fr}.feat-item{border-right:0;border-bottom:1px solid var(--rule);padding:0 0 1rem}.consult{grid-template-columns:1fr}.consult-content{padding:3rem 1.25rem}.services-header{display:block}.partners,.cm-footer{display:block}.p-row{margin-top:1rem;flex-wrap:wrap;gap:1.5rem}.f-links{margin:1rem 0;flex-wrap:wrap}.consult-btns,.hero-actions{flex-direction:column;align-items:stretch}.btn-primary,.btn-secondary,.btn-p,.btn-s{justify-content:center}.s-img-wrap{height:110px}}
+      `}</style>
+
+      <div id="progress" />
+
+      <nav className="cm-nav">
+        <Link to="/" className="logo">Cheka<em>Meds</em></Link>
+        <ul className="nav-links">
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#consultants">Consultants</a></li>
+          <li><Link to="/facilities">Pharmacies</Link></li>
+          <li><a href="#services">About</a></li>
+          <li><a href="#help">Help</a></li>
+        </ul>
+        <div className="nav-actions">
+          <Link to="/dashboard" className="btn-ghost">Log in</Link>
+          <button className="btn-cta" onClick={goSearch}>
+            <svg viewBox="0 0 24 24" style={{ width: 13, height: 13, stroke: 'white', fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+            Get started
+          </button>
         </div>
       </nav>
 
-      <main className="pt-14">
-        <section className="relative w-full overflow-hidden bg-[#06120f]">
-          <img src={heroBg} alt="ChekaMeds medicine availability on WhatsApp" className="w-full h-auto block" />
-          <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#020e08] to-transparent" />
-        </section>
-
-        <section className="relative z-20 max-w-5xl mx-auto px-5 lg:px-12 -mt-8 sm:-mt-12">
-          <div className="bg-[#0a1f18]/95 backdrop-blur-xl border border-emerald-500/25 p-5 sm:p-6 shadow-2xl shadow-black/40">
-            <div className="flex items-center gap-2 mb-3">
-              <Search className="h-4 w-4 text-emerald-400" />
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">Find medicine now</p>
-            </div>
-            <form onSubmit={handlePublicSearch} className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="text"
-                value={publicSearch}
-                onChange={(e) => setPublicSearch(e.target.value)}
-                placeholder="Search Panado, Paracetamol, Flu, Cough..."
-                className="min-h-[48px] flex-1 px-4 text-base bg-white text-slate-950 placeholder:text-slate-500 border border-white/20 focus:outline-none focus:border-emerald-400"
-              />
-              <button type="submit" className="min-h-[48px] px-6 bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">
-                Search <ArrowRight className="h-4 w-4" />
-              </button>
-            </form>
-            <div className="mt-3 flex flex-col gap-2 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between">
-              <span>No app. No registration. Search listed stock directly.</span>
-              <Link to="/consultant" className="font-semibold text-emerald-300 hover:text-emerald-200">Need provider advice? Request virtual care →</Link>
+      <section className="hero" id="how">
+        <div className="hero-visual">
+          <img src={heroBg} alt="ChekaMeds medicine availability platform" />
+          <div className="hero-overlay" />
+          <div className="hero-text">
+            <div className="eyebrow"><span className="eyebrow-line" /> Medicine availability platform</div>
+            <h1 className="hero-title">Find medicines <em>{typedWord}</em><span className="typed-cursor" /></h1>
+            <p className="hero-body">Search medicine availability across partner pharmacies and clinics. Start on WhatsApp or use direct search — no app required.</p>
+            <div className="hero-actions">
+              <button className="btn-primary" onClick={goSearch}>Search medicine <ArrowSvg /></button>
+              <button className="btn-secondary" onClick={goConsult}>Request virtual care</button>
             </div>
           </div>
-        </section>
-
-        <section id="how" className="max-w-7xl mx-auto px-5 lg:px-12 pt-14">
-          <div className="grid gap-3 md:grid-cols-4">
-            {[
-              { icon: Search, title: 'Find medicines faster', desc: 'Search live pharmacy and clinic stock.' },
-              { icon: MessageCircle, title: 'WhatsApp first', desc: 'Patients can search without installing an app.' },
-              { icon: Shield, title: 'Trusted partners', desc: 'Facility listings are reviewed before approval.' },
-              { icon: Activity, title: 'Real-time updates', desc: 'Stock visibility improves patient movement.' },
-            ].map((item) => (
-              <div key={item.title} className="border border-white/10 bg-white/[0.04] p-5">
-                <div className="mb-4 flex h-10 w-10 items-center justify-center bg-emerald-500/10 border border-emerald-400/20">
-                  <item.icon className="h-5 w-5 text-emerald-300" />
-                </div>
-                <h3 className="text-sm font-bold text-white">{item.title}</h3>
-                <p className="mt-2 text-xs leading-5 text-white/45">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section id="virtual-care" className="max-w-7xl mx-auto px-5 lg:px-12 py-16 lg:py-20">
-          <div className="grid gap-8 overflow-hidden border border-white/10 bg-white lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="relative min-h-[320px] bg-slate-100">
-              <img src={consultantVideoImage} alt="Older patient doing a video consultation from home" className="h-full w-full object-cover" />
-              <div className="absolute left-5 top-5 bg-white/90 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-emerald-700 shadow-lg">
-                Virtual Care
-              </div>
-            </div>
-            <div className="flex flex-col justify-center p-6 sm:p-10 lg:p-12">
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-700">ChekaMeds Consultant</p>
-              <h2 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
-                Care from home or with help nearby.
-              </h2>
-              <p className="mt-5 max-w-xl text-base leading-7 text-slate-600">
-                Request provider support from your phone, or choose a partner pharmacy or clinic for assisted video consultation.
-              </p>
-
-              <div className="mt-7 grid gap-3 sm:grid-cols-2">
-                <div className="border border-slate-200 p-4">
-                  <Home className="h-5 w-5 text-emerald-700" />
-                  <p className="mt-3 font-bold text-slate-950">From home</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">Submit symptoms and receive a secure video link after review.</p>
-                </div>
-                <div className="border border-slate-200 p-4">
-                  <Building2 className="h-5 w-5 text-emerald-700" />
-                  <p className="mt-3 font-bold text-slate-950">At a partner facility</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">Get help with capture, setup, and medicine collection.</p>
-                </div>
-              </div>
-
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                <Link to="/consultant" className="inline-flex min-h-[46px] items-center justify-center gap-2 bg-emerald-600 px-5 text-sm font-bold text-white hover:bg-emerald-700 transition-colors">
-                  Request virtual care <Video className="h-4 w-4" />
-                </Link>
-                <Link to="/search" className="inline-flex min-h-[46px] items-center justify-center gap-2 border border-slate-300 px-5 text-sm font-bold text-slate-800 hover:bg-slate-50 transition-colors">
-                  Find medicine first <Pill className="h-4 w-4" />
-                </Link>
-              </div>
-
-              <div className="mt-5 flex items-center gap-2 text-xs text-slate-400">
-                <LockKeyhole className="h-3.5 w-3.5" />
-                Provider-led care. ChekaMeds does not replace emergency services.
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="relative z-10 max-w-7xl mx-auto px-5 lg:px-12 pb-16 lg:pb-24">
-          <div className="grid lg:grid-cols-2 gap-10 lg:gap-20 items-start">
-            <div className="space-y-8">
-              <div>
-                <p className="text-emerald-400/80 text-xs font-semibold tracking-[0.3em] uppercase mb-4">Ipelegeng — Serving Batswana</p>
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-[1.1] tracking-tight">
-                  Medicine reaches <span className="text-emerald-400">every Motswana</span>
-                </h1>
-                <p className="text-white/45 text-base mt-5 leading-relaxed max-w-lg font-light">
-                  Real-time stock visibility and virtual care routing for patients, pharmacies, clinics, and providers.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {[
-                  { icon: Activity, text: 'Live medicine stock visibility across partner facilities' },
-                  { icon: Pill, text: 'Prescription and product availability support' },
-                  { icon: Shield, text: 'Clinic-scoped access for approved health personnel' },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className="h-8 w-8 flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20">
-                      <item.icon className="h-4 w-4 text-emerald-400" />
-                    </div>
-                    <span className="text-sm text-white/50 font-light">{item.text}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="bg-white/[0.03] border border-white/[0.08] p-5 max-w-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <MessageCircle className="h-4 w-4 text-emerald-400" />
-                  <span className="text-[10px] text-white/35 uppercase tracking-[0.2em] font-semibold">Public WhatsApp Line</span>
-                </div>
-                <p className="text-emerald-400 text-xl font-bold tracking-wide">+267 714 24 486</p>
-                <p className="text-white/30 text-xs mt-1">Text to find medicine — no app needed</p>
-              </div>
-            </div>
-
-            <div className="w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
-              <div className="bg-[#0a1f18]/70 backdrop-blur-xl border border-white/[0.08] p-8 sm:p-10 shadow-2xl shadow-black/40">
-                {confirmed ? (
-                  <div className="text-center space-y-6">
-                    <div className="flex justify-center">
-                      <div className="h-16 w-16 bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                        <CheckCircle2 className="h-8 w-8 text-emerald-400" />
-                      </div>
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-white">Registration received</h2>
-                      <p className="text-sm text-white/50 mt-2 leading-relaxed">
-                        Your account has been created successfully and is pending admin approval.
-                      </p>
-                    </div>
-                    <button onClick={() => { setConfirmed(false); setIsSignUp(false); }} className="w-full py-3 text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-all flex items-center justify-center gap-2">
-                      Return to sign in <ArrowRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="mb-7">
-                      <p className="text-emerald-400 text-xs font-semibold uppercase tracking-[0.2em] mb-2">{isSignUp ? 'Register Facility' : 'Staff Portal'}</p>
-                      <h2 className="text-2xl font-bold text-white">{isSignUp ? 'Join ChekaMeds' : 'Welcome back'}</h2>
-                      <p className="text-sm text-white/40 mt-1 font-light">
-                        {isSignUp ? 'Register your clinic or pharmacy for admin approval.' : 'Sign in to access your facility dashboard.'}
-                      </p>
-                    </div>
-
-                    <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
-                      {isSignUp && (
-                        <>
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-semibold text-white/60 tracking-wide">Full name</label>
-                            <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. Kgosi Moyo" className={inputClass} disabled={isLoading} />
-                          </div>
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-semibold text-white/60 tracking-wide">Clinic / Pharmacy name</label>
-                            <input type="text" required value={clinicName} onChange={(e) => setClinicName(e.target.value)} placeholder="e.g. South West Pharma" className={inputClass} disabled={isLoading} />
-                          </div>
-                        </>
-                      )}
-
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-white/60 tracking-wide">Email address</label>
-                        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="operator@health.gov.bw" className={inputClass} disabled={isLoading} />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-semibold text-white/60 tracking-wide">Password</label>
-                          {!isSignUp && (
-                            <button type="button" onClick={handleForgotPassword} disabled={isLoading} className="text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors disabled:opacity-50">
-                              Forgot password?
-                            </button>
-                          )}
-                        </div>
-                        <div className="relative">
-                          <input type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={`${inputClass} pr-12`} disabled={isLoading} />
-                          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60" disabled={isLoading}>
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <button type="submit" disabled={isLoading} className="w-full py-3.5 text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-all disabled:opacity-60 flex items-center justify-center gap-2 mt-2 shadow-lg shadow-emerald-500/20">
-                        {isLoading ? (
-                          <>
-                            <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            {isSignUp ? 'Submitting registration...' : 'Signing in...'}
-                          </>
-                        ) : (
-                          <>
-                            {isSignUp ? 'Submit registration' : 'Sign in to dashboard'}
-                            <ArrowRight className="h-4 w-4" />
-                          </>
-                        )}
-                      </button>
-                    </form>
-
-                    <div className="mt-6 space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 h-px bg-white/[0.08]" />
-                        <span className="text-xs text-white/20">or</span>
-                        <div className="flex-1 h-px bg-white/[0.08]" />
-                      </div>
-                      <button onClick={() => { setIsSignUp(!isSignUp); setIsLoading(false); setConfirmed(false); }} disabled={isLoading} className="w-full py-2.5 text-sm font-medium border border-white/[0.1] text-white/50 hover:text-white hover:bg-white/[0.04] transition-all disabled:opacity-50">
-                        {isSignUp ? 'Already registered? Sign in' : 'New facility? Register here'}
-                      </button>
-                      <Link to="/search" className="flex items-center justify-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors mt-1">
-                        <Search className="h-3.5 w-3.5" />
-                        Looking for medicine? Search here — no login needed
-                      </Link>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer className="border-t border-white/[0.06] py-6 px-5 lg:px-12">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-[11px] text-white/15">© {new Date().getFullYear()} ChekaMeds · Powered by IBLIM ENTERPRISE (Pty) Ltd</p>
-          <div className="flex items-center gap-6">
-            <Link to="/search" className="text-[11px] text-white/20 hover:text-white/50 transition-colors">Find Medicine</Link>
-            <Link to="/consultant" className="text-[11px] text-white/20 hover:text-white/50 transition-colors">Consultant</Link>
+          <div className="live-card">
+            <div className="card-label"><span className="live-dot" /> Live availability</div>
+            <div className="card-row"><span className="card-pharm">Partner pharmacy</span><span className="card-avail">In stock</span></div>
+            <div className="card-row"><span className="card-pharm">Nearby clinic</span><span className="card-avail">Available</span></div>
+            <div className="card-divider" />
+            <div className="card-footer" onClick={goSearch}>Get map directions →</div>
           </div>
         </div>
+        <div className="hero-stats">
+          <div className="stat-item"><div className="stat-num">24<sup>/7</sup></div><div className="stat-label">WhatsApp access</div></div>
+          <div className="stat-item"><div className="stat-num">0<sup>app</sup></div><div className="stat-label">No download required</div></div>
+          <div className="stat-item"><div className="stat-num">2<sup>ways</sup></div><div className="stat-label">Home or facility support</div></div>
+          <div className="stat-item"><div className="stat-num">BW</div><div className="stat-label">Built for Botswana</div></div>
+        </div>
+      </section>
+
+      <section className="features-strip">
+        <Feature icon="search" title="Check medicine availability" desc="Search partner pharmacies and clinics near you." />
+        <Feature icon="whatsapp" title="Instant on WhatsApp" desc="Simple, fast and convenient. No app required." />
+        <Feature icon="shield" title="Trusted partners" desc="Verified pharmacies, clinics and provider workflows." />
+        <Feature icon="clock" title="Always available" desc="Support and search when you need it." />
+      </section>
+
+      <section className="consult" id="consultants">
+        <div className="consult-img-col">
+          <img src={consultantVideoImage} alt="Older patient doing a video consultation at home" />
+          <div className="consult-img-gradient" />
+          <div className="rating-badge">
+            <div className="r-faces"><div className="r-face">A</div><div className="r-face">B</div><div className="r-face">C</div></div>
+            <div><div className="r-num">Virtual care</div><div className="r-label">Home or assisted support</div></div>
+          </div>
+        </div>
+        <div className="consult-content">
+          <div className="section-eyebrow">Virtual consultation</div>
+          <h2 className="section-title">Care from <em>anywhere</em></h2>
+          <p className="section-body">Request provider support from home, or choose a partner pharmacy or clinic where staff can assist with symptom capture, video setup and medicine collection.</p>
+          <div className="consult-btns">
+            <button className="btn-p" onClick={goConsult}>Book a consultation</button>
+            <button className="btn-s" onClick={goSearch}>Find medicine first</button>
+          </div>
+          <div className="secure-row"><LockSvg /> Private. Secure. Provider-led.</div>
+        </div>
+      </section>
+
+      <section className="services" id="services">
+        <div className="services-header">
+          <h2 className="section-title visible">How ChekaMeds helps</h2>
+        </div>
+        <div className="services-grid">
+          <Service icon="pill" tag="Medicine search" name="Find listed stock" desc="Search for medicines and see where stock is listed across participating facilities." />
+          <Service icon="home" tag="Home consultation" name="Care from home" desc="Request provider support and receive a video link after review." />
+          <Service icon="building" tag="Clinic support" name="Assisted care" desc="Partner facilities can help patients connect to providers by video." />
+          <Service icon="support" tag="24/7 support" name="Always here for you" desc="Patients can use WhatsApp and public search without complex onboarding." />
+        </div>
+      </section>
+
+      <div className="partners reveal">
+        <div className="p-label">Working with trusted pharmacies and clinics across Botswana</div>
+        <div className="p-row">
+          <div className="p-name">South West Pharma</div>
+          <div className="p-name">J-Mecca Pharmacy</div>
+          <div className="p-name">Partner Clinics</div>
+          <div className="p-name">ChekaMeds Admin</div>
+        </div>
+      </div>
+
+      <footer className="cm-footer" id="help">
+        <div className="f-logo">Cheka<em>Meds</em></div>
+        <ul className="f-links">
+          <li><Link to="/search">Find Medicine</Link></li>
+          <li><Link to="/consultant">Consultant</Link></li>
+          <li><Link to="/dashboard">Staff Portal</Link></li>
+          <li><a href="https://wa.me/26771424486">Contact</a></li>
+        </ul>
+        <div className="f-copy">© 2026 ChekaMeds · Gaborone, Botswana</div>
       </footer>
     </div>
   );
 };
+
+const ArrowSvg = () => (
+  <svg viewBox="0 0 24 24" style={{ width: 14, height: 14, stroke: 'currentColor', fill: 'none', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+);
+
+const LockSvg = () => (
+  <svg viewBox="0 0 24 24" style={{ width: 14, height: 14, stroke: 'currentColor', fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+);
+
+const Icon = ({ type }: { type: string }) => {
+  const common = { width: 24, height: 24, viewBox: '0 0 24 24', style: { stroke: 'currentColor', fill: 'none', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const } };
+  if (type === 'search') return <svg {...common}><circle cx="11" cy="11" r="7" /><line x1="16.65" y1="16.65" x2="21" y2="21" /></svg>;
+  if (type === 'whatsapp') return <svg {...common}><path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20l1.2-5.2A8.5 8.5 0 1 1 21 11.5Z" /><path d="M8.5 8.5c.4 3 3 5.6 6 6" /></svg>;
+  if (type === 'shield') return <svg {...common}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /><path d="m9 12 2 2 4-4" /></svg>;
+  if (type === 'clock') return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>;
+  if (type === 'pill') return <svg {...common}><path d="m10 21 10-10a5 5 0 0 0-7-7L3 14a5 5 0 0 0 7 7Z" /><path d="m8 12 4 4" /></svg>;
+  if (type === 'home') return <svg {...common}><path d="M3 11 12 3l9 8" /><path d="M5 10v10h14V10" /></svg>;
+  if (type === 'building') return <svg {...common}><path d="M4 21V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16" /><path d="M9 21v-6h6v6" /><path d="M8 7h.01M12 7h.01M16 7h.01M8 11h.01M12 11h.01M16 11h.01" /></svg>;
+  return <svg {...common}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>;
+};
+
+const Feature = ({ icon, title, desc }: { icon: string; title: string; desc: string }) => (
+  <div className="feat-item">
+    <div className="feat-icon"><Icon type={icon} /></div>
+    <div><div className="feat-title">{title}</div><div className="feat-desc">{desc}</div></div>
+  </div>
+);
+
+const Service = ({ icon, tag, name, desc }: { icon: string; tag: string; name: string; desc: string }) => (
+  <div className="s-card">
+    <div className="s-img-wrap"><div className="s-img-icon"><Icon type={icon} /></div></div>
+    <div className="s-body">
+      <div className="s-tag">{tag}</div>
+      <div className="s-name">{name}</div>
+      <div className="s-desc">{desc}</div>
+      <Link className="s-link" to={icon === 'home' || icon === 'building' ? '/consultant' : '/search'}>Learn more <ArrowSvg /></Link>
+    </div>
+  </div>
+);
 
 export default Landing;
