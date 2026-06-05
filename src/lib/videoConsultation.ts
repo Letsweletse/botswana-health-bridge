@@ -7,6 +7,11 @@ export type CreateVideoConsultationRoomResponse = {
   existing: boolean;
 };
 
+type ApiErrorResponse = {
+  error?: string;
+  missing?: string[];
+};
+
 export async function createVideoConsultationRoom(consultantRequestId: string) {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
@@ -26,10 +31,13 @@ export async function createVideoConsultationRoom(consultantRequestId: string) {
     body: JSON.stringify({ consultant_request_id: consultantRequestId }),
   });
 
-  const data = await response.json().catch(() => ({}));
+  const data = await response.json().catch(() => ({})) as ApiErrorResponse & Partial<CreateVideoConsultationRoomResponse>;
 
   if (!response.ok || data?.error) {
-    throw new Error(data?.error || 'Could not create video consultation room');
+    const missing = Array.isArray(data?.missing) && data.missing.length > 0
+      ? ` Missing: ${data.missing.join(', ')}`
+      : '';
+    throw new Error(`${data?.error || 'Could not create video consultation room'}${missing}`);
   }
 
   return data as CreateVideoConsultationRoomResponse;
