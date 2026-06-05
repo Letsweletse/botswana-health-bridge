@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,7 @@ import logo from '@/assets/ChekaMeds_Logo.png';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   // Check if user's profile is approved
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -16,8 +17,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       const { data } = await supabase
         .from('profiles')
         .select('approved, clinic_name')
-        .eq('user_id', user!.id)
-        .single();
+        .or(`user_id.eq.${user!.id},id.eq.${user!.id}`)
+        .maybeSingle();
       return data;
     },
     enabled: !!user,
@@ -32,7 +33,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   if (profile && !profile.approved) {
