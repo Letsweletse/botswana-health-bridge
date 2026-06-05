@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom';
-import { CalendarCheck, MessageCircle, ShieldCheck, Video } from 'lucide-react';
+import { CalendarCheck, Home, MessageCircle, ShieldCheck, Video } from 'lucide-react';
 import ConsultantRequestForm from '@/components/ConsultantRequestForm';
 import logo from '@/assets/ChekaMeds_Logo.png';
+import { consultantVideoImage } from '@/assets/consultantVideoImage';
 
 const Consultant = () => (
-  <div className="min-h-screen bg-slate-950 px-4 py-5 font-[Gordita,system-ui,sans-serif] text-white sm:px-6 lg:px-8">
-    <div className="mx-auto max-w-6xl">
-      <nav className="mb-6 flex items-center justify-between border border-white/10 bg-white/[0.03] px-4 py-3">
+  <div className="min-h-screen bg-[#07130f] px-4 py-5 font-[Gordita,system-ui,sans-serif] text-white sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl">
+      <nav className="mb-6 flex items-center justify-between border border-white/10 bg-white/[0.04] px-4 py-3 backdrop-blur-xl">
         <Link to="/" className="flex items-center gap-3">
           <img src={logo} alt="ChekaMeds" className="h-10 w-10 bg-white p-1" />
           <div>
@@ -14,70 +15,72 @@ const Consultant = () => (
             <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-white/45">Virtual Care</p>
           </div>
         </Link>
-        <Link to="/" className="border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 transition hover:bg-white/10 hover:text-white">
-          Back home
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/search" className="hidden border border-emerald-400/30 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-400/10 sm:inline-flex">
+            Find Medicine
+          </Link>
+          <Link to="/" className="border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 transition hover:bg-white/10 hover:text-white">
+            Back home
+          </Link>
+        </div>
       </nav>
 
-      <section className="mb-6 grid gap-5 border border-white/10 bg-white/[0.04] p-5 sm:p-7 lg:grid-cols-[1fr_0.85fr] lg:items-center">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-300">ChekaMeds Consultant</p>
-          <h1 className="mt-3 max-w-2xl text-4xl font-black tracking-tight text-white sm:text-5xl">
-            Video care, closer to home.
-          </h1>
-          <p className="mt-4 max-w-xl text-base leading-7 text-white/65">
-            Request support from home or get assisted at a partner pharmacy or clinic.
-          </p>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <div className="border border-emerald-400/20 bg-emerald-400/10 p-4">
-              <p className="font-bold text-white">From home</p>
-              <p className="mt-1 text-sm leading-6 text-white/60">Submit symptoms and receive a secure video link where appropriate.</p>
-            </div>
-            <div className="border border-white/10 bg-slate-900/80 p-4">
-              <p className="font-bold text-white">At a partner facility</p>
-              <p className="mt-1 text-sm leading-6 text-white/60">A pharmacy or clinic helps with capture, setup, and medicine collection.</p>
-            </div>
+      <section className="mb-6 overflow-hidden border border-white/10 bg-white shadow-2xl shadow-black/30 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
+        <div className="relative min-h-[340px] bg-slate-900 lg:min-h-[560px]">
+          <img
+            src={consultantVideoImage}
+            alt="Older woman in a rural village having a video consultation with a doctor"
+            className="h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent lg:bg-gradient-to-r lg:from-black/55 lg:via-black/10 lg:to-transparent" />
+          <div className="absolute bottom-5 left-5 right-5 max-w-md border border-white/15 bg-black/45 p-4 backdrop-blur-md">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-300">Rural access matters</p>
+            <p className="mt-2 text-sm leading-6 text-white/80">
+              Virtual care should work for patients at home, in villages, and through assisted partner facilities.
+            </p>
           </div>
         </div>
 
-        <div className="border border-emerald-400/20 bg-slate-900 p-4 shadow-2xl shadow-emerald-950/30">
-          <div className="border border-white/10 bg-slate-950 p-3">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 bg-red-400" />
-                <span className="h-2.5 w-2.5 bg-amber-300" />
-                <span className="h-2.5 w-2.5 bg-emerald-400" />
-              </div>
-              <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">Secure Video</span>
-            </div>
+        <div className="flex flex-col justify-center bg-white p-6 text-slate-950 sm:p-8 lg:p-12">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-700">ChekaMeds Consultant</p>
+          <h1 className="mt-3 max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
+            Video care, closer to home.
+          </h1>
+          <p className="mt-4 max-w-xl text-base leading-7 text-slate-600">
+            Request provider support from home or get assisted at a partner pharmacy or clinic. Built for real Botswana access, not just city users.
+          </p>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_0.72fr]">
-              <div className="flex min-h-52 items-center justify-center bg-gradient-to-br from-emerald-500/25 via-slate-800 to-slate-950 p-5">
-                <div className="text-center">
-                  <div className="mx-auto flex h-20 w-20 items-center justify-center border border-emerald-300/40 bg-emerald-300/10">
-                    <Video className="h-9 w-9 text-emerald-200" />
-                  </div>
-                  <p className="mt-4 text-lg font-bold">Doctor video room</p>
-                  <p className="mt-1 text-xs text-white/45">Link shared after provider review</p>
-                </div>
-              </div>
-              <div className="grid gap-3">
-                <div className="border border-white/10 bg-white/[0.04] p-3">
-                  <CalendarCheck className="h-5 w-5 text-emerald-300" />
-                  <p className="mt-2 text-sm font-bold">Reviewed request</p>
-                </div>
-                <div className="border border-white/10 bg-white/[0.04] p-3">
-                  <MessageCircle className="h-5 w-5 text-emerald-300" />
-                  <p className="mt-2 text-sm font-bold">WhatsApp link</p>
-                </div>
-                <div className="border border-white/10 bg-white/[0.04] p-3">
-                  <ShieldCheck className="h-5 w-5 text-emerald-300" />
-                  <p className="mt-2 text-sm font-bold">Provider-led care</p>
-                </div>
-              </div>
+          <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            <div className="border border-emerald-200 bg-emerald-50 p-4">
+              <Home className="h-5 w-5 text-emerald-700" />
+              <p className="mt-3 font-bold text-slate-950">From home</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">Submit symptoms and receive a secure video link where appropriate.</p>
+            </div>
+            <div className="border border-slate-200 bg-slate-50 p-4">
+              <ShieldCheck className="h-5 w-5 text-emerald-700" />
+              <p className="mt-3 font-bold text-slate-950">At a partner facility</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">A pharmacy or clinic helps with capture, setup, and medicine collection.</p>
             </div>
           </div>
+
+          <div className="mt-7 grid gap-3 sm:grid-cols-3">
+            <div className="border border-slate-200 p-3">
+              <CalendarCheck className="h-5 w-5 text-emerald-700" />
+              <p className="mt-2 text-sm font-bold">Reviewed request</p>
+            </div>
+            <div className="border border-slate-200 p-3">
+              <MessageCircle className="h-5 w-5 text-emerald-700" />
+              <p className="mt-2 text-sm font-bold">WhatsApp link</p>
+            </div>
+            <div className="border border-slate-200 p-3">
+              <Video className="h-5 w-5 text-emerald-700" />
+              <p className="mt-2 text-sm font-bold">Video consult</p>
+            </div>
+          </div>
+
+          <p className="mt-6 border-l-4 border-amber-400 bg-amber-50 p-4 text-sm leading-6 text-slate-600">
+            ChekaMeds connects patients and participating providers. It does not diagnose, prescribe, or replace emergency care.
+          </p>
         </div>
       </section>
 
