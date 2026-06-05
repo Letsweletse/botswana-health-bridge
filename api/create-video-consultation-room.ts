@@ -99,8 +99,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
     const userId = authData.user.id;
 
-    // This project schema uses profiles.id as the auth user id. Some older/newer copies may also have user_id.
-    // Check the schema that exists without failing when optional tables/columns do not exist.
     const { data: profileById, error: profileByIdError } = await serviceClient
       .from('profiles')
       .select('approved')
@@ -111,10 +109,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       console.error('Profile approval lookup failed:', profileByIdError);
     }
 
-    let isApproved = profileById?.approved === true;
+    const isApproved = profileById?.approved === true;
     let isAdmin = false;
 
-    // user_roles is optional in this deployed database. If missing, approval alone is enough.
     const { data: roleData, error: roleError } = await serviceClient
       .from('user_roles')
       .select('role')
@@ -174,12 +171,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       },
       body: JSON.stringify({
         name: roomName,
-        privacy: 'private',
+        privacy: 'public',
         properties: {
           exp: Math.floor(expiresAt.getTime() / 1000),
           enable_chat: true,
           enable_screenshare: false,
           eject_at_room_exp: true,
+          enable_knocking: false,
         },
       }),
     });
