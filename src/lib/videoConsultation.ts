@@ -22,7 +22,7 @@ export async function createVideoConsultationRoom(consultantRequestId: string) {
     throw new Error('Please sign in again before creating a video consultation link.');
   }
 
-  const response = await fetch('/api/create-video-consultation-room', {
+  const response = await fetch('/api/create-video-consultation-room-secure', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
