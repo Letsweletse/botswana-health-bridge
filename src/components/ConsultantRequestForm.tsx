@@ -13,6 +13,8 @@ const dangerSigns = [
   'High fever in a young child',
 ];
 
+const HOME_REVIEW_FACILITY = 'ChekaMeds Admin';
+
 const initialForm = {
   full_name: '',
   phone: '',
@@ -49,7 +51,8 @@ const ConsultantRequestForm = () => {
 
       const names = Array.from(new Set((data || [])
         .map((item) => item.clinic_name)
-        .filter(Boolean))) as string[];
+        .filter(Boolean)
+        .filter((name) => name !== HOME_REVIEW_FACILITY))) as string[];
 
       setFacilities(names);
     };
@@ -89,7 +92,7 @@ const ConsultantRequestForm = () => {
     }
 
     setSubmitting(true);
-    const preferredFacilityName = form.consultation_mode === 'facility' ? form.preferred_facility_name.trim() : null;
+    const preferredFacilityName = form.consultation_mode === 'facility' ? form.preferred_facility_name.trim() : HOME_REVIEW_FACILITY;
     const { error } = await supabase.from('consultant_requests').insert({
       full_name: form.full_name.trim(),
       phone: form.phone.trim(),
@@ -159,7 +162,7 @@ const ConsultantRequestForm = () => {
             className={`border p-4 text-left transition ${form.consultation_mode === 'home' ? 'border-emerald-400 bg-emerald-400/10 text-white' : 'border-white/10 bg-slate-900 text-white/70'}`}
           >
             <p className="font-bold">Consult from home</p>
-            <p className="mt-1 text-xs leading-5 text-white/55">Use your own phone/device. ChekaMeds admin reviews and routes the request.</p>
+            <p className="mt-1 text-xs leading-5 text-white/55">Use your own phone/device. The ChekaMeds review team routes the request.</p>
           </button>
           <button
             type="button"
@@ -243,7 +246,7 @@ const ConsultantRequestForm = () => {
           Prescription upload link, if available
           <div className="flex items-center gap-2 border border-dashed border-white/15 bg-slate-900 px-3 py-2.5">
             <Upload className="h-4 w-4 text-emerald-300" />
-            <input value={form.prescription_url} onChange={(e) => updateField('prescription_url', e.target.value)} className="w-full bg-transparent text-sm text-white outline-none" placeholder="Paste file/image link for MVP" />
+            <input value={form.prescription_url} onChange={(e) => updateField('prescription_url', e.target.value)} className="w-full bg-transparent text-sm text-white outline-none" placeholder="Paste file/image link" />
           </div>
         </label>
 
@@ -276,7 +279,7 @@ const ConsultantRequestForm = () => {
           <h2 className="font-bold">How it works</h2>
           <div className="mt-3 space-y-3 text-sm leading-6 text-white/65">
             <p className="border border-white/10 bg-slate-900/70 p-3">1. Patient chooses home or partner-facility assisted care.</p>
-            <p className="border border-white/10 bg-slate-900/70 p-3">2. Home requests go to ChekaMeds admin. Facility requests go to the selected partner facility.</p>
+            <p className="border border-white/10 bg-slate-900/70 p-3">2. Home requests go to the ChekaMeds review team. Facility requests go to the selected partner facility.</p>
             <p className="border border-white/10 bg-slate-900/70 p-3">3. Approved users create and share the video link where appropriate.</p>
           </div>
         </div>
