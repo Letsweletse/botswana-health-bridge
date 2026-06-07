@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, Shield, Activity, Pill, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Shield, Activity, Pill, ArrowRight, CheckCircle2, Search, Video } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import logo from '@/assets/ChekaMeds_Logo.png';
-import heroBg from '@/assets/hero-gaborone.jpg';
+import heroBg from '@/assets/hero-bg.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -17,6 +17,8 @@ const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || '/dashboard';
 
   const handleForgotPassword = async () => {
     if (!email.trim()) {
@@ -43,7 +45,7 @@ const Login = () => {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      navigate('/dashboard');
+      navigate(redirectTo, { replace: true });
     } catch (err: any) {
       toast({ title: 'Sign in failed', description: err.message, variant: 'destructive' });
     } finally {
@@ -54,7 +56,7 @@ const Login = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!clinicName.trim()) {
-      toast({ title: 'Clinic required', description: 'Please enter your clinic or hospital name.', variant: 'destructive' });
+      toast({ title: 'Facility required', description: 'Please enter your pharmacy, clinic, or hospital name.', variant: 'destructive' });
       return;
     }
     setIsLoading(true);
@@ -86,209 +88,180 @@ const Login = () => {
     }
   };
 
-  const inputClass = "w-full px-4 py-3 text-sm rounded-xl border border-border bg-background/80 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all backdrop-blur-sm";
+  const inputClass = "w-full border border-white/10 bg-white/[0.06] px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none transition-all focus:border-emerald-300/70 focus:bg-white/[0.09]";
 
   return (
-    <div className="min-h-screen flex">
-      {/* LEFT — hero panel */}
-      <div className="hidden lg:flex lg:w-[58%] relative overflow-hidden">
-        <img src={heroBg} alt="Gaborone" className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-br from-[hsl(180,12%,9%)]/85 via-[hsl(180,12%,9%)]/60 to-[hsl(145,45%,20%)]/70" />
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-primary to-transparent opacity-60" />
-
-         <div className="relative z-10 flex flex-col justify-between p-14 w-full">
-           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }} className="space-y-2">
-             <img src={logo} alt="ChekaMeds" className="h-48 w-auto object-contain rounded-3xl bg-white p-3 shadow-lg" />
-             <p className="text-[10px] text-white/40 tracking-[0.25em] uppercase font-medium">Powered by IBLIM ENTERPRISE</p>
-           </motion.div>
-
-          <div className="space-y-10">
-            <motion.div initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3, duration: 0.8 }}>
-              <p className="text-primary-foreground/70 text-sm font-medium tracking-widest uppercase mb-3">
-                Ipelegeng · Serving Batswana
-              </p>
-              <h1 className="text-5xl font-display font-bold text-white leading-[1.1]">
-                Medicine reaches<br />
-                <span className="text-primary">every Motswana.</span>
-              </h1>
-              <p className="text-white/60 text-base mt-4 leading-relaxed max-w-md">
-                A real-time stock visibility platform built for Botswana's public health network — 
-                from Princess Marina to every clinic in the district.
-              </p>
-            </motion.div>
-
-            <motion.div className="space-y-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7, duration: 0.6 }}>
-              {[
-                { icon: Activity, text: 'Live IoT sensor monitoring across all facilities' },
-                { icon: Pill, text: 'Shelf-level medicine tracking & depletion alerts' },
-                { icon: Shield, text: 'Clinic-scoped secure access for health personnel' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/15 border border-primary/25">
-                    <item.icon className="h-4 w-4 text-primary" />
-                  </div>
-                  <span className="text-sm text-white/65">{item.text}</span>
-                </div>
-              ))}
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1, duration: 0.5 }}
-              className="bg-white/[0.06] border border-white/10 rounded-2xl p-4 backdrop-blur-sm"
-            >
-              <p className="text-[10px] text-white/40 uppercase tracking-widest mb-1">Public WhatsApp Line</p>
-              <p className="text-primary text-xl font-display font-bold">+267 714 24 486</p>
-              <p className="text-white/50 text-xs mt-0.5">Patients text this number to find medicine across Gaborone</p>
-            </motion.div>
-          </div>
-
-           <p className="text-xs text-white/25 tracking-wide">
-             © 2026 ChekaMeds · Powered by IBLIM ENTERPRISE
-           </p>
-         </div>
+    <div className="min-h-screen bg-[#050807] text-white">
+      <div className="fixed inset-0 opacity-70">
+        <img src={heroBg} alt="ChekaMeds background" className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-[#050807]/88" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(23,255,154,0.18),transparent_32%),radial-gradient(circle_at_85%_20%,rgba(255,79,216,0.08),transparent_26%)]" />
       </div>
 
-      {/* RIGHT — auth form */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-background">
-        <AnimatePresence mode="wait">
-          {confirmed ? (
-            <motion.div
-              key="confirmed"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="w-full max-w-sm text-center space-y-6"
-            >
-              <div className="flex justify-center">
-                <div className="h-20 w-20 rounded-full bg-success/10 border border-success/20 flex items-center justify-center">
-                  <CheckCircle2 className="h-10 w-10 text-success" />
-                </div>
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
+        <nav className="mb-6 flex items-center justify-between border border-white/10 bg-white/[0.04] px-4 py-3 backdrop-blur-xl">
+          <Link to="/" className="flex items-center gap-3">
+            <img src={logo} alt="ChekaMeds" className="h-10 w-10 bg-white p-1" />
+            <div>
+              <p className="text-sm font-black leading-none">ChekaMeds</p>
+              <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/45">Staff Portal</p>
+            </div>
+          </Link>
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Link to="/search" className="hidden border border-emerald-300/25 px-3 py-2 text-emerald-100 transition hover:bg-emerald-300/10 sm:inline-flex">Search</Link>
+            <Link to="/" className="border border-white/10 px-3 py-2 text-white/70 transition hover:bg-white/10 hover:text-white">Home</Link>
+          </div>
+        </nav>
+
+        <div className="grid flex-1 items-center gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+          <section className="hidden lg:block">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="max-w-xl">
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">ChekaMeds secure access</p>
+              <h1 className="mt-5 text-6xl font-black leading-[0.98] tracking-tight">
+                One platform.<br />One clean flow.
+              </h1>
+              <p className="mt-6 max-w-lg text-base leading-8 text-white/62">
+                Sign in to manage medicine stock, consultation requests, WhatsApp support, and partner facility workflows.
+              </p>
+              <div className="mt-8 grid max-w-lg gap-3 sm:grid-cols-3">
+                {[
+                  { icon: Search, text: 'Medicine search' },
+                  { icon: Video, text: 'Video consults' },
+                  { icon: Shield, text: 'Approved access' },
+                ].map((item) => (
+                  <div key={item.text} className="border border-white/10 bg-white/[0.04] p-4 backdrop-blur">
+                    <item.icon className="h-5 w-5 text-emerald-300" />
+                    <p className="mt-3 text-xs font-bold text-white/75">{item.text}</p>
+                  </div>
+                ))}
               </div>
-              <div>
-                <h2 className="text-2xl font-display font-bold text-foreground">Account created!</h2>
-                <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                  Your clinic account is ready. You can now sign in with your credentials.
-                </p>
-              </div>
-              <button
-                onClick={() => { setConfirmed(false); setIsSignUp(false); }}
-                className="w-full py-3 text-sm font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
-              >
-                Sign in now <ArrowRight className="h-4 w-4" />
-              </button>
             </motion.div>
-          ) : (
-            <motion.div
-              key="form"
-              className="w-full max-w-sm space-y-7"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-               <div className="lg:hidden flex flex-col items-center gap-1">
-                 <img src={logo} alt="ChekaMeds" className="h-36 object-contain rounded-3xl bg-white p-2 shadow-md" />
-                 <p className="text-[9px] text-muted-foreground tracking-[0.2em] uppercase">Powered by IBLIM ENTERPRISE</p>
-               </div>
+          </section>
 
-              <div>
-                <p className="text-xs text-primary font-medium uppercase tracking-widest mb-2">
-                  {isSignUp ? 'Register facility' : 'Staff portal'}
-                </p>
-                <h2 className="text-3xl font-display font-bold text-foreground">
-                  {isSignUp ? 'Join ChekaMeds' : 'Welcome back'}
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1.5">
-                  {isSignUp
-                    ? 'Register your clinic to manage stock in real time'
-                    : 'Sign in to access your facility dashboard'}
-                </p>
-              </div>
+          <section className="mx-auto w-full max-w-md border border-white/10 bg-[#07110d]/85 p-5 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-7">
+            <AnimatePresence mode="wait">
+              {confirmed ? (
+                <motion.div
+                  key="confirmed"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-6 text-center"
+                >
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-emerald-300/30 bg-emerald-300/10">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-300" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black">Account submitted</h2>
+                    <p className="mt-2 text-sm leading-6 text-white/58">
+                      Your facility account was created. Sign in after approval to access the dashboard.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => { setConfirmed(false); setIsSignUp(false); }}
+                    className="w-full bg-emerald-500 px-4 py-3 text-sm font-black text-[#06110d] transition hover:bg-emerald-300"
+                  >
+                    Go to sign in
+                  </button>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={isSignUp ? 'register' : 'login'}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.22 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">
+                      {isSignUp ? 'Facility onboarding' : 'Login'}
+                    </p>
+                    <h2 className="mt-2 text-3xl font-black tracking-tight">
+                      {isSignUp ? 'Register facility' : 'Welcome back'}
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-white/55">
+                      {isSignUp
+                        ? 'Create a facility profile for approval. Approved users access the dashboard after sign in.'
+                        : 'Sign in directly to the approved facility dashboard.'}
+                    </p>
+                  </div>
 
-              <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
-                <AnimatePresence>
-                  {isSignUp && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="space-y-4 overflow-hidden"
+                  <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
+                    <AnimatePresence>
+                      {isSignUp && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="space-y-4 overflow-hidden"
+                        >
+                          <label className="block space-y-1.5">
+                            <span className="text-xs font-bold uppercase tracking-[0.12em] text-white/55">Full name</span>
+                            <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name" className={inputClass} />
+                          </label>
+                          <label className="block space-y-1.5">
+                            <span className="text-xs font-bold uppercase tracking-[0.12em] text-white/55">Pharmacy / Clinic / Facility</span>
+                            <input type="text" required value={clinicName} onChange={(e) => setClinicName(e.target.value)} placeholder="Official facility name" className={inputClass} />
+                          </label>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <label className="block space-y-1.5">
+                      <span className="text-xs font-bold uppercase tracking-[0.12em] text-white/55">Email address</span>
+                      <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@facility.co.bw" className={inputClass} />
+                    </label>
+
+                    <label className="block space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-[0.12em] text-white/55">Password</span>
+                        {!isSignUp && <button type="button" onClick={handleForgotPassword} className="text-xs font-bold text-emerald-300 hover:text-emerald-100">Forgot?</button>}
+                      </div>
+                      <div className="relative">
+                        <input type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} className={`${inputClass} pr-11`} />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/45 hover:text-white">
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </label>
+
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="flex w-full items-center justify-center gap-2 bg-emerald-400 px-4 py-3 text-sm font-black text-[#06110d] shadow-[0_0_28px_rgba(23,255,154,0.20)] transition hover:bg-emerald-300 disabled:opacity-60"
                     >
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-foreground/80 tracking-wide">Full name</label>
-                        <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. Kgosi Moyo" className={inputClass} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-foreground/80 tracking-wide">Clinic / Hospital name</label>
-                        <input type="text" required value={clinicName} onChange={(e) => setClinicName(e.target.value)} placeholder="e.g. Princess Marina Hospital" className={inputClass} />
-                        <p className="text-[11px] text-muted-foreground px-1">This becomes your facility identifier. Use the official name.</p>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground/80 tracking-wide">Email address</label>
-                  <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="operator@health.gov.bw" className={inputClass} />
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-foreground/80 tracking-wide">Password</label>
-                    {!isSignUp && <button type="button" onClick={handleForgotPassword} className="text-xs text-primary hover:underline font-medium">Forgot password?</button>}
-                  </div>
-                  <div className="relative">
-                    <input type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} className={inputClass + ' pr-11'} />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {isLoading ? (
+                        <>
+                          <span className="h-4 w-4 rounded-full border-2 border-[#06110d]/25 border-t-[#06110d] animate-spin" />
+                          {isSignUp ? 'Submitting...' : 'Signing in...'}
+                        </>
+                      ) : (
+                        <>
+                          {isSignUp ? 'Submit facility registration' : 'Sign in to dashboard'}
+                          <ArrowRight className="h-4 w-4" />
+                        </>
+                      )}
                     </button>
+                  </form>
+
+                  <div className="space-y-4">
+                    <button
+                      onClick={() => { setIsSignUp(!isSignUp); setIsLoading(false); setConfirmed(false); }}
+                      className="w-full border border-white/10 px-4 py-3 text-sm font-bold text-white/72 transition hover:bg-white/10 hover:text-white"
+                    >
+                      {isSignUp ? 'Already registered? Sign in' : 'New pharmacy or clinic? Register here'}
+                    </button>
+                    <div className="grid gap-2 text-center text-xs font-semibold text-white/45">
+                      <Link to="/search" className="hover:text-emerald-200">Public medicine search — no login needed</Link>
+                      <Link to="/consultant" className="hover:text-emerald-200">Request virtual care</Link>
+                    </div>
                   </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full py-3 text-sm font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-primary/20 mt-2"
-                >
-                  {isLoading ? (
-                    <>
-                      <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                      {isSignUp ? 'Creating account...' : 'Signing in...'}
-                    </>
-                  ) : (
-                    <>
-                      {isSignUp ? 'Create clinic account' : 'Sign in to dashboard'}
-                      <ArrowRight className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
-              </form>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-px bg-border" />
-                  <span className="text-xs text-muted-foreground">or</span>
-                  <div className="flex-1 h-px bg-border" />
-                </div>
-                <button
-                  onClick={() => { setIsSignUp(!isSignUp); setIsLoading(false); setConfirmed(false); }}
-                  className="w-full py-2.5 text-sm font-medium rounded-xl border border-border text-foreground hover:bg-muted transition-all"
-                >
-                  {isSignUp ? 'Already registered? Sign in' : 'New facility? Register here'}
-                </button>
-                <p className="text-center text-[11px] text-muted-foreground">
-                  Access restricted to authorised Botswana health personnel only.
-                </p>
-                <Link
-                  to="/search"
-                  className="block text-center text-xs text-primary hover:underline font-medium mt-1"
-                >
-                  🔍 Looking for medicine? Search here — no login needed
-                </Link>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
+        </div>
       </div>
     </div>
   );
