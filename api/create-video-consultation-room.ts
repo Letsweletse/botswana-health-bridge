@@ -19,6 +19,12 @@ type ConsultantRequest = {
   video_room_url: string | null;
   video_room_created_at: string | null;
   video_room_expires_at: string | null;
+  assigned_facility_name: string | null;
+};
+
+type Profile = {
+  approved: boolean | null;
+  clinic_name: string | null;
 };
 
 const json = (res: ApiResponse, status: number, body: Record<string, unknown>) => {
@@ -101,15 +107,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
     const { data: profileById, error: profileByIdError } = await serviceClient
       .from('profiles')
-      .select('approved')
-      .eq('id', userId)
-      .maybeSingle();
+      .select('approved, clinic_name')
+      .or(`id.eq.${userId},user_id.eq.${userId}`)
+      .maybeSingle<Profile>();
 
     if (profileByIdError) {
       console.error('Profile approval lookup failed:', profileByIdError);
     }
 
     const isApproved = profileById?.approved === true;
+    const userFacilityName = profileById?.clinic_name || null;
     let isAdmin = false;
 
     const { data: roleData, error: roleError } = await serviceClient
@@ -125,7 +132,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       console.warn('user_roles admin lookup skipped:', roleError.message);
     }
 
-    if (!isAdmin && !isApproved) {
+    if (!isAdmin && (!isApproved || !userFacilityName)) {
       return json(res, 403, { error: 'Only approved facility/admin users can create video consultation rooms' });
     }
 
@@ -137,7 +144,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
     const { data: requestRow, error: requestError } = await serviceClient
       .from('consultant_requests')
-      .select('id, video_room_url, video_room_created_at, video_room_expires_at')
+      .select('id, video_room_url, video_room_created_at, video_room_expires_at, assigned_facility_name')
       .eq('id', consultantRequestId)
       .maybeSingle<ConsultantRequest>();
 
@@ -148,6 +155,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
     if (!requestRow) {
       return json(res, 404, { error: 'Consultant request not found' });
+    }
+
+    if (!isAdmin && requestRow.assigned_facility_name !== userFacilityName) {
+      return json(res, 403, { error: 'This request is not assigned to your facility' });
     }
 
     if (requestRow.video_room_url) {
