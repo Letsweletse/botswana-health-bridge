@@ -36,7 +36,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (profile && !profile.approved) {
+  if (!profile || !profile.approved) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="max-w-sm text-center space-y-5">
@@ -45,12 +45,20 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
             <Clock className="h-7 w-7 text-warning" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-foreground">Pending Approval</h2>
+            <h2 className="text-xl font-bold text-foreground">Access Pending</h2>
             <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-              Your facility <strong>{profile.clinic_name}</strong> is registered and awaiting admin approval. You'll receive access once verified.
+              {profile?.clinic_name
+                ? <>Your facility <strong>{profile.clinic_name}</strong> is registered and awaiting admin approval. You'll receive access once verified.</>
+                : <>Your account is signed in, but no approved facility profile is linked yet. Please register your facility or contact ChekaMeds admin.</>}
             </p>
           </div>
           <div className="flex flex-col gap-2">
+            <Link
+              to="/login"
+              className="w-full py-2.5 text-sm font-medium rounded-xl border border-primary bg-primary text-primary-foreground hover:bg-primary/90 transition-all text-center"
+            >
+              Register or switch account
+            </Link>
             <Link
               to="/search"
               className="w-full py-2.5 text-sm font-medium rounded-xl border border-border text-foreground hover:bg-muted transition-all text-center"
