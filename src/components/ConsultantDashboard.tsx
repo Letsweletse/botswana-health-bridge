@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, Copy, ExternalLink, Loader2, MessageCircle
 import { supabase } from '@/integrations/supabase/client';
 import { createVideoConsultationRoom } from '@/lib/videoConsultation';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 type ConsultantRequest = {
   id: string;
@@ -21,6 +22,9 @@ type ConsultantRequest = {
   request_status: string | null;
   consultation_status: string | null;
   consultation_type: string | null;
+  consultation_mode?: string | null;
+  preferred_facility_name?: string | null;
+  assigned_facility_name?: string | null;
   video_room_url: string | null;
   video_room_created_at: string | null;
   video_room_expires_at: string | null;
@@ -65,15 +69,38 @@ const whatsappLink = (phone: string, videoRoomUrl: string) => {
 
 const ConsultantDashboard = () => {
   const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
   const [selectedRequest, setSelectedRequest] = useState<ConsultantRequest | null>(null);
 
-  const { data: requests = [], isLoading } = useQuery({
-    queryKey: ['consultant_requests'],
+  const { data: isAdmin = false } = useQuery({
+    queryKey: ['consultant-admin-role', user?.id],
+    enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await supabase.rpc('has_role', { _user_id: user!.id, _role: 'admin' });
+      if (error) {
+        console.warn('Admin role check failed:', error.message);
+        return false;
+      }
+      return Boolean(data);
+    },
+  });
+
+  const facilityName = profile?.clinic_name || null;
+
+  const { data: requests = [], isLoading } = useQuery({
+    queryKey: ['consultant_requests', isAdmin, facilityName],
+    enabled: Boolean(user && (isAdmin || facilityName)),
+    queryFn: async () => {
+      let query = supabase
         .from('consultant_requests')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (!isAdmin && facilityName) {
+        query = query.eq('assigned_facility_name', facilityName);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return (data || []) as ConsultantRequest[];
@@ -125,6 +152,7 @@ const ConsultantDashboard = () => {
       <div className="border border-primary/20 bg-primary/5 p-5 text-sm text-muted-foreground">
         <p className="font-semibold text-foreground">Provider review area</p>
         <p className="mt-1 leading-6">Review patient requests, identify urgent cases, and create a secure video link only where appropriate. ChekaMeds does not diagnose or prescribe.</p>
+        {!isAdmin && facilityName && <p className="mt-2 text-xs font-semibold text-primary">Showing requests assigned to: {facilityName}</p>}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-4">
@@ -147,7 +175,7 @@ const ConsultantDashboard = () => {
         <div className="border border-border bg-card p-10 text-center">
           <Video className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
           <p className="font-semibold text-foreground">No consultant requests yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">Patient submissions will appear here for facility review.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Patient submissions assigned to your facility will appear here for review.</p>
         </div>
       ) : (
         <div className="grid gap-4">
@@ -166,6 +194,7 @@ const ConsultantDashboard = () => {
                     </div>
                     <p className="text-sm text-muted-foreground">{request.location} · Created {formatDate(request.created_at)}</p>
                     <p className="mt-1 text-sm font-medium text-foreground">{request.phone}</p>
+                    {request.assigned_facility_name && <p className="mt-1 text-xs text-muted-foreground">Assigned: {request.assigned_facility_name}</p>}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {[requestStatus, consultationStatus].filter(Boolean).map((status) => (
@@ -260,15 +289,16 @@ const ConsultantDashboard = () => {
               </div>
               <button onClick={() => setSelectedRequest(null)} className="border border-border px-3 py-1 text-sm text-muted-foreground hover:bg-muted">Close</button>
             </div>
-            <div className="mt-5 space-y-3 text-sm text-muted-foreground">
-              <Detail label="Created" value={formatDate(selectedRequest.created_at)} />
+            <div className="mt-4 space-y-3 text-sm">
               <Detail label="Symptoms" value={selectedRequest.symptoms} />
               <Detail label="Duration" value={selectedRequest.symptom_duration} />
               <Detail label="Age group" value={selectedRequest.age_group} />
               <Detail label="Pregnancy" value={selectedRequest.pregnancy_status} />
               <Detail label="Existing conditions" value={selectedRequest.existing_conditions} />
               <Detail label="Allergies" value={selectedRequest.allergies} />
-              <Detail label="Emergency flags" value={selectedRequest.emergency_flags?.join(', ') || 'None'} />
+              <Detail label="Consultation mode" value={selectedRequest.consultation_mode} />
+              <Detail label="Assigned facility" value={selectedRequest.assigned_facility_name} />
+              <Detail label="Created" value={formatDate(selectedRequest.created_at)} />
             </div>
           </div>
         </div>
@@ -278,7 +308,10 @@ const ConsultantDashboard = () => {
 };
 
 const Detail = ({ label, value }: { label: string; value?: string | null }) => (
-  <p className="border border-border bg-card p-2"><span className="font-semibold text-foreground">{label}:</span> <span className="text-muted-foreground">{value || '—'}</span></p>
+  <div>
+    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+    <p className="mt-0.5 text-foreground">{value || '—'}</p>
+  </div>
 );
 
 export default ConsultantDashboard;
