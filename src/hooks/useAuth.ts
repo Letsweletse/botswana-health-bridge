@@ -4,10 +4,12 @@ import type { User, Session } from '@supabase/supabase-js';
 
 interface UserProfile {
   id: string;
-  user_id: string;
-  clinic_name: string;
-  full_name: string | null;
+  email: string | null;
+  clinic_name: string | null;
+  contact: string | null;
+  role: string | null;
   approved: boolean | null;
+  status: string | null;
 }
 
 export function useAuth() {
@@ -27,8 +29,8 @@ export function useAuth() {
     const [{ data: profileData, error: profileError }, { data: adminRole, error: roleError }] = await Promise.all([
       supabase
         .from('profiles')
-        .select('id, user_id, clinic_name, full_name, approved')
-        .or(`user_id.eq.${currentUser.id},id.eq.${currentUser.id}`)
+        .select('id, email, clinic_name, contact, role, approved, status')
+        .eq('id', currentUser.id)
         .maybeSingle(),
       supabase
         .from('user_roles')
@@ -49,15 +51,17 @@ export function useAuth() {
       console.error('Profile lookup failed:', profileError);
       setProfile(userIsAdmin ? {
         id: currentUser.id,
-        user_id: currentUser.id,
+        email: currentUser.email || null,
         clinic_name: 'ChekaMeds Admin',
-        full_name: currentUser.user_metadata?.full_name || currentUser.email || 'Admin',
+        contact: null,
+        role: 'admin',
         approved: true,
+        status: 'approved',
       } : null);
       return;
     }
 
-    if (profileData?.clinic_name) {
+    if (profileData) {
       setProfile(profileData as UserProfile);
       return;
     }
@@ -65,10 +69,12 @@ export function useAuth() {
     if (userIsAdmin) {
       setProfile({
         id: currentUser.id,
-        user_id: currentUser.id,
+        email: currentUser.email || null,
         clinic_name: 'ChekaMeds Admin',
-        full_name: currentUser.user_metadata?.full_name || currentUser.email || 'Admin',
+        contact: null,
+        role: 'admin',
         approved: true,
+        status: 'approved',
       });
       return;
     }
@@ -77,10 +83,12 @@ export function useAuth() {
     if (fallbackClinicName) {
       setProfile({
         id: currentUser.id,
-        user_id: currentUser.id,
+        email: currentUser.email || null,
         clinic_name: fallbackClinicName,
-        full_name: currentUser.user_metadata?.full_name || null,
+        contact: null,
+        role: 'facility',
         approved: false,
+        status: 'pending',
       });
       return;
     }
