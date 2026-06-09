@@ -1,4 +1,5 @@
 -- Lock consultant request access by assigned facility.
+-- This version matches the real profiles schema where profiles.id = auth.users.id.
 -- Admins can view/update all requests. Facility users can only view/update requests assigned to their profile clinic_name.
 
 alter table public.consultant_requests
@@ -38,7 +39,7 @@ create policy "Assigned facilities can view own consultant requests"
     exists (
       select 1
       from public.profiles p
-      where (p.user_id = auth.uid() or p.id = auth.uid())
+      where p.id = auth.uid()
         and p.approved = true
         and p.clinic_name = consultant_requests.assigned_facility_name
     )
@@ -55,7 +56,7 @@ create policy "Assigned facilities can update own consultant requests"
     exists (
       select 1
       from public.profiles p
-      where (p.user_id = auth.uid() or p.id = auth.uid())
+      where p.id = auth.uid()
         and p.approved = true
         and p.clinic_name = consultant_requests.assigned_facility_name
     )
@@ -64,7 +65,7 @@ create policy "Assigned facilities can update own consultant requests"
     exists (
       select 1
       from public.profiles p
-      where (p.user_id = auth.uid() or p.id = auth.uid())
+      where p.id = auth.uid()
         and p.approved = true
         and p.clinic_name = consultant_requests.assigned_facility_name
     )
