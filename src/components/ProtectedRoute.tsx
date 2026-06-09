@@ -1,30 +1,14 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import logo from '@/assets/ChekaMeds_Logo.png';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, profile, isAdmin, loading } = useAuth();
   const location = useLocation();
 
-  // Check if user's profile is approved
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ['profile-approval', user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('approved, clinic_name')
-        .or(`user_id.eq.${user!.id},id.eq.${user!.id}`)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  if (loading || profileLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -36,7 +20,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (!profile || !profile.approved) {
+  if (!isAdmin && (!profile || !profile.approved)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="max-w-sm text-center space-y-5">
