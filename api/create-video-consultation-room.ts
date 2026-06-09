@@ -108,7 +108,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const { data: profileById, error: profileByIdError } = await serviceClient
       .from('profiles')
       .select('approved, clinic_name')
-      .or(`id.eq.${userId},user_id.eq.${userId}`)
+      .eq('id', userId)
       .maybeSingle<Profile>();
 
     if (profileByIdError) {
