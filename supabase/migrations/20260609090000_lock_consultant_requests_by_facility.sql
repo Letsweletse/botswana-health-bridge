@@ -17,6 +17,10 @@ alter table public.consultant_requests enable row level security;
 
 drop policy if exists "Authenticated facility users can view consultant requests" on public.consultant_requests;
 drop policy if exists "Authenticated facility users can update consultant requests" on public.consultant_requests;
+drop policy if exists "Admins can view all consultant requests" on public.consultant_requests;
+drop policy if exists "Assigned facilities can view own consultant requests" on public.consultant_requests;
+drop policy if exists "Admins can update all consultant requests" on public.consultant_requests;
+drop policy if exists "Assigned facilities can update own consultant requests" on public.consultant_requests;
 
 do $$ begin
   create policy "Patients can submit consultant requests"
@@ -26,7 +30,7 @@ exception when duplicate_object then null; end $$;
 
 create policy "Admins can view all consultant requests"
   on public.consultant_requests for select
-  using (public.has_role(auth.uid(), 'admin'));
+  using (public.has_role('admin', auth.uid()));
 
 create policy "Assigned facilities can view own consultant requests"
   on public.consultant_requests for select
@@ -42,8 +46,8 @@ create policy "Assigned facilities can view own consultant requests"
 
 create policy "Admins can update all consultant requests"
   on public.consultant_requests for update
-  using (public.has_role(auth.uid(), 'admin'))
-  with check (public.has_role(auth.uid(), 'admin'));
+  using (public.has_role('admin', auth.uid()))
+  with check (public.has_role('admin', auth.uid()));
 
 create policy "Assigned facilities can update own consultant requests"
   on public.consultant_requests for update
