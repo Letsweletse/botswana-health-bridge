@@ -75,6 +75,8 @@ export type Database = {
         Row: {
           age_group: string | null
           allergies: string | null
+          assigned_facility_name: string | null
+          consultation_mode: string | null
           consultation_status: string | null
           consultation_type: string | null
           created_at: string
@@ -84,6 +86,7 @@ export type Database = {
           id: string
           location: string
           phone: string
+          preferred_facility_name: string | null
           pregnancy_status: string | null
           prescription_url: string | null
           request_status: string | null
@@ -97,6 +100,8 @@ export type Database = {
         Insert: {
           age_group?: string | null
           allergies?: string | null
+          assigned_facility_name?: string | null
+          consultation_mode?: string | null
           consultation_status?: string | null
           consultation_type?: string | null
           created_at?: string
@@ -106,6 +111,7 @@ export type Database = {
           id?: string
           location: string
           phone: string
+          preferred_facility_name?: string | null
           pregnancy_status?: string | null
           prescription_url?: string | null
           request_status?: string | null
@@ -119,6 +125,8 @@ export type Database = {
         Update: {
           age_group?: string | null
           allergies?: string | null
+          assigned_facility_name?: string | null
+          consultation_mode?: string | null
           consultation_status?: string | null
           consultation_type?: string | null
           created_at?: string
@@ -128,6 +136,7 @@ export type Database = {
           id?: string
           location?: string
           phone?: string
+          preferred_facility_name?: string | null
           pregnancy_status?: string | null
           prescription_url?: string | null
           request_status?: string | null
@@ -328,70 +337,3 @@ export type TablesInsert<
       ? I
       : never
     : never
-
-export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
-
-export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
-export const Constants = {
-  public: {
-    Enums: {
-      app_role: ["admin", "clinic_staff"],
-    },
-  },
-} as const
