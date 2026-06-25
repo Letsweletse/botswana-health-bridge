@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import SiteHeader from '@/components/SiteHeader';
 import heroBg from '@/assets/hero-bg.png';
 import { consultantVideoImage } from '@/assets/consultantVideoImage';
 import { medicineSearchImg, homeConsultationImg, clinicSupportImg, support247Img } from '@/assets/serviceCardImages';
@@ -93,20 +94,7 @@ const Landing = () => {
 
       <div id="progress" />
 
-      <nav className="cm-nav">
-        <Link to="/" className="logo">Cheka<em>Meds</em></Link>
-        <ul className="nav-links">
-          <li><a href="#how">How it works</a></li>
-          <li><a href="#consultants">Consultants</a></li>
-          <li><Link to="/facilities">Pharmacies</Link></li>
-          <li><a href="#services">About</a></li>
-          <li><a href="#help">Help</a></li>
-        </ul>
-        <div className="nav-actions">
-          <Link to="/dashboard" className="btn-ghost">Log in</Link>
-          <button className="btn-cta" onClick={() => navigate('/search')}>Get started</button>
-        </div>
-      </nav>
+      <SiteHeader ctaLabel="Get started" ctaTo="/search" />
 
       <section className="hero" id="how">
         <div className="hero-visual">

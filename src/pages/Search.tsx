@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Pill, Package, ArrowRight, Building2, AlertCircle, Loader2, MapPin } from 'lucide-react';
+import { Search, Pill, Package, Building2, AlertCircle, Loader2, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import logo from '@/assets/ChekaMeds_Logo.png';
+import SiteHeader from '@/components/SiteHeader';
 import heroBg from '@/assets/hero-bg.png';
 
 interface InventoryItem {
@@ -224,18 +224,9 @@ const SearchPage = () => {
 
   return (
     <div className="min-h-screen font-[Gordita,system-ui,sans-serif] antialiased bg-[#020e08]">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#020e08]/60 backdrop-blur-xl border-b border-white/[0.06]">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <img src={logo} alt="ChekaMeds" className="h-8 w-auto object-contain" />
-          </Link>
-          <Link to="/" className="text-xs font-medium text-white/50 hover:text-white transition-colors flex items-center gap-1">
-            Clinic Login <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
-      </nav>
+      <SiteHeader ctaLabel="Clinic Login" ctaTo="/login" />
 
-      <div className="pt-14">
+      <div className="pt-16">
         <div className="relative w-full">
           <img src={heroBg} alt="ChekaMeds — Find Medicines Faster" className="w-full h-auto block" />
           <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#020e08] to-transparent" />
