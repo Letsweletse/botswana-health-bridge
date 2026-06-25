@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ArrowRight, Building2, ExternalLink, Loader2, MapPin, Phone, Search, ShieldAlert } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import logo from '@/assets/ChekaMeds_Logo.png';
+import SiteHeader from '@/components/SiteHeader';
 
 interface Facility {
   facility_name: string;
@@ -101,23 +100,9 @@ const FacilitiesPage = () => {
 
   return (
     <div className="min-h-screen font-[Gordita,system-ui,sans-serif] antialiased bg-[#020e08] text-white">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#020e08]/70 backdrop-blur-xl border-b border-white/[0.06]">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <img src={logo} alt="ChekaMeds" className="h-8 w-auto object-contain" />
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link to="/search" className="text-xs font-medium text-white/50 hover:text-white transition-colors flex items-center gap-1">
-              Medicine Search <ArrowRight className="h-3 w-3" />
-            </Link>
-            <Link to="/" className="text-xs font-medium text-white/50 hover:text-white transition-colors">
-              Home
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <SiteHeader ctaLabel="Medicine Search" ctaTo="/search" />
 
-      <main className="pt-24 pb-16 px-4">
+      <main className="pt-28 pb-16 px-4">
         <section className="max-w-6xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
             <div className="inline-flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-4 py-1.5 text-xs font-semibold mb-5 border border-emerald-500/20">
