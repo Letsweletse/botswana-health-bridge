@@ -24,16 +24,14 @@ const SiteHeader = ({ links = defaultLinks, ctaLabel = 'Clinic Login', ctaTo = '
 
   return (
     <header className="fixed left-0 right-0 top-0 z-50 border-b border-emerald-300/15 bg-[linear-gradient(135deg,rgba(1,18,14,0.96),rgba(2,42,31,0.94)_48%,rgba(0,12,10,0.96))] text-white shadow-[0_18px_60px_rgba(0,0,0,0.42),0_0_42px_rgba(16,185,129,0.12)] backdrop-blur-2xl">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(52,211,153,0.18),transparent_32%),radial-gradient(circle_at_82%_0%,rgba(125,211,252,0.10),transparent_28%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(52,211,153,0.16),transparent_32%),radial-gradient(circle_at_82%_0%,rgba(125,211,252,0.10),transparent_28%)]" />
       <div className="relative mx-auto flex h-20 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-12">
-        <Link to="/" className="flex min-w-0 items-center gap-3" aria-label="ChekaMeds home">
-          <span className="flex h-12 w-[168px] shrink-0 items-center justify-start rounded-2xl border border-emerald-300/20 bg-white/[0.96] px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.20),0_0_24px_rgba(16,185,129,0.16)] sm:h-14 sm:w-[220px]">
-            <img src={logo} alt="ChekaMeds" className="h-full w-full object-contain object-left" />
-          </span>
-          <span className="hidden min-w-0 lg:block">
-            <span className="block text-[10px] font-black uppercase leading-none tracking-[0.26em] text-emerald-200/90">Health access</span>
-            <span className="mt-1 block text-[11px] font-semibold text-white/55">Find medicines faster</span>
-          </span>
+        <Link to="/" className="flex min-w-0 items-center" aria-label="ChekaMeds home">
+          <img
+            src={logo}
+            alt="ChekaMeds"
+            className="h-11 w-auto max-w-[170px] object-contain drop-shadow-[0_8px_22px_rgba(0,0,0,0.45)] sm:h-12 sm:max-w-[220px]"
+          />
         </Link>
 
         <nav className="hidden items-center gap-2 rounded-full border border-white/10 bg-black/20 p-1.5 shadow-inner md:flex" aria-label="Main navigation">
