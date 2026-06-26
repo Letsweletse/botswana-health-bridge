@@ -3,6 +3,12 @@ import ConsultantRequestForm from '@/components/ConsultantRequestForm';
 import SiteHeader from '@/components/SiteHeader';
 import { consultantVideoImage } from '@/assets/consultantVideoImage';
 
+const Consultant = () => {
+  return (
+  <div className="min-h-screen bg-[#07130f] px-4 pb-5 pt-28 font-[Gordita,system-ui,sans-serif] text-white sm:px-6 lg:px-8">
+    <SiteHeader ctaLabel="Find Medicine" ctaTo="/search" />
+    <div className="mx-auto max-w-7xl">
+      <section className="mb-6 overflow-hidden border border-emerald-300/15 bg-[#081512] shadow-2xl shadow-black/30 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
 const Consultant = () => (
   <div className="min-h-screen bg-[#07130f] px-4 pb-5 pt-28 font-[Gordita,system-ui,sans-serif] text-white sm:px-6 lg:px-8">
     <SiteHeader ctaLabel="Find Medicine" ctaTo="/search" />
@@ -77,6 +83,7 @@ const Consultant = () => (
       <ConsultantRequestForm />
     </div>
   </div>
-);
+  );
+};
 
 export default Consultant;
