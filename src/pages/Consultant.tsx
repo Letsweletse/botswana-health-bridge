@@ -3,6 +3,24 @@ import ConsultantRequestForm from '@/components/ConsultantRequestForm';
 import SiteHeader from '@/components/SiteHeader';
 import { consultantVideoImage } from '@/assets/consultantVideoImage';
 
+const Consultant = () => (
+  <div className="min-h-screen bg-[#07130f] px-4 pb-5 pt-28 font-[Gordita,system-ui,sans-serif] text-white sm:px-6 lg:px-8">
+    <SiteHeader ctaLabel="Find Medicine" ctaTo="/search" />
+    <div className="mx-auto max-w-7xl">
+      <section className="mb-6 overflow-hidden border border-emerald-300/15 bg-[#081512] shadow-2xl shadow-black/30 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
+        <div className="relative min-h-[340px] bg-slate-900 lg:min-h-[560px]">
+          <img
+            src={consultantVideoImage}
+            alt="Patient in Botswana accessing ChekaMeds virtual care"
+            className="h-full w-full object-cover object-center"
+            loading="eager"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent lg:bg-gradient-to-r lg:from-black/55 lg:via-black/10 lg:to-transparent" />
+          <div className="absolute bottom-5 left-5 right-5 max-w-md border border-white/15 bg-black/45 p-4 backdrop-blur-md">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-300">Rural access matters</p>
+            <p className="mt-2 text-sm leading-6 text-white/80">
+              Virtual care should work for patients at home, in villages, and through assisted partner facilities.
+            </p>
 const Consultant = () => {
   return (
     <div className="min-h-screen bg-[#07130f] px-4 pb-5 pt-28 font-[Gordita,system-ui,sans-serif] text-white sm:px-6 lg:px-8">
@@ -25,6 +43,14 @@ const Consultant = () => {
             </div>
           </div>
 
+        <div className="flex flex-col justify-center bg-[radial-gradient(circle_at_20%_0%,rgba(151,214,88,0.16),transparent_35%),#07130f] p-6 text-white sm:p-8 lg:p-12">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">ChekaMeds Consultant</p>
+          <h1 className="mt-3 max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
+            Video care, closer to home.
+          </h1>
+          <p className="mt-4 max-w-xl text-base leading-7 text-white/62">
+            Request provider support from home or get assisted at a partner pharmacy or clinic. Built for real Botswana access, not just city users.
+          </p>
           <div className="flex flex-col justify-center bg-[radial-gradient(circle_at_20%_0%,rgba(151,214,88,0.16),transparent_35%),#07130f] p-6 text-white sm:p-8 lg:p-12">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">ChekaMeds Consultant</p>
             <h1 className="mt-3 max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
@@ -71,6 +97,8 @@ const Consultant = () => {
         <ConsultantRequestForm />
       </div>
     </div>
+  </div>
+);
   );
 };
 
