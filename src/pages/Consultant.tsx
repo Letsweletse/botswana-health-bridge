@@ -11,8 +11,9 @@ const Consultant = () => (
         <div className="relative min-h-[340px] bg-slate-900 lg:min-h-[560px]">
           <img
             src={consultantVideoImage}
-            alt="Older woman in a rural village having a video consultation with a doctor"
+            alt="Patient in Botswana accessing ChekaMeds virtual care"
             className="h-full w-full object-cover object-center"
+            loading="eager"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent lg:bg-gradient-to-r lg:from-black/55 lg:via-black/10 lg:to-transparent" />
           <div className="absolute bottom-5 left-5 right-5 max-w-md border border-white/15 bg-black/45 p-4 backdrop-blur-md">

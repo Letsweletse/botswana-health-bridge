@@ -42,6 +42,7 @@ const SiteHeader = ({ links = defaultLinks, ctaLabel = 'Clinic Login', ctaTo = '
               <Link
                 key={link.to}
                 to={link.to}
+                aria-current={isActive ? 'page' : undefined}
                 className={`whitespace-nowrap rounded-full px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition sm:px-4 sm:text-xs ${
                   isActive
                     ? 'bg-emerald-300 text-[#06110d] shadow-[0_0_24px_rgba(151,214,88,0.28)]'
