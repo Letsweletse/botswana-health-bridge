@@ -33,9 +33,7 @@ interface SearchPayload {
   usedAlias: boolean;
 }
 
-const normalize = (value: string) =>
-  value.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-
+const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 const unique = (items: string[]) => Array.from(new Set(items.map(normalize).filter(Boolean)));
 
 const scoreItem = (item: InventoryItem, terms: string[]) => {
@@ -93,12 +91,7 @@ const logFailedSearch = async (query: string) => {
 const runInventorySearch = async (terms: string[]) => {
   const selectFields = 'id, med_name, clinic_name, quantity, category, strength, dosage_form, pack_size, facility_level, price_bwp, location, contact, directions_link, generic_name, brand_name, search_tokens, updated_at';
   const orFilter = terms
-    .flatMap((term) => [
-      `med_name.ilike.%${term}%`,
-      `generic_name.ilike.%${term}%`,
-      `brand_name.ilike.%${term}%`,
-      `search_tokens.ilike.%${term}%`,
-    ])
+    .flatMap((term) => [`med_name.ilike.%${term}%`, `generic_name.ilike.%${term}%`, `brand_name.ilike.%${term}%`, `search_tokens.ilike.%${term}%`])
     .join(',');
 
   try {
@@ -117,7 +110,7 @@ const runInventorySearch = async (terms: string[]) => {
     const basicOrFilter = terms.map((term) => `med_name.ilike.%${term}%`).join(',');
     const { data, error } = await supabase
       .from('clinic_inventory')
-      .select('id, med_name, clinic_name, quantity, category, strength, dosage_form, pack_size, facility_level, price_bwp, updated_at')
+      .select('id, med_name, clinic_name, quantity, category, strength, dosage_form, pack_size, facility_level, price_bwp, location, contact, directions_link, updated_at')
       .or(basicOrFilter)
       .gt('quantity', 0)
       .neq('clinic_name', 'ChekaMeds Admin')
@@ -136,9 +129,7 @@ const SearchPage = () => {
   const handleSearch = (value: string) => {
     setQuery(value);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    searchTimeoutRef.current = setTimeout(() => {
-      setDebouncedQuery(value.trim());
-    }, 400);
+    searchTimeoutRef.current = setTimeout(() => setDebouncedQuery(value.trim()), 400);
   };
 
   const { data: payload = { rows: [], expandedTerms: [], usedAlias: false }, isLoading } = useQuery<SearchPayload>({
@@ -147,12 +138,7 @@ const SearchPage = () => {
       if (!debouncedQuery || debouncedQuery.length < 2) return { rows: [], expandedTerms: [], usedAlias: false };
 
       const aliases = await fetchAliases(debouncedQuery);
-      const expandedTerms = unique([
-        debouncedQuery,
-        ...aliases.map((a) => a.alias),
-        ...aliases.map((a) => a.canonical_name),
-      ]);
-
+      const expandedTerms = unique([debouncedQuery, ...aliases.map((a) => a.alias), ...aliases.map((a) => a.canonical_name)]);
       const rows = await runInventorySearch(expandedTerms);
       if (rows.length === 0) await logFailedSearch(debouncedQuery);
 
@@ -170,17 +156,9 @@ const SearchPage = () => {
       const next = { ...item, score };
       const existing = map.get(key);
 
-      if (!existing) {
+      if (!existing || next.score > existing.score || (next.price_bwp != null && existing.price_bwp == null) || next.quantity > existing.quantity) {
         map.set(key, next);
-        return;
       }
-
-      const existingHasPrice = existing.price_bwp != null;
-      const nextHasPrice = next.price_bwp != null;
-      if (next.score > existing.score) map.set(key, next);
-      else if (nextHasPrice && !existingHasPrice) map.set(key, next);
-      else if (nextHasPrice && existingHasPrice && next.price_bwp! < existing.price_bwp!) map.set(key, next);
-      else if (next.quantity > existing.quantity) map.set(key, next);
     });
 
     return Array.from(map.values()).sort((a, b) => {
@@ -194,9 +172,7 @@ const SearchPage = () => {
   }, [payload]);
 
   const stockLabel = (q: number) =>
-    q > 100 ? { text: 'In Stock', cls: 'text-emerald-400' }
-    : q >= 20 ? { text: 'Low Stock', cls: 'text-amber-400' }
-    : { text: 'Limited', cls: 'text-red-400' };
+    q > 100 ? { text: 'In Stock', cls: 'text-emerald-400' } : q >= 20 ? { text: 'Low Stock', cls: 'text-amber-400' } : { text: 'Limited', cls: 'text-red-400' };
 
   const groupedByClinic = useMemo(() => {
     const map = new Map<string, typeof results>();
@@ -223,12 +199,16 @@ const SearchPage = () => {
     ? `Also searched: ${payload.expandedTerms.filter((t) => normalize(t) !== normalize(debouncedQuery)).slice(0, 3).join(', ')}`
     : null;
 
+  const setQuickSearch = (medicine: string) => {
+    setQuery(medicine);
+    setDebouncedQuery(medicine);
+  };
+
   return (
     <div className="min-h-screen font-[Gordita,system-ui,sans-serif] antialiased bg-[#020e08]">
       <SiteHeader ctaLabel="Clinic Login" ctaTo="/login" />
 
       <div className="pt-20">
-      <div className="pt-16">
         <div className="relative w-full">
           <img src={heroBg} alt="ChekaMeds — Find Medicines Faster" className="w-full h-auto block" />
           <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#020e08] to-transparent" />
@@ -252,7 +232,7 @@ const SearchPage = () => {
             {['Panado', 'Paracetamol', 'BP tablets', 'Metformin', 'Heartburn', 'Amlodipine', 'Flu'].map((med) => (
               <button
                 key={med}
-                onClick={() => { setQuery(med); setDebouncedQuery(med); }}
+                onClick={() => setQuickSearch(med)}
                 className="text-xs px-3 py-1.5 border border-white/[0.1] bg-white/[0.03] hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-400 text-white/40 transition-all duration-200 font-medium"
               >
                 {med}
@@ -305,7 +285,7 @@ const SearchPage = () => {
             <motion.div key="no-results" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-center py-16">
               <AlertCircle className="h-12 w-12 text-white/15 mx-auto mb-4" />
               <p className="text-lg font-semibold text-white mb-1">No results found</p>
-              <p className="text-sm text-white/40 max-w-md mx-auto">No active facility currently lists "<strong className="text-white/60">{debouncedQuery}</strong>". Try a generic name, brand name, or different spelling.</p>
+              <p className="text-sm text-white/40 max-w-md mx-auto">No active facility currently lists <strong className="text-white/60">{debouncedQuery}</strong>. Try a generic name, brand name, or different spelling.</p>
             </motion.div>
           ) : (
             <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
@@ -338,12 +318,7 @@ const SearchPage = () => {
                           <div className="flex flex-wrap items-center gap-2 mt-1">
                             {med.location && <p className="text-[10px] text-white/30">Location: {med.location}</p>}
                             {med.directions_link && (
-                              <a
-                                href={med.directions_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 hover:text-emerald-200 border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 transition-colors"
-                              >
+                              <a href={med.directions_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 hover:text-emerald-200 border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 transition-colors">
                                 <MapPin className="h-3 w-3" /> Directions
                               </a>
                             )}
@@ -362,16 +337,6 @@ const SearchPage = () => {
           )}
         </AnimatePresence>
       </section>
-
-      <footer className="border-t border-white/[0.06] py-6 px-6">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-[11px] text-white/15">© {new Date().getFullYear()} ChekaMeds — Powered by IBLIM ENTERPRISE. Stock data updated in real time.</p>
-          <div className="flex items-center justify-center gap-4 mt-2">
-            <Link to="/" className="text-[10px] text-emerald-400/60 hover:text-emerald-400 transition-colors">Clinic Portal</Link>
-            <Link to="/" className="text-[10px] text-white/20 hover:text-white/50 transition-colors">Home</Link>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };
