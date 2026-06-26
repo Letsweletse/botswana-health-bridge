@@ -8,7 +8,6 @@ import { useEffect } from "react";
 import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
-
 import Search from "./pages/Search";
 import Facilities from "./pages/Facilities";
 import Consultant from "./pages/Consultant";
@@ -18,6 +17,7 @@ import AdminPanel from "./pages/AdminPanel";
 import WhatsAppWebhookAdmin from "./pages/WhatsAppWebhookAdmin";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
+import SiteFooter from "./components/SiteFooter";
 
 const queryClient = new QueryClient();
 
@@ -49,7 +49,6 @@ const AnimatedRoutes = () => {
           <Route path="/admin" element={<AdminPanel />} />
           <Route path="/admin/whatsapp" element={<WhatsAppWebhookAdmin />} />
           <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.main>
@@ -64,6 +63,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AnimatedRoutes />
+        <SiteFooter />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
