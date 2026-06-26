@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Pill, Package, Building2, AlertCircle, Loader2, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -131,11 +131,12 @@ const runInventorySearch = async (terms: string[]) => {
 const SearchPage = () => {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSearch = (value: string) => {
     setQuery(value);
-    clearTimeout((window as any).__searchTimeout);
-    (window as any).__searchTimeout = setTimeout(() => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
       setDebouncedQuery(value.trim());
     }, 400);
   };
@@ -226,6 +227,7 @@ const SearchPage = () => {
     <div className="min-h-screen font-[Gordita,system-ui,sans-serif] antialiased bg-[#020e08]">
       <SiteHeader ctaLabel="Clinic Login" ctaTo="/login" />
 
+      <div className="pt-20">
       <div className="pt-16">
         <div className="relative w-full">
           <img src={heroBg} alt="ChekaMeds — Find Medicines Faster" className="w-full h-auto block" />
