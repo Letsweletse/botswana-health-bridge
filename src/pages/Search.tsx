@@ -228,6 +228,7 @@ const SearchPage = () => {
       <SiteHeader ctaLabel="Clinic Login" ctaTo="/login" />
 
       <div className="pt-20">
+      <div className="pt-16">
         <div className="relative w-full">
           <img src={heroBg} alt="ChekaMeds — Find Medicines Faster" className="w-full h-auto block" />
           <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#020e08] to-transparent" />

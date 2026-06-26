@@ -9,6 +9,17 @@ const Consultant = () => {
     <SiteHeader ctaLabel="Find Medicine" ctaTo="/search" />
     <div className="mx-auto max-w-7xl">
       <section className="mb-6 overflow-hidden border border-emerald-300/15 bg-[#081512] shadow-2xl shadow-black/30 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
+const Consultant = () => (
+  <div className="min-h-screen bg-[#07130f] px-4 pb-5 pt-28 font-[Gordita,system-ui,sans-serif] text-white sm:px-6 lg:px-8">
+    <SiteHeader ctaLabel="Find Medicine" ctaTo="/search" />
+    <div className="mx-auto max-w-7xl">
+      <section className="mb-6 overflow-hidden border border-emerald-300/15 bg-[#081512] shadow-2xl shadow-black/30 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
+    <div className="mx-auto max-w-7xl">
+      <section className="mb-6 overflow-hidden border border-emerald-300/15 bg-[#081512] shadow-2xl shadow-black/30 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
+  <div className="min-h-screen bg-[#07130f] px-4 pb-5 pt-24 font-[Gordita,system-ui,sans-serif] text-white sm:px-6 lg:px-8">
+    <SiteHeader ctaLabel="Find Medicine" ctaTo="/search" />
+    <div className="mx-auto max-w-7xl">
+      <section className="mb-6 overflow-hidden border border-white/10 bg-white shadow-2xl shadow-black/30 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
         <div className="relative min-h-[340px] bg-slate-900 lg:min-h-[560px]">
           <img
             src={consultantVideoImage}
@@ -26,6 +37,7 @@ const Consultant = () => {
         </div>
 
         <div className="flex flex-col justify-center consultant-hero-panel p-6 text-white sm:p-8 lg:p-12">
+        <div className="flex flex-col justify-center bg-[radial-gradient(circle_at_20%_0%,rgba(151,214,88,0.16),transparent_35%),#07130f] p-6 text-white sm:p-8 lg:p-12">
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">ChekaMeds Consultant</p>
           <h1 className="mt-3 max-w-2xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
             Video care, closer to home.
