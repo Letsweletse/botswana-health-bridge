@@ -175,3 +175,45 @@
 ::-webkit-scrollbar-track { background: hsl(var(--muted)); border-radius: 99px; }
 ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
+
+@layer components {
+  .site-header-shell {
+    @apply fixed left-0 right-0 top-0 z-50 border-b border-emerald-300/15 text-white backdrop-blur-xl;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(151, 214, 88, 0.22), transparent 32%),
+      linear-gradient(90deg, rgba(5, 12, 10, 0.98), rgba(9, 29, 24, 0.94), rgba(2, 14, 8, 0.98));
+    box-shadow: 0 14px 55px rgba(0, 0, 0, 0.34);
+  }
+
+  .site-logo-chip {
+    @apply flex h-12 w-[138px] shrink-0 items-center justify-center rounded-2xl border border-emerald-300/20 bg-white/95 px-2 py-1 transition sm:w-[172px];
+    box-shadow: 0 0 28px rgba(151, 214, 88, 0.2);
+  }
+
+  .group:hover .site-logo-chip {
+    box-shadow: 0 0 36px rgba(151, 214, 88, 0.34);
+  }
+
+  .site-nav-pill-active {
+    @apply bg-emerald-300 text-[#06110d];
+    box-shadow: 0 0 24px rgba(151, 214, 88, 0.28);
+  }
+
+  .site-nav-pill-idle {
+    @apply border border-white/10 bg-white/[0.04] text-white/80 hover:border-emerald-300/30 hover:bg-emerald-300/10 hover:text-emerald-100;
+  }
+
+  .site-header-cta {
+    @apply inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-200/40 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-[#03110c] transition hover:scale-[1.02] sm:px-5 sm:text-xs;
+    background: linear-gradient(90deg, #97d658, #2d9768);
+    box-shadow: 0 0 30px rgba(151, 214, 88, 0.26);
+  }
+
+  .site-header-cta:hover {
+    box-shadow: 0 0 38px rgba(151, 214, 88, 0.42);
+  }
+
+  .consultant-hero-panel {
+    background: radial-gradient(circle at 20% 0%, rgba(151, 214, 88, 0.16), transparent 35%), #07130f;
+  }
+}
