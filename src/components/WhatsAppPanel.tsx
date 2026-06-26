@@ -68,8 +68,16 @@ const WhatsAppPanel = () => {
     }
   };
 
+  const escapeHtml = (text: string) =>
+    text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
   const formatText = (text: string) => {
-    return text
+    return escapeHtml(text)
       .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
       .replace(/_([^_]+)_/g, '<em>$1</em>')
       .replace(/\n/g, '<br/>');
