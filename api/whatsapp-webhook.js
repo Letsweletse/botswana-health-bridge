@@ -22,13 +22,21 @@ function targetUrl(req) {
   return target.toString();
 }
 
+function isFormRequest(req) {
+  return String(req.headers["content-type"] || "").includes("application/x-www-form-urlencoded");
+}
+
 async function readBody(req) {
   if (req.method === "GET" || req.method === "HEAD") return undefined;
 
   if (req.body !== undefined && req.body !== null) {
-    return typeof req.body === "string" || Buffer.isBuffer(req.body)
-      ? req.body
-      : JSON.stringify(req.body);
+    if (typeof req.body === "string" || Buffer.isBuffer(req.body)) return req.body;
+
+    if (isFormRequest(req)) {
+      return new URLSearchParams(req.body).toString();
+    }
+
+    return JSON.stringify(req.body);
   }
 
   const chunks = [];
