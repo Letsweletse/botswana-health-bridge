@@ -20,7 +20,8 @@ interface WebhookLog {
   created_at: string;
 }
 
-const WEBHOOK_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/whatsapp-webhook`;
+const WEBHOOK_PATH = "/api/whatsapp-webhook";
+const WEBHOOK_URL = `${window.location.origin}${WEBHOOK_PATH}`;
 
 export default function WhatsAppWebhookAdmin() {
   const navigate = useNavigate();
@@ -92,7 +93,7 @@ export default function WhatsAppWebhookAdmin() {
   const sendTest = async (live = false) => {
     setTesting(true);
     try {
-      const url = live ? WEBHOOK_URL : `${WEBHOOK_URL}?test=true`;
+      const url = live ? WEBHOOK_PATH : `${WEBHOOK_PATH}?test=true`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
