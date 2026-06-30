@@ -1,5 +1,4 @@
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
 import logo from '@/assets/ChekaMeds_Logo.png';
 
 type SiteHeaderLink = {
@@ -9,8 +8,6 @@ type SiteHeaderLink = {
 
 type SiteHeaderProps = {
   links?: SiteHeaderLink[];
-  ctaLabel?: string;
-  ctaTo?: string;
 };
 
 const defaultLinks: SiteHeaderLink[] = [
@@ -19,7 +16,7 @@ const defaultLinks: SiteHeaderLink[] = [
   { label: 'Facilities', to: '/facilities' },
 ];
 
-const SiteHeader = ({ links = defaultLinks, ctaLabel = 'Clinic Login', ctaTo = '/login' }: SiteHeaderProps) => {
+const SiteHeader = ({ links = defaultLinks }: SiteHeaderProps) => {
   const location = useLocation();
 
   return (
@@ -55,13 +52,6 @@ const SiteHeader = ({ links = defaultLinks, ctaLabel = 'Clinic Login', ctaTo = '
             );
           })}
         </nav>
-
-        <Link
-          to={ctaTo}
-          className="inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-200/40 bg-gradient-to-r from-emerald-300 via-lime-200 to-emerald-300 px-3 py-2.5 text-[11px] font-black uppercase tracking-[0.08em] text-[#06130e] shadow-[0_10px_30px_rgba(52,211,153,0.26),0_0_22px_rgba(52,211,153,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(52,211,153,0.36)] sm:px-5"
-        >
-          {ctaLabel} <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
       </div>
     </header>
   );
