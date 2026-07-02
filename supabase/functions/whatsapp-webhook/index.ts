@@ -187,26 +187,6 @@ function isProductionRow(row: Row) {
   return Number(row.quantity) > 0;
 }
 
-function isSymptomSearch(message: string) {
-  const msg = cleanText(message);
-  if (/\b(i have|i feel|symptom|sick|not well|ke bolawa|ke lwala)\b/i.test(message)) return true;
-  return Object.keys(SYMPTOM_TERMS).some((word) => msg.includes(word));
-}
-
-function symptomSearchTerms(message: string) {
-  const msg = cleanText(message);
-  const terms = new Set<string>();
-
-  for (const [symptom, mapped] of Object.entries(SYMPTOM_TERMS)) {
-    if (msg.includes(symptom)) {
-      mapped.forEach((term) => terms.add(term));
-    }
-  }
-
-  if (!terms.size) terms.add(msg);
-  return Array.from(terms);
-}
-
 async function getAliases(q: string) {
   try {
     const { data } = await db()
