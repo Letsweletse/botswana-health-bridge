@@ -19,6 +19,7 @@ type Row = {
   brand_name?: string | null;
   search_tokens?: string | null;
   approved?: boolean | null;
+  contact?: string | null;
 };
 
 type SessionOption = {
@@ -28,6 +29,7 @@ type SessionOption = {
   quantity: number;
   med_name: string;
   directions_link?: string | null;
+  contact?: string | null;
 };
 
 const cache = new Map<string, { rows: Row[]; terms: string[]; ts: number }>();
@@ -286,7 +288,6 @@ function score(r: Row, terms: string[]) {
     }
   }
 
-  if (realDirections(r.directions_link)) s += 20;
   if (hasRealLocation(r.location)) s += 12;
   if (r.price_bwp != null) s += 8;
 
@@ -357,7 +358,7 @@ async function searchStock(q: string, phone: string, forcedTerms: string[] = [])
     const { data, error } = await db()
       .from("active_pharmacy_inventory")
       .select(
-        "clinic_name,med_name,quantity,price_bwp,location,directions_link,strength,dosage_form,generic_name,brand_name,search_tokens"
+        "clinic_name,med_name,quantity,price_bwp,location,directions_link,contact,strength,dosage_form,generic_name,brand_name,search_tokens"
       )
       .or(activeOrFilter)
       .gt("quantity", 0)
@@ -946,6 +947,7 @@ For urgent symptoms, consult a healthcare professional.`;
     quantity: Number(r.quantity),
     med_name: r.med_name,
     directions_link: realDirections(r.directions_link) || null,
+    contact: r.contact || null,
   }));
 
   await saveSession(phone, options[0].med_name, sessionOptions);
@@ -989,7 +991,7 @@ async function logWebhook(entry: any) {
   }
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
