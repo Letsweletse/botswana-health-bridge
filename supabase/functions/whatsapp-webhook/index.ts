@@ -35,21 +35,6 @@ type SessionOption = {
 const cache = new Map<string, { rows: Row[]; terms: string[]; ts: number }>();
 const DIV = "────────────────";
 
-const SYMPTOM_TERMS: Record<string, string[]> = {
-  flu: ["paracetamol", "cough", "cold", "flu"],
-  cold: ["paracetamol", "cough", "cold", "flu"],
-  cough: ["cough", "syrup", "lozenges"],
-  headache: ["paracetamol", "ibuprofen", "pain"],
-  fever: ["paracetamol", "ibuprofen", "fever"],
-  pain: ["paracetamol", "ibuprofen", "pain"],
-  stomach: ["antacid", "oral rehydration", "diarrhoea", "stomach"],
-  diarrhea: ["oral rehydration", "diarrhoea", "loperamide"],
-  diarrhoea: ["oral rehydration", "diarrhoea", "loperamide"],
-  wound: ["antiseptic", "bandage", "wound"],
-  allergy: ["cetirizine", "loratadine", "allergy"],
-  allergies: ["cetirizine", "loratadine", "allergy"],
-};
-
 function db() {
   return createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -77,8 +62,6 @@ function normalizeMedicineInput(message: string) {
     panadole: "panado",
     "panado tabs": "panado",
     "panado tablet": "panado",
-    panadol: "panado",
-    panadole: "panado",
     paracetmol: "paracetamol",
     parecetamol: "paracetamol",
     parasetamol: "paracetamol",
@@ -92,7 +75,9 @@ function normalizeMedicineInput(message: string) {
     disprin: "aspirin",
     cetrezine: "cetirizine",
     cetrizine: "cetirizine",
-    allergex: "chlorpheniramine",
+    allegex: "allergex",
+    allejex: "allergex",
+    allergex: "allergex",
   };
 
   if (corrections[msg]) return corrections[msg];
@@ -313,6 +298,11 @@ async function searchStock(q: string, phone: string, forcedTerms: string[] = [])
     )
   );
 
+  if (terms.some((term) => term === "allergex" || term.includes("allergex"))) {
+    terms.push("chlorpheniramine");
+    terms.push("chlorphenamine");
+  }
+
   const activeOrFilter = terms
     .flatMap((t) => [
       `med_name.ilike.%${t}%`,
@@ -354,7 +344,9 @@ async function searchStock(q: string, phone: string, forcedTerms: string[] = [])
   try {
     const { data, error } = await db()
       .from("clinic_inventory")
-      .select("clinic_name,med_name,quantity,price_bwp,location,directions_link,strength,dosage_form,generic_name,brand_name,search_tokens")
+      .select(
+        "clinic_name,med_name,quantity,price_bwp,location,directions_link,contact,strength,dosage_form,generic_name,brand_name,search_tokens"
+      )
       .or(clinicOrFilter)
       .gt("quantity", 0)
       .neq("clinic_name", "ChekaMeds Admin")
@@ -424,19 +416,6 @@ function selection(row: Row | SessionOption) {
   return `✅ *Selected Medicine*
 
 💊 *${row.med_name}*
-
-function price(value: number | null | undefined) {
-  return value != null ? `P${Number(value).toFixed(2)}` : "Price unavailable";
-}
-
-function formatPrice(priceValue: number | null | undefined) {
-  return price(priceValue);
-}
-
-function item(row: Row | SessionOption, i: number) {
-  const map = link(row.directions_link);
-
-  const out = `*${i}. ${row.med_name}*
 🏥 Pharmacy: ${row.clinic_name}
 📍 Location: ${realLocation(row.location) ? row.location : "Location not listed by pharmacy"}
 📦 Availability: In stock
@@ -458,6 +437,9 @@ function formatInventoryItem(row: Row | SessionOption, index: number) {
 }
 
 async function reserve(phone: string, selected: SessionOption) {
+  let inserted = false;
+  let notificationSent = false;
+
   try {
     await db().from("order_requests").insert({
       from_number: cleanPhone(phone),
@@ -468,8 +450,36 @@ async function reserve(phone: string, selected: SessionOption) {
       status: "reserved",
       notes: `WhatsApp reservation created for ${selected.med_name} at ${selected.clinic_name}`,
     });
+    inserted = true;
   } catch (e) {
     console.error("reservation insert failed", e);
+  }
+
+  if (!inserted) {
+    return `⚠️ *Reservation Not Recorded*
+
+💊 Medicine: ${selected.med_name}
+🏥 Pharmacy: ${selected.clinic_name}
+💰 Amount: ${price(selected.price_bwp)}
+
+The reservation could not be saved right now. Please try again or contact the pharmacy directly.`;
+  }
+
+  if (inserted && selected.contact) {
+    try {
+      await sendWhatsApp(
+        selected.contact,
+        `🔔 ChekaMeds Reservation
+Customer: +${cleanPhone(phone)}
+Medicine: ${selected.med_name}
+Pharmacy: ${selected.clinic_name}
+Amount: ${price(selected.price_bwp)}
+Please confirm stock and pickup readiness.`
+      );
+      notificationSent = true;
+    } catch (e) {
+      console.error("pharmacy reservation notification failed", e);
+    }
   }
 
   const map = link(selected.directions_link);
@@ -481,6 +491,7 @@ async function reserve(phone: string, selected: SessionOption) {
 📍 Location: ${realLocation(selected.location) ? selected.location : "Location not listed by pharmacy"}
 💰 Amount: ${price(selected.price_bwp)}
 🧭 Directions: ${map || "Not listed by pharmacy"}
+🔔 Pharmacy notification: ${notificationSent ? "Sent" : selected.contact ? "Failed to send" : "No pharmacy contact listed"}
 
 Please pay physically at the pharmacy on collection.
 Final availability may be confirmed by the pharmacy before pickup.`;
@@ -491,6 +502,7 @@ type FacilityResult = {
   facility_type: string;
   location: string | null;
   directions_link?: string | null;
+  contact?: string | null;
 };
 
 function facilitySearchTerms(message: string) {
@@ -498,6 +510,10 @@ function facilitySearchTerms(message: string) {
   const terms = new Set<string>([msg]);
 
   msg.split(" ").filter((term) => term.length > 2).forEach((term) => terms.add(term));
+
+  if (/\bdaraja\b/.test(msg)) {
+    terms.add("daraja");
+  }
 
   if (/\bj\s*mecca\b|\bjmecca\b/.test(msg)) {
     ["jmecca", "j mecca", "j-mecca", "mecca"].forEach((term) => terms.add(term));
@@ -561,7 +577,7 @@ async function facilities(message: string) {
   try {
     const { data, error } = await db()
       .from("chekameds_public_facilities_map")
-      .select("facility_name,facility_type,city_town,area,address,google_maps_url")
+      .select("facility_name,facility_type,city_town,area,address,phone_whatsapp,google_maps_url")
       .or(mapOrFilter)
       .limit(20);
 
@@ -572,6 +588,7 @@ async function facilities(message: string) {
       facility_type: row.facility_type || "facility",
       location: facilityLocation(row),
       directions_link: row.google_maps_url || null,
+      contact: row.phone_whatsapp || null,
     }));
   } catch (e) {
     console.error("facility map search failed", e);
@@ -580,7 +597,7 @@ async function facilities(message: string) {
   try {
     const { data, error } = await db()
       .from("clinic_inventory")
-      .select("clinic_name,location,directions_link")
+      .select("clinic_name,location,contact,directions_link")
       .or(inventoryOrFilter)
       .neq("clinic_name", "ChekaMeds Admin")
       .limit(100);
@@ -595,6 +612,7 @@ async function facilities(message: string) {
         facility_type: "pharmacy",
         location: row.location || null,
         directions_link: row.directions_link || null,
+        contact: row.contact || null,
       }))
       .filter((row: FacilityResult) => {
         const key = cleanText(`${row.facility_name}|${row.location || ""}`);
@@ -617,64 +635,6 @@ async function facilities(message: string) {
     .slice(0, 5);
 
   return formatFacilityResults(message, rows);
-🧭 Directions: ${map || "Not listed by pharmacy"}`;
-
-  return out;
-}
-
-function selection(row: Row | SessionOption) {
-  const map = link(row.directions_link);
-
-  return `✅ *Selected Medicine*
-
-💊 *${row.med_name}*
-🏥 Pharmacy: ${row.clinic_name}
-📍 Location: ${realLocation(row.location) ? row.location : "Location not listed by pharmacy"}
-📦 Availability: In stock
-💰 Price: ${price(row.price_bwp)}
-🧭 Directions: ${map || "Not listed by pharmacy"}
-
-${DIV}
-
-*Next step*
-Reply *STORE* to reserve for collection and pay at the pharmacy.
-Reply *DIRECTIONS* to see the map link again.
-Reply *VIDEO CONSULT* for online consultation.
-
-Final availability must still be confirmed by the pharmacy before collection.`;
-}
-
-function formatInventoryItem(row: Row | SessionOption, index: number) {
-  return item(row, index);
-}
-
-async function reserve(phone: string, selected: SessionOption) {
-  try {
-    await db().from("order_requests").insert({
-      from_number: cleanPhone(phone),
-      medicine: selected.med_name,
-      pharmacy: selected.clinic_name,
-      amount: selected.price_bwp == null ? null : Number(selected.price_bwp),
-      payment_status: "pending_store_payment",
-      status: "reserved",
-      notes: `WhatsApp reservation created for ${selected.med_name} at ${selected.clinic_name}`,
-    });
-  } catch (e) {
-    console.error("reservation insert failed", e);
-  }
-
-  const map = link(selected.directions_link);
-
-  return `🏪 *Reservation Recorded*
-
-💊 Medicine: ${selected.med_name}
-🏥 Pharmacy: ${selected.clinic_name}
-📍 Location: ${realLocation(selected.location) ? selected.location : "Location not listed by pharmacy"}
-💰 Amount: ${price(selected.price_bwp)}
-🧭 Directions: ${map || "Not listed by pharmacy"}
-
-Please pay physically at the pharmacy on collection.
-Final availability may be confirmed by the pharmacy before pickup.`;
 }
 
 function formatPaymentChoice(selected: SessionOption) {
@@ -722,9 +682,6 @@ function formatSymptomResults(query: string, rows: Row[]) {
 You searched: *${query}*
 
 This is not a diagnosis or prescription. ChekaMeds can only help you find commonly searched medicine categories and listed stock.
-
-For severe symptoms, pregnancy, children under 2, chest pain, breathing difficulty, allergic swelling, or persistent fever, please seek medical care immediately.
-
 
 For severe symptoms, pregnancy, children under 2, chest pain, breathing difficulty, allergic swelling, or persistent fever, please seek medical care immediately.
 
@@ -901,6 +858,10 @@ ${map || "Directions are not listed by the pharmacy yet."}`;
 *3* Video Consultation
 
 Or type another medicine name.`;
+  }
+
+  if (isFacilitySearch(message)) {
+    return facilities(message);
   }
 
   const symptom = isSymptomMessage(message);
