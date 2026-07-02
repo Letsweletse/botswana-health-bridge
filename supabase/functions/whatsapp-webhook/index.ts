@@ -764,7 +764,7 @@ Example: Reply *1*`;
   return reply;
 }
 
-async function processQuery(message: string, phone: string) {
+async function processMessage(message: string, phone: string) {
   const msg = cleanText(message);
   const session = await getSession(phone);
 
@@ -955,7 +955,7 @@ For urgent symptoms, consult a healthcare professional.`;
   return symptom ? formatSymptomResults(message, options) : formatMedicineResults(query, options);
 }
 
-async function sendWhatsAppReply(to: string, message: string) {
+async function sendWhatsApp(to: string, message: string) {
   const instanceId = Deno.env.get("ULTRAMSG_INSTANCE_ID");
   const token = Deno.env.get("ULTRAMSG_TOKEN");
 
@@ -989,6 +989,20 @@ async function logWebhook(entry: any) {
   } catch (e) {
     console.error("log failed", e);
   }
+
+  try {
+    await db().from("whatsapp_webhook_events").insert({
+      provider: "ultramsg",
+      from_phone: entry.from_number || null,
+      message_text: entry.message_body || null,
+      message_type: "chat",
+      raw_payload: entry.raw_payload || {},
+      status: entry.error_message ? "error" : "received",
+      error: entry.error_message || null,
+    });
+  } catch (e) {
+    console.error("event log failed", e);
+  }
 }
 
 serve(async (req: Request) => {
@@ -1018,7 +1032,7 @@ serve(async (req: Request) => {
         );
       }
 
-      const reply = await processQuery(query, "GET");
+      const reply = await processMessage(query, "GET");
 
       return new Response(JSON.stringify({ reply }), {
         headers: {
@@ -1066,13 +1080,13 @@ serve(async (req: Request) => {
       });
     }
 
-    const reply = await processQuery(messageBody, from);
+    const reply = await processMessage(messageBody, from);
 
     let sendError = "";
 
     if (!isTest) {
       try {
-        await sendWhatsAppReply(from, reply);
+        await sendWhatsApp(from, reply);
       } catch (e) {
         sendError = e instanceof Error ? e.message : String(e);
       }
