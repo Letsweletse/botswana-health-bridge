@@ -31,10 +31,82 @@ interface SearchPayload {
   rows: InventoryItem[];
   expandedTerms: string[];
   usedAlias: boolean;
+  suggestions: string[];
 }
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 const unique = (items: string[]) => Array.from(new Set(items.map(normalize).filter(Boolean)));
+
+const commonCorrections: Record<string, string> = {
+  panado: 'paracetamol',
+  panadol: 'paracetamol',
+  panadoo: 'paracetamol',
+  panodo: 'paracetamol',
+  paracetmol: 'paracetamol',
+  parecetamol: 'paracetamol',
+  parasetamol: 'paracetamol',
+  paracitamol: 'paracetamol',
+  brufen: 'ibuprofen',
+  ibrufen: 'ibuprofen',
+  ibrofen: 'ibuprofen',
+  ibuprofin: 'ibuprofen',
+  amoxil: 'amoxicillin',
+  amoxilin: 'amoxicillin',
+  amoxycillin: 'amoxicillin',
+  disprin: 'aspirin',
+  asprin: 'aspirin',
+  allergex: 'chlorpheniramine',
+  alergex: 'chlorpheniramine',
+  allegex: 'chlorpheniramine',
+  allejex: 'chlorpheniramine',
+  cetrezine: 'cetirizine',
+  cetrizine: 'cetirizine',
+  citrizine: 'cetirizine',
+  omperazole: 'omeprazole',
+  esomperazole: 'esomeprazole',
+  esomep: 'esomeprazole',
+  citrosoda: 'citro soda',
+  canesten: 'clotrimazole',
+  candid: 'clotrimazole',
+};
+
+const normalizeSearchInput = (value: string) => {
+  let text = normalize(value);
+  if (commonCorrections[text]) return commonCorrections[text];
+  Object.entries(commonCorrections).forEach(([wrong, correct]) => {
+    text = text.replace(new RegExp(`\\b${wrong.replace(/\s+/g, '\\s+')}\\b`, 'g'), correct);
+  });
+  return text;
+};
+
+const levenshtein = (a: string, b: string) => {
+  if (a === b) return 0;
+  if (!a) return b.length;
+  if (!b) return a.length;
+
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  const curr = Array(b.length + 1).fill(0);
+
+  for (let i = 1; i <= a.length; i += 1) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= b.length; j += 1) prev[j] = curr[j];
+  }
+
+  return prev[b.length];
+};
+
+const similarity = (a: string, b: string) => {
+  const x = normalize(a);
+  const y = normalize(b);
+  if (!x || !y) return 0;
+  if (x === y) return 1;
+  if (x.includes(y) || y.includes(x)) return Math.min(0.92, Math.min(x.length, y.length) / Math.max(x.length, y.length) + 0.25);
+  return Math.max(0, 1 - levenshtein(x, y) / Math.max(x.length, y.length));
+};
 
 const scoreItem = (item: InventoryItem, terms: string[]) => {
   const haystack = normalize([
@@ -47,13 +119,19 @@ const scoreItem = (item: InventoryItem, terms: string[]) => {
     item.search_tokens,
   ].filter(Boolean).join(' '));
 
+  const med = normalize(item.med_name || '');
   let score = 0;
+
   for (const term of terms) {
     if (!term) continue;
-    const med = normalize(item.med_name || '');
-    if (med === term) score += 120;
-    if (med.startsWith(term)) score += 80;
-    if (haystack.includes(term)) score += 45;
+    if (med === term) score += 160;
+    if (med.startsWith(term)) score += 100;
+    if (haystack.includes(term)) score += 60;
+
+    const medSimilarity = similarity(med, term);
+    if (medSimilarity >= 0.84) score += 90;
+    else if (medSimilarity >= 0.72) score += 55;
+
     for (const part of term.split(' ')) {
       if (part.length >= 3 && haystack.includes(part)) score += 12;
     }
@@ -67,13 +145,28 @@ const scoreItem = (item: InventoryItem, terms: string[]) => {
 
 const fetchAliases = async (term: string) => {
   try {
+    const normalizedTerm = normalizeSearchInput(term);
     const { data } = await (supabase as any)
       .from('medicine_aliases')
       .select('alias, canonical_name')
-      .or(`alias.ilike.%${term}%,canonical_name.ilike.%${term}%`)
-      .limit(10);
+      .limit(2000);
 
-    return (data || []) as { alias: string; canonical_name: string }[];
+    const aliases = ((data || []) as { alias: string; canonical_name: string }[])
+      .map((item) => ({
+        ...item,
+        aliasScore: similarity(item.alias, normalizedTerm),
+        canonicalScore: similarity(item.canonical_name, normalizedTerm),
+      }))
+      .filter((item) => {
+        const alias = normalize(item.alias || '');
+        const canonical = normalize(item.canonical_name || '');
+        return alias.includes(normalizedTerm) || canonical.includes(normalizedTerm) || item.aliasScore >= 0.7 || item.canonicalScore >= 0.7;
+      })
+      .sort((a, b) => Math.max(b.aliasScore, b.canonicalScore) - Math.max(a.aliasScore, a.canonicalScore))
+      .slice(0, 30)
+      .map(({ alias, canonical_name }) => ({ alias, canonical_name }));
+
+    return aliases;
   } catch (error) {
     console.warn('Alias lookup skipped:', error);
     return [];
@@ -90,9 +183,12 @@ const logFailedSearch = async (query: string) => {
 
 const runInventorySearch = async (terms: string[]) => {
   const selectFields = 'id, med_name, clinic_name, quantity, category, strength, dosage_form, pack_size, facility_level, price_bwp, location, contact, directions_link, generic_name, brand_name, search_tokens, updated_at';
-  const orFilter = terms
-    .flatMap((term) => [`med_name.ilike.%${term}%`, `generic_name.ilike.%${term}%`, `brand_name.ilike.%${term}%`, `search_tokens.ilike.%${term}%`])
+  const safeTerms = unique(terms).slice(0, 20);
+  const orFilter = safeTerms
+    .flatMap((term) => [`med_name.ilike.%${term}%`, `generic_name.ilike.%${term}%`, `brand_name.ilike.%${term}%`, `category.ilike.%${term}%`, `search_tokens.ilike.%${term}%`])
     .join(',');
+
+  if (!orFilter) return [];
 
   try {
     const { data, error } = await (supabase as any)
@@ -100,21 +196,21 @@ const runInventorySearch = async (terms: string[]) => {
       .select(selectFields)
       .or(orFilter)
       .gt('quantity', 0)
-      .limit(150);
+      .limit(300);
 
     if (error) throw error;
     return (data || []) as InventoryItem[];
   } catch (viewError) {
     console.warn('active_pharmacy_inventory unavailable, falling back to clinic_inventory:', viewError);
 
-    const basicOrFilter = terms.map((term) => `med_name.ilike.%${term}%`).join(',');
+    const basicOrFilter = safeTerms.map((term) => `med_name.ilike.%${term}%`).join(',');
     const { data, error } = await supabase
       .from('clinic_inventory')
       .select('id, med_name, clinic_name, quantity, category, strength, dosage_form, pack_size, facility_level, price_bwp, location, contact, directions_link, updated_at')
       .or(basicOrFilter)
       .gt('quantity', 0)
       .neq('clinic_name', 'ChekaMeds Admin')
-      .limit(150);
+      .limit(300);
 
     if (error) throw error;
     return (data || []) as InventoryItem[];
@@ -132,17 +228,21 @@ const SearchPage = () => {
     searchTimeoutRef.current = setTimeout(() => setDebouncedQuery(value.trim()), 400);
   };
 
-  const { data: payload = { rows: [], expandedTerms: [], usedAlias: false }, isLoading } = useQuery<SearchPayload>({
-    queryKey: ['public-medicine-search-v2', debouncedQuery],
+  const { data: payload = { rows: [], expandedTerms: [], usedAlias: false, suggestions: [] }, isLoading } = useQuery<SearchPayload>({
+    queryKey: ['public-medicine-search-v3', debouncedQuery],
     queryFn: async () => {
-      if (!debouncedQuery || debouncedQuery.length < 2) return { rows: [], expandedTerms: [], usedAlias: false };
+      if (!debouncedQuery || debouncedQuery.length < 2) return { rows: [], expandedTerms: [], usedAlias: false, suggestions: [] };
 
+      const normalizedQuery = normalizeSearchInput(debouncedQuery);
       const aliases = await fetchAliases(debouncedQuery);
-      const expandedTerms = unique([debouncedQuery, ...aliases.map((a) => a.alias), ...aliases.map((a) => a.canonical_name)]);
+      const expandedTerms = unique([debouncedQuery, normalizedQuery, ...aliases.map((a) => a.alias), ...aliases.map((a) => a.canonical_name)]);
       const rows = await runInventorySearch(expandedTerms);
+      const suggestions = rows.length === 0
+        ? unique(aliases.flatMap((a) => [a.canonical_name, a.alias])).slice(0, 5)
+        : [];
       if (rows.length === 0) await logFailedSearch(debouncedQuery);
 
-      return { rows, expandedTerms, usedAlias: aliases.length > 0 };
+      return { rows, expandedTerms, usedAlias: aliases.length > 0 || normalize(debouncedQuery) !== normalizedQuery, suggestions };
     },
     enabled: debouncedQuery.length >= 2,
   });
@@ -224,12 +324,12 @@ const SearchPage = () => {
             Find Your Medicine <span className="text-emerald-400">Instantly</span>
           </h2>
           <p className="text-white/40 text-sm md:text-base max-w-lg mx-auto mb-6 font-light">
-            Search by brand name, generic name, common name, or symptom-style wording.
+            Search by brand name, generic name, common name, symptom-style wording, or close misspelling.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
             <span className="text-xs text-white/30 mr-1">Try:</span>
-            {['Panado', 'Paracetamol', 'BP tablets', 'Metformin', 'Heartburn', 'Amlodipine', 'Flu'].map((med) => (
+            {['Panado', 'Paracetmol', 'Ibuprofen', 'Allergex', 'Heartburn', 'Esomep', 'Flu'].map((med) => (
               <button
                 key={med}
                 onClick={() => setQuickSearch(med)}
@@ -246,7 +346,7 @@ const SearchPage = () => {
           <input
             value={query}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Try Panado, Paracetamol, BP tablets, Heartburn..."
+            placeholder="Try Panado, Paracetmol, Allergex, Heartburn..."
             className="w-full pl-12 pr-4 h-14 text-base border border-white/[0.1] bg-white/[0.04] text-white placeholder:text-white/25 focus:outline-none focus:border-emerald-500/50 transition-colors shadow-lg shadow-black/30"
             autoFocus
           />
@@ -284,8 +384,21 @@ const SearchPage = () => {
           ) : debouncedQuery.length >= 2 && !isLoading && results.length === 0 ? (
             <motion.div key="no-results" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-center py-16">
               <AlertCircle className="h-12 w-12 text-white/15 mx-auto mb-4" />
-              <p className="text-lg font-semibold text-white mb-1">No results found</p>
-              <p className="text-sm text-white/40 max-w-md mx-auto">No active facility currently lists <strong className="text-white/60">{debouncedQuery}</strong>. Try a generic name, brand name, or different spelling.</p>
+              <p className="text-lg font-semibold text-white mb-1">No exact result found</p>
+              <p className="text-sm text-white/40 max-w-md mx-auto mb-5">No active facility currently lists <strong className="text-white/60">{debouncedQuery}</strong>. Try a generic name, brand name, shorter spelling, or one of the suggestions below.</p>
+              {payload.suggestions.length > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {payload.suggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onClick={() => setQuickSearch(suggestion)}
+                      className="text-xs px-3 py-1.5 border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition-all duration-200 font-medium"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
             </motion.div>
           ) : (
             <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
