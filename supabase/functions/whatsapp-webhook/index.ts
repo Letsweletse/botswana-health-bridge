@@ -541,13 +541,16 @@ async function getSession(phone: string): Promise<SessionData | null> {
 
 async function saveSession(phone: string, data: SessionData) {
   try {
-    await db().from("whatsapp_sessions").upsert({
-      from_number: cleanPhone(phone),
-      medicine: data.medicine || "",
-      options: (data.options || []) as any,
-      selected: (data.selected || null) as any,
-      updated_at: new Date().toISOString(),
-    });
+    await db().from("whatsapp_sessions").upsert(
+      {
+        from_number: cleanPhone(phone),
+        medicine: data.medicine || "",
+        options: (data.options || []) as any,
+        selected: (data.selected || null) as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "from_number" },
+    );
   } catch (e) {
     console.error("session save failed", e);
   }
