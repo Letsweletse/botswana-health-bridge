@@ -6,6 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const DIV = "────────────────";
+
 type Row = {
   clinic_name: string;
   med_name: string;
@@ -32,13 +34,20 @@ type SessionOption = {
   contact?: string | null;
 };
 
+type FacilityResult = {
+  facility_name: string;
+  facility_type: string;
+  location: string | null;
+  directions_link?: string | null;
+  contact?: string | null;
+};
+
 const cache = new Map<string, { rows: Row[]; terms: string[]; ts: number }>();
-const DIV = "────────────────";
 
 function db() {
   return createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 }
 
@@ -50,6 +59,52 @@ function cleanText(v: string) {
     .trim();
 }
 
+function cleanPhone(raw: string) {
+  let p = (raw || "")
+    .replace("@c.us", "")
+    .replace("@s.whatsapp.net", "")
+    .replace(/^\+/, "")
+    .replace(/[^0-9]/g, "");
+
+  if (p.length === 8) p = `267${p}`;
+  if (p.length === 10 && p.startsWith("0")) p = `267${p.slice(1)}`;
+
+  return p;
+}
+
+function hasRealLocation(location?: string | null) {
+  if (!location) return false;
+  const value = cleanText(location);
+  return value !== "" && value !== "n a" && value !== "botswana" && value !== "unknown" && value !== "not listed";
+}
+
+function realLocation(location?: string | null) {
+  return hasRealLocation(location);
+}
+
+function realDirections(value?: string | null) {
+  if (!value) return "";
+  const link = value.trim();
+  const lower = link.toLowerCase();
+
+  if (!link) return "";
+  if (!/^https:\/\//i.test(link)) return "";
+  if (["example", "placeholder", "fake", "test"].some((bad) => lower.includes(bad))) return "";
+
+  return link;
+}
+
+function link(value?: string | null) {
+  return realDirections(value);
+}
+
+function price(value: number | null | undefined) {
+  return value != null ? `P${Number(value).toFixed(2)}` : "Price unavailable";
+}
+
+function formatPrice(priceValue: number | null | undefined) {
+  return price(priceValue);
+}
 
 function normalizeMedicineInput(message: string) {
   let msg = cleanText(message);
@@ -100,64 +155,20 @@ function symptomTerms(message: string) {
   if (/\b(flu|cold|fever|temperature)\b/.test(msg)) {
     ["paracetamol", "cold", "flu"].forEach((x) => terms.add(x));
   }
-
   if (/\b(headache|pain|body pain|toothache)\b/.test(msg)) {
     ["paracetamol", "ibuprofen", "pain"].forEach((x) => terms.add(x));
   }
-
   if (/\b(cough|throat)\b/.test(msg)) {
     ["cough", "syrup", "lozenges"].forEach((x) => terms.add(x));
   }
-
   if (/\b(stomach|diarrhea|diarrhoea|vomit|nausea)\b/.test(msg)) {
     ["oral rehydration", "diarrhoea", "antacid"].forEach((x) => terms.add(x));
   }
-
   if (/\b(allergy|allergies|rash|itch)\b/.test(msg)) {
     ["cetirizine", "loratadine", "allergy"].forEach((x) => terms.add(x));
   }
 
   return Array.from(terms);
-}
-
-function cleanPhone(raw: string) {
-  let p = (raw || "")
-    .replace("@c.us", "")
-    .replace("@s.whatsapp.net", "")
-    .replace(/^\+/, "")
-    .replace(/[^0-9]/g, "");
-
-  if (p.length === 8) p = `267${p}`;
-  if (p.length === 10 && p.startsWith("0")) p = `267${p.slice(1)}`;
-
-  return p;
-}
-
-function hasRealLocation(location?: string | null) {
-  if (!location) return false;
-  const value = cleanText(location);
-  return (
-    value !== "" &&
-    value !== "n a" &&
-    value !== "botswana" &&
-    value !== "unknown" &&
-    value !== "not listed"
-  );
-}
-
-function realDirections(link?: string | null) {
-  if (!link) return "";
-  const value = link.trim();
-  const lower = value.toLowerCase();
-
-  if (!value) return "";
-  if (!/^https:\/\//i.test(value)) return "";
-  if (lower.includes("example")) return "";
-  if (lower.includes("placeholder")) return "";
-  if (lower.includes("fake")) return "";
-  if (lower.includes("test")) return "";
-
-  return value;
 }
 
 function isProductionRow(row: Row) {
@@ -186,12 +197,7 @@ async function getAliases(q: string) {
   }
 }
 
-async function saveSession(
-  phone: string,
-  medicine: string,
-  options: SessionOption[],
-  selected?: SessionOption
-) {
+async function saveSession(phone: string, medicine: string, options: SessionOption[], selected?: SessionOption) {
   try {
     await db().from("whatsapp_sessions").upsert({
       from_number: cleanPhone(phone),
@@ -225,38 +231,32 @@ async function getSession(phone: string) {
   }
 }
 
-function score(r: Row, terms: string[]) {
-  const h = cleanText(
-    [
-      r.med_name,
-      r.generic_name,
-      r.brand_name,
-      r.strength,
-      r.dosage_form,
-      r.search_tokens,
-    ]
-      .filter(Boolean)
-      .join(" ")
-  );
+function score(row: Row, terms: string[]) {
+  const haystack = cleanText([
+    row.med_name,
+    row.generic_name,
+    row.brand_name,
+    row.strength,
+    row.dosage_form,
+    row.search_tokens,
+  ].filter(Boolean).join(" "));
 
   let s = 0;
 
-  for (const t of terms.map(cleanText).filter(Boolean)) {
-    const m = cleanText(r.med_name);
+  for (const term of terms.map(cleanText).filter(Boolean)) {
+    const med = cleanText(row.med_name || "");
+    if (med === term) s += 150;
+    if (med.startsWith(term)) s += 100;
+    if (haystack.includes(term)) s += 60;
 
-    if (m === t) s += 150;
-    if (m.startsWith(t)) s += 100;
-    if (h.includes(t)) s += 60;
-
-    for (const p of t.split(" ")) {
-      if (p.length > 2 && h.includes(p)) s += 12;
+    for (const part of term.split(" ")) {
+      if (part.length > 2 && haystack.includes(part)) s += 12;
     }
   }
 
-  if (hasRealLocation(r.location)) s += 12;
-  if (r.price_bwp != null) s += 8;
-
-  s += Math.min(Number(r.quantity) || 0, 50) / 10;
+  if (hasRealLocation(row.location)) s += 12;
+  if (row.price_bwp != null) s += 8;
+  s += Math.min(Number(row.quantity) || 0, 50) / 10;
 
   return s;
 }
@@ -266,12 +266,8 @@ function dedupeInventoryItems(rows: Row[]) {
   const out: Row[] = [];
 
   for (const row of rows) {
-    const key = cleanText(
-      `${row.med_name}|${row.clinic_name}|${row.location || ""}|${row.price_bwp ?? ""}`
-    );
-
+    const key = cleanText(`${row.med_name}|${row.clinic_name}|${row.location || ""}|${row.price_bwp ?? ""}`);
     if (seen.has(key)) continue;
-
     seen.add(key);
     out.push(row);
   }
@@ -282,44 +278,26 @@ function dedupeInventoryItems(rows: Row[]) {
 async function searchStock(q: string, phone: string, forcedTerms: string[] = []) {
   const key = cleanText([q, ...forcedTerms].join(" "));
   const hit = cache.get(key);
-
   if (hit && Date.now() - hit.ts < 60000) return hit;
 
   const aliases = await getAliases(cleanText(q));
-
-  const terms = Array.from(
-    new Set(
-      [
-        cleanText(q),
-        ...forcedTerms.map(cleanText),
-        ...aliases.map((a: any) => cleanText(a.alias)),
-        ...aliases.map((a: any) => cleanText(a.canonical_name)),
-      ].filter(Boolean)
-    )
-  );
+  const terms = Array.from(new Set([
+    cleanText(q),
+    ...forcedTerms.map(cleanText),
+    ...aliases.map((a: any) => cleanText(a.alias)),
+    ...aliases.map((a: any) => cleanText(a.canonical_name)),
+  ].filter(Boolean)));
 
   if (terms.some((term) => term === "allergex" || term.includes("allergex"))) {
-    terms.push("chlorpheniramine");
-    terms.push("chlorphenamine");
+    terms.push("chlorpheniramine", "chlorphenamine");
   }
 
-  const activeOrFilter = terms
-    .flatMap((t) => [
-      `med_name.ilike.%${t}%`,
-      `generic_name.ilike.%${t}%`,
-      `brand_name.ilike.%${t}%`,
-      `search_tokens.ilike.%${t}%`,
-    ])
-    .join(",");
-
-  const clinicOrFilter = terms
-    .flatMap((t) => [
-      `med_name.ilike.%${t}%`,
-      `generic_name.ilike.%${t}%`,
-      `brand_name.ilike.%${t}%`,
-      `search_tokens.ilike.%${t}%`,
-    ])
-    .join(",");
+  const orFilter = terms.flatMap((term) => [
+    `med_name.ilike.%${term}%`,
+    `generic_name.ilike.%${term}%`,
+    `brand_name.ilike.%${term}%`,
+    `search_tokens.ilike.%${term}%`,
+  ]).join(",");
 
   let activeRows: Row[] = [];
   let clinicRows: Row[] = [];
@@ -327,15 +305,12 @@ async function searchStock(q: string, phone: string, forcedTerms: string[] = [])
   try {
     const { data, error } = await db()
       .from("active_pharmacy_inventory")
-      .select(
-        "clinic_name,med_name,quantity,price_bwp,location,directions_link,contact,strength,dosage_form,generic_name,brand_name,search_tokens"
-      )
-      .or(activeOrFilter)
+      .select("clinic_name,med_name,quantity,price_bwp,location,directions_link,contact,strength,dosage_form,generic_name,brand_name,search_tokens")
+      .or(orFilter)
       .gt("quantity", 0)
       .limit(100);
 
     if (error) throw error;
-
     activeRows = data || [];
   } catch (e) {
     console.error("active_pharmacy_inventory search failed", e);
@@ -344,26 +319,22 @@ async function searchStock(q: string, phone: string, forcedTerms: string[] = [])
   try {
     const { data, error } = await db()
       .from("clinic_inventory")
-      .select(
-        "clinic_name,med_name,quantity,price_bwp,location,directions_link,contact,strength,dosage_form,generic_name,brand_name,search_tokens"
-      )
-      .or(clinicOrFilter)
+      .select("clinic_name,med_name,quantity,price_bwp,location,directions_link,contact,strength,dosage_form,generic_name,brand_name,search_tokens")
+      .or(orFilter)
       .gt("quantity", 0)
       .neq("clinic_name", "ChekaMeds Admin")
       .limit(100);
 
     if (error) throw error;
-
     clinicRows = data || [];
   } catch (e) {
     console.error("clinic_inventory search failed", e);
   }
 
-  const rows = dedupeInventoryItems(
-    [...activeRows, ...clinicRows]
-      .filter(isProductionRow)
-      .sort((a, b) => score(b, terms) - score(a, terms))
-  ).slice(0, 5);
+  const rows = dedupeInventoryItems([...activeRows, ...clinicRows]
+    .filter(isProductionRow)
+    .sort((a, b) => score(b, terms) - score(a, terms)))
+    .slice(0, 5);
 
   if (!rows.length) {
     try {
@@ -377,37 +348,18 @@ async function searchStock(q: string, phone: string, forcedTerms: string[] = [])
 
   const result = { rows, terms, ts: Date.now() };
   cache.set(key, result);
-
   return result;
-}
-
-function realLocation(location?: string | null) {
-  return hasRealLocation(location);
-}
-
-function link(value?: string | null) {
-  return realDirections(value);
-}
-
-function price(value: number | null | undefined) {
-  return value != null ? `P${Number(value).toFixed(2)}` : "Price unavailable";
-}
-
-function formatPrice(priceValue: number | null | undefined) {
-  return price(priceValue);
 }
 
 function item(row: Row | SessionOption, i: number) {
   const map = link(row.directions_link);
 
-  const out = `*${i}. ${row.med_name}*
+  return `*${i}. ${row.med_name}*
 🏥 Pharmacy: ${row.clinic_name}
 📍 Location: ${realLocation(row.location) ? row.location : "Location not listed by pharmacy"}
 📦 Availability: In stock
 💰 Price: ${price(row.price_bwp)}
 🧭 Directions: ${map || "Not listed by pharmacy"}`;
-
-  return out;
 }
 
 function selection(row: Row | SessionOption) {
@@ -465,7 +417,7 @@ async function reserve(phone: string, selected: SessionOption) {
 The reservation could not be saved right now. Please try again or contact the pharmacy directly.`;
   }
 
-  if (inserted && selected.contact) {
+  if (selected.contact) {
     try {
       await sendWhatsApp(
         selected.contact,
@@ -474,7 +426,7 @@ Customer: +${cleanPhone(phone)}
 Medicine: ${selected.med_name}
 Pharmacy: ${selected.clinic_name}
 Amount: ${price(selected.price_bwp)}
-Please confirm stock and pickup readiness.`
+Please confirm stock and pickup readiness.`,
       );
       notificationSent = true;
     } catch (e) {
@@ -497,42 +449,23 @@ Please pay physically at the pharmacy on collection.
 Final availability may be confirmed by the pharmacy before pickup.`;
 }
 
-type FacilityResult = {
-  facility_name: string;
-  facility_type: string;
-  location: string | null;
-  directions_link?: string | null;
-  contact?: string | null;
-};
-
 function facilitySearchTerms(message: string) {
   const msg = cleanText(message);
   const terms = new Set<string>([msg]);
 
   msg.split(" ").filter((term) => term.length > 2).forEach((term) => terms.add(term));
 
-  if (/\bdaraja\b/.test(msg)) {
-    terms.add("daraja");
-  }
-
-  if (/\bj\s*mecca\b|\bjmecca\b/.test(msg)) {
-    ["jmecca", "j mecca", "j-mecca", "mecca"].forEach((term) => terms.add(term));
-  }
-
-  if (/\bsouth\s*west\b|\bsouthwest\b/.test(msg)) {
-    ["south west", "southwest"].forEach((term) => terms.add(term));
-  }
+  if (/\bdaraja\b/.test(msg)) terms.add("daraja");
+  if (/\bj\s*mecca\b|\bjmecca\b/.test(msg)) ["jmecca", "j mecca", "j-mecca", "mecca"].forEach((term) => terms.add(term));
+  if (/\bsouth\s*west\b|\bsouthwest\b/.test(msg)) ["south west", "southwest"].forEach((term) => terms.add(term));
 
   return Array.from(terms).filter(Boolean);
 }
 
 function isFacilitySearch(message: string) {
   const msg = cleanText(message);
-
-  return (
-    /\b(daraja|jmecca|j mecca|j mecca pharmacy|south west|southwest|pharmacy|clinic|facility|hospital)\b/.test(msg) ||
-    message.toLowerCase().includes("j-mecca")
-  );
+  return /\b(daraja|jmecca|j mecca|j mecca pharmacy|south west|southwest|pharmacy|clinic|facility|hospital)\b/.test(msg) ||
+    message.toLowerCase().includes("j-mecca");
 }
 
 function facilityLocation(row: any) {
@@ -541,35 +474,46 @@ function facilityLocation(row: any) {
 
 function formatFacilityResults(query: string, rows: FacilityResult[]) {
   if (!rows.length) {
-    return `No facility listing found for "${query}".\n\nTry another pharmacy, clinic, town, or area name.`;
+    return `No facility listing found for "${query}".
+
+Try another pharmacy, clinic, town, or area name.
+
+Reply *MENU* to go back to the main menu.`;
   }
 
-  let reply = `🏥 *ChekaMeds Facility Search*\n\nSearch: *${query}*\n\n${DIV}\n\n`;
+  let reply = `🏥 *ChekaMeds Facility Search*
+
+Search: *${query}*
+
+${DIV}
+
+`;
 
   rows.forEach((row, i) => {
     const map = link(row.directions_link);
+    reply += `*${i + 1}. ${row.facility_name}*
+Type: ${row.facility_type || "facility"}
+Location: ${realLocation(row.location) ? row.location : "Location not listed by pharmacy"}
+Directions: ${map || "Not listed by pharmacy"}
 
-    reply += `*${i + 1}. ${row.facility_name}*\nType: ${row.facility_type || "facility"}\nLocation: ${realLocation(row.location) ? row.location : "Location not listed by pharmacy"}\nDirections: ${map || "Not listed by pharmacy"}\n\n`;
+`;
   });
 
+  reply += `Reply *MENU* to go back to the main menu.`;
   return reply.trim();
 }
 
 async function facilities(message: string) {
   const terms = facilitySearchTerms(message);
-  const mapOrFilter = terms
-    .flatMap((term) => [
-      `facility_name.ilike.%${term}%`,
-      `facility_type.ilike.%${term}%`,
-      `city_town.ilike.%${term}%`,
-      `area.ilike.%${term}%`,
-      `address.ilike.%${term}%`,
-      `notes.ilike.%${term}%`,
-    ])
-    .join(",");
-  const inventoryOrFilter = terms
-    .flatMap((term) => [`clinic_name.ilike.%${term}%`, `location.ilike.%${term}%`])
-    .join(",");
+  const mapOrFilter = terms.flatMap((term) => [
+    `facility_name.ilike.%${term}%`,
+    `facility_type.ilike.%${term}%`,
+    `city_town.ilike.%${term}%`,
+    `area.ilike.%${term}%`,
+    `address.ilike.%${term}%`,
+    `notes.ilike.%${term}%`,
+  ]).join(",");
+  const inventoryOrFilter = terms.flatMap((term) => [`clinic_name.ilike.%${term}%`, `location.ilike.%${term}%`]).join(",");
 
   let mappedFacilities: FacilityResult[] = [];
   let inventoryFacilities: FacilityResult[] = [];
@@ -582,7 +526,6 @@ async function facilities(message: string) {
       .limit(20);
 
     if (error) throw error;
-
     mappedFacilities = (data || []).map((row: any) => ({
       facility_name: row.facility_name,
       facility_type: row.facility_type || "facility",
@@ -605,7 +548,6 @@ async function facilities(message: string) {
     if (error) throw error;
 
     const seen = new Set<string>();
-
     inventoryFacilities = (data || [])
       .map((row: any) => ({
         facility_name: row.clinic_name,
@@ -671,8 +613,9 @@ ${DIV}
   });
 
   reply += `Reply with the item number to reserve.
-Example: Reply *1*`;
+Example: Reply *1*
 
+Reply *MENU* to go back to the main menu.`;
   return reply;
 }
 
@@ -696,29 +639,77 @@ ${DIV}
   });
 
   reply += `Reply with the item number to reserve.
-Example: Reply *1*`;
+Example: Reply *1*
 
+Reply *MENU* to go back to the main menu.`;
   return reply;
+}
+
+function formatWelcomeMenu() {
+  return `👋 *Welcome to ChekaMeds Botswana*
+
+Find listed medicine availability, nearby pharmacies, facility directions, and video consultation access.
+
+${DIV}
+
+*Choose an option:*
+
+*1* 💊 Search medicine stock
+Type a medicine name like *Panado*, *Paracetamol*, *Ibuprofen*, or *Amoxicillin*.
+
+*2* 🏥 Find a pharmacy or clinic
+Type a facility, town, or area like *Daraja Pharmacy*, *Jmecca*, or *South West Pharma*.
+
+*3* 🩺 Video consultation
+Get online consultation support.
+
+${DIV}
+
+You can also type the medicine name directly.
+Example: *Panado*
+
+Website: chekameds.co.bw
+WhatsApp: +267 71 424 486`;
+}
+
+function formatMedicineSearchPrompt() {
+  return `💊 *Search Medicine Stock*
+
+Please type the medicine name, brand, or generic name.
+
+Examples:
+*Panado*
+*Paracetamol*
+*Ibuprofen*
+*Amoxicillin*
+*Allergex*
+
+You can also describe simple symptoms like *flu* or *headache and fever*.
+
+Reply *MENU* to go back.`;
+}
+
+function formatFacilitySearchPrompt() {
+  return `🏥 *Find Pharmacy / Clinic*
+
+Please type the pharmacy, clinic, town, or area.
+
+Examples:
+*Daraja Pharmacy*
+*Jmecca*
+*South West Pharma*
+*Jwaneng*
+*Gaborone*
+
+Reply *MENU* to go back.`;
 }
 
 async function processMessage(message: string, phone: string) {
   const msg = cleanText(message);
   const session = await getSession(phone);
 
-  if (/^(hi|hello|hey|help|dumelang|dumela)$/.test(msg)) {
-    return `ChekaMeds Botswana
-
-Send a medicine name or symptom.
-
-Examples:
-Panado
-Flu
-Headache and fever
-Wound care
-BP tablets
-
-Website: chekameds.co.bw
-WhatsApp: +267 71 424 486`;
+  if (/^(hi|hello|hey|help|menu|start|0|dumelang|dumela)$/.test(msg)) {
+    return formatWelcomeMenu();
   }
 
   if (/^(video consult|consult|doctor|online consultation|online consult)$/.test(msg)) {
@@ -734,6 +725,23 @@ WhatsApp: +267 71 424 486`;
     }
 
     return `Invalid selection. Reply with 1-${session.options.length}.`;
+  }
+
+  if (msg === "1") {
+    return formatMedicineSearchPrompt();
+  }
+
+  if (msg === "2") {
+    return formatFacilitySearchPrompt();
+  }
+
+  if (msg === "3") {
+    return `🩺 *ChekaMeds Video Consultation*
+
+Use this link to continue:
+https://www.chekameds.co.bw/consultant
+
+Reply *MENU* to go back.`;
   }
 
   if (/^(cpay|chekapay|pay with chekapay)$/.test(msg)) {
@@ -773,7 +781,6 @@ Reply *STORE* to reserve and pay physically on collection.`;
         .single();
 
       if (error) throw error;
-
       reservationId = data?.id || "";
     } catch (e) {
       console.error("order_requests insert failed", e);
@@ -809,9 +816,7 @@ ${checkoutUrl}`;
       return "Please search first, reply with an item number to reserve, then reply STORE.";
     }
 
-    const selected = session.selected;
-
-    return reserve(phone, selected);
+    return reserve(phone, session.selected);
   }
 
   if (/^(directions|direction|map|location|where|where is it|send location)$/.test(msg)) {
@@ -837,27 +842,18 @@ ${map || "Directions are not listed by the pharmacy yet."}`;
       return "Please search first, then reply with the item number to reserve, for example 1.";
     }
 
-    const selected = payMatch[1]
-      ? session.options[Number(payMatch[1]) - 1]
-      : session.selected;
+    const selected = payMatch[1] ? session.options[Number(payMatch[1]) - 1] : session.selected;
 
     if (!selected) {
       return `Please choose an item first. Reply with 1-${session.options.length}.`;
     }
 
     await saveSession(phone, session.medicine, session.options, selected);
-
     return formatPaymentChoice(selected);
   }
 
   if (/\b(wrong|not what i want|not correct|bad result|not this|no this)\b/.test(msg)) {
-    return `No problem. Please choose what you want to do next:
-
-*1* Search Medicine Availability
-*2* Find Pharmacy / Clinic
-*3* Video Consultation
-
-Or type another medicine name.`;
+    return formatWelcomeMenu();
   }
 
   if (isFacilitySearch(message)) {
@@ -874,25 +870,28 @@ Or type another medicine name.`;
     return symptom
       ? `No listed stock found for "${message}".
 
-This is not a diagnosis. If symptoms are severe, unusual, or persistent, please speak to a pharmacist or clinician.`
+This is not a diagnosis. If symptoms are severe, unusual, or persistent, please speak to a pharmacist or clinician.
+
+Reply *MENU* to go back to the main menu.`
       : `No listed stock found for "${message}".
 
 Try another name, brand, or generic medicine.
-For urgent symptoms, consult a healthcare professional.`;
+For urgent symptoms, consult a healthcare professional.
+
+Reply *MENU* to go back to the main menu.`;
   }
 
-  const sessionOptions: SessionOption[] = options.map((r) => ({
-    clinic_name: r.clinic_name,
-    location: r.location || null,
-    price_bwp: r.price_bwp == null ? null : Number(r.price_bwp),
-    quantity: Number(r.quantity),
-    med_name: r.med_name,
-    directions_link: realDirections(r.directions_link) || null,
-    contact: r.contact || null,
+  const sessionOptions: SessionOption[] = options.map((row) => ({
+    clinic_name: row.clinic_name,
+    location: row.location || null,
+    price_bwp: row.price_bwp == null ? null : Number(row.price_bwp),
+    quantity: Number(row.quantity),
+    med_name: row.med_name,
+    directions_link: realDirections(row.directions_link) || null,
+    contact: row.contact || null,
   }));
 
   await saveSession(phone, options[0].med_name, sessionOptions);
-
   return symptom ? formatSymptomResults(message, options) : formatMedicineResults(query, options);
 }
 
@@ -905,7 +904,6 @@ async function sendWhatsApp(to: string, message: string) {
   }
 
   const recipient = cleanPhone(to);
-
   const res = await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -959,32 +957,18 @@ serve(async (req: Request) => {
       const query = url.searchParams.get("query");
 
       if (!query) {
-        return new Response(
-          JSON.stringify({
-            status: "ok",
-            message: "ChekaMeds WhatsApp webhook active",
-          }),
-          {
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        return new Response(JSON.stringify({ status: "ok", message: "ChekaMeds WhatsApp webhook active" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       const reply = await processMessage(query, "GET");
-
       return new Response(JSON.stringify({ reply }), {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const raw = await req.text();
-
     let body: any = {};
 
     try {
@@ -996,11 +980,7 @@ serve(async (req: Request) => {
     }
 
     const payload = body?.data && typeof body.data === "object" ? body.data : body;
-
-    const from = cleanPhone(
-      String(payload.from || payload.sender || payload.author || payload.chatId || "")
-    );
-
+    const from = cleanPhone(String(payload.from || payload.sender || payload.author || payload.chatId || ""));
     const messageBody = String(payload.body || payload.message || payload.text || "");
 
     if (!from || !messageBody) {
@@ -1014,15 +994,11 @@ serve(async (req: Request) => {
       });
 
       return new Response(JSON.stringify({ status: "no_message" }), {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const reply = await processMessage(messageBody, from);
-
     let sendError = "";
 
     if (!isTest) {
@@ -1046,26 +1022,13 @@ serve(async (req: Request) => {
     if (sendError) {
       return new Response(JSON.stringify({ error: sendError, reply }), {
         status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(
-      JSON.stringify({
-        status: isTest ? "tested" : "replied",
-        to: from,
-        reply,
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    return new Response(JSON.stringify({ status: isTest ? "tested" : "replied", to: from, reply }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
 
@@ -1077,10 +1040,7 @@ serve(async (req: Request) => {
 
     return new Response(JSON.stringify({ error }), {
       status: 500,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-      },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
