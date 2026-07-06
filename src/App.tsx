@@ -11,6 +11,8 @@ import Login from "./pages/Login";
 import Search from "./pages/Search";
 import Facilities from "./pages/Facilities";
 import Consultant from "./pages/Consultant";
+import Delivery from "./pages/Delivery";
+import DeliveryAdmin from "./pages/DeliveryAdmin";
 import ConsultantAdmin from "./pages/ConsultantAdmin";
 import ResetPassword from "./pages/ResetPassword";
 import AdminPanel from "./pages/AdminPanel";
@@ -43,10 +45,12 @@ const AnimatedRoutes = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/search" element={<Search />} />
+          <Route path="/delivery" element={<Delivery />} />
           <Route path="/facilities" element={<Facilities />} />
           <Route path="/consultant" element={<Consultant />} />
           <Route path="/dashboard/consultant" element={<ProtectedRoute><ConsultantAdmin /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/admin/delivery" element={<ProtectedRoute><DeliveryAdmin /></ProtectedRoute>} />
           <Route path="/admin/whatsapp" element={<WhatsAppWebhookAdmin />} />
           <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
