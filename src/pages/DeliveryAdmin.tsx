@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Bike, CheckCircle2, Clock, Loader2, PackageCheck, RefreshCw, Truck, XCircle } from 'lucide-react';
+import { ArrowLeft, Bike, CheckCircle2, Clock, DollarSign, Loader2, PackageCheck, RefreshCw, Truck, XCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -35,8 +35,37 @@ type DeliveryRequest = {
 };
 
 const statusOptions = ['requested', 'accepted', 'ready_for_pickup', 'driver_assigned', 'collected', 'on_the_way', 'delivered', 'cancelled', 'failed'];
+const platformFeeRate = 0.25;
+const minimumPlatformFee = 10;
 
 const statusLabel = (status: string) => status.replace(/_/g, ' ');
+const money = (value: number) => `P ${value.toFixed(2)}`;
+
+const getPlatformFee = (deliveryFee: number | null | undefined) => {
+  const fee = Number(deliveryFee || 0);
+  if (fee <= 0) return 0;
+  return Math.max(minimumPlatformFee, Math.round(fee * platformFeeRate));
+};
+
+const getDriverPayout = (deliveryFee: number | null | undefined) => {
+  const fee = Number(deliveryFee || 0);
+  return Math.max(0, fee - getPlatformFee(fee));
+};
+
+const sendDeliveryAlert = async (requestId: string, status: string) => {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  if (!supabaseUrl) return null;
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/delivery-alert`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ request_id: requestId, status }),
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(result?.error || 'Delivery alert failed');
+  return result;
+};
 
 const DeliveryAdmin = () => {
   const { user, loading: authLoading } = useAuth();
@@ -80,12 +109,20 @@ const DeliveryAdmin = () => {
 
   const updateRequest = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Record<string, any> }) => {
-      const { error } = await (supabase as any).from('medicine_delivery_requests').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
+      const { error } = await (supabase as any)
+        .from('medicine_delivery_requests')
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
       if (error) throw error;
+      if (patch.order_status) await sendDeliveryAlert(id, patch.order_status);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['delivery-requests'] });
-      toast({ title: 'Delivery updated', description: 'The request status has been saved.' });
+      toast({
+        title: 'Delivery updated',
+        description: variables.patch.order_status ? 'Status saved and WhatsApp alert sent.' : 'Delivery details saved.',
+      });
     },
     onError: (error: any) => toast({ title: 'Update failed', description: error?.message || 'Try again.', variant: 'destructive' }),
   });
@@ -119,6 +156,8 @@ const DeliveryAdmin = () => {
 
   const activeCount = requests.filter((request) => !['delivered', 'cancelled', 'failed'].includes(request.order_status)).length;
   const deliveredCount = requests.filter((request) => request.order_status === 'delivered').length;
+  const grossDeliveryFees = requests.reduce((sum, request) => sum + Number(request.delivery_fee_bwp || 0), 0);
+  const platformRevenue = requests.reduce((sum, request) => sum + getPlatformFee(request.delivery_fee_bwp), 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -126,18 +165,20 @@ const DeliveryAdmin = () => {
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <img src={logo} alt="ChekaMeds" className="h-10 w-10 rounded-xl bg-white p-0.5 shadow-sm object-contain" />
-            <div><h1 className="text-sm font-bold text-foreground tracking-tight">ChekaMeds Delivery Admin</h1><p className="text-[9px] text-muted-foreground uppercase tracking-widest">Requests · Drivers · Status</p></div>
+            <div><h1 className="text-sm font-bold text-foreground tracking-tight">ChekaMeds Delivery Admin</h1><p className="text-[9px] text-muted-foreground uppercase tracking-widest">Requests · Alerts · Revenue</p></div>
           </Link>
           <Link to="/admin" className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"><ArrowLeft className="h-3 w-3" /> Admin</Link>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-5">
           {[
             { label: 'Active requests', value: activeCount, icon: Clock },
             { label: 'Delivered', value: deliveredCount, icon: CheckCircle2 },
             { label: 'Active drivers', value: drivers.length, icon: Truck },
+            { label: 'Gross delivery', value: money(grossDeliveryFees), icon: DollarSign },
+            { label: 'Platform revenue', value: money(platformRevenue), icon: DollarSign },
           ].map((stat) => (
             <div key={stat.label} className="bg-card rounded-2xl border border-border p-5"><div className="flex items-center gap-2 mb-2"><stat.icon className="h-4 w-4 text-primary" /><span className="text-xs text-muted-foreground">{stat.label}</span></div><p className="text-2xl font-bold text-foreground">{stat.value}</p></div>
           ))}
@@ -162,6 +203,9 @@ const DeliveryAdmin = () => {
               <div className="space-y-3">
                 {requests.map((request, index) => {
                   const driver = drivers.find((item) => item.id === request.driver_id);
+                  const platformFee = getPlatformFee(request.delivery_fee_bwp);
+                  const driverPayout = getDriverPayout(request.delivery_fee_bwp);
+
                   return (
                     <motion.div key={request.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }} className="bg-card rounded-2xl border border-border p-5 space-y-4">
                       <div className="flex items-start justify-between gap-4">
@@ -176,7 +220,13 @@ const DeliveryAdmin = () => {
                       <div className="grid gap-3 sm:grid-cols-3">
                         <label className="space-y-1"><span className="text-[10px] text-muted-foreground font-semibold uppercase">Status</span><select value={request.order_status} onChange={(event) => updateRequest.mutate({ id: request.id, patch: { order_status: event.target.value } })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground">{statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}</select></label>
                         <label className="space-y-1"><span className="text-[10px] text-muted-foreground font-semibold uppercase">Driver</span><select value={request.driver_id || ''} onChange={(event) => updateRequest.mutate({ id: request.id, patch: { driver_id: event.target.value || null, order_status: event.target.value ? 'driver_assigned' : request.order_status } })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground"><option value="">Unassigned</option>{drivers.map((driverItem) => <option key={driverItem.id} value={driverItem.id}>{driverItem.full_name}</option>)}</select></label>
-                        <label className="space-y-1"><span className="text-[10px] text-muted-foreground font-semibold uppercase">Fee BWP</span><input value={request.delivery_fee_bwp ?? ''} onChange={(event) => updateRequest.mutate({ id: request.id, patch: { delivery_fee_bwp: event.target.value ? Number(event.target.value) : null } })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground" placeholder="0.00" /></label>
+                        <label className="space-y-1"><span className="text-[10px] text-muted-foreground font-semibold uppercase">Delivery fee BWP</span><input value={request.delivery_fee_bwp ?? ''} onChange={(event) => updateRequest.mutate({ id: request.id, patch: { delivery_fee_bwp: event.target.value ? Number(event.target.value) : null } })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground" placeholder="0.00" /></label>
+                      </div>
+
+                      <div className="grid gap-2 rounded-xl border border-border bg-muted/30 p-3 sm:grid-cols-3">
+                        <div><p className="text-[10px] uppercase font-semibold text-muted-foreground">ChekaMeds fee</p><p className="text-sm font-bold text-foreground">{money(platformFee)}</p></div>
+                        <div><p className="text-[10px] uppercase font-semibold text-muted-foreground">Driver payout</p><p className="text-sm font-bold text-foreground">{money(driverPayout)}</p></div>
+                        <div><p className="text-[10px] uppercase font-semibold text-muted-foreground">Model</p><p className="text-xs font-semibold text-muted-foreground">25% or P10 min</p></div>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
@@ -187,6 +237,8 @@ const DeliveryAdmin = () => {
 
                       <div className="flex flex-wrap gap-2">
                         <button onClick={() => updateRequest.mutate({ id: request.id, patch: { order_status: 'accepted' } })} className="inline-flex items-center gap-1 rounded-lg bg-success/10 px-3 py-2 text-xs font-semibold text-success hover:bg-success/15"><CheckCircle2 className="h-3.5 w-3.5" /> Accept</button>
+                        <button onClick={() => updateRequest.mutate({ id: request.id, patch: { order_status: 'ready_for_pickup' } })} className="inline-flex items-center gap-1 rounded-lg bg-warning/10 px-3 py-2 text-xs font-semibold text-warning hover:bg-warning/15"><PackageCheck className="h-3.5 w-3.5" /> Ready</button>
+                        <button onClick={() => updateRequest.mutate({ id: request.id, patch: { order_status: 'collected' } })} className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/15"><Truck className="h-3.5 w-3.5" /> Collected</button>
                         <button onClick={() => updateRequest.mutate({ id: request.id, patch: { order_status: 'delivered' } })} className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/15"><PackageCheck className="h-3.5 w-3.5" /> Delivered</button>
                         <button onClick={() => updateRequest.mutate({ id: request.id, patch: { order_status: 'cancelled' } })} className="inline-flex items-center gap-1 rounded-lg bg-critical/10 px-3 py-2 text-xs font-semibold text-critical hover:bg-critical/15"><XCircle className="h-3.5 w-3.5" /> Cancel</button>
                       </div>
@@ -198,11 +250,14 @@ const DeliveryAdmin = () => {
           </div>
 
           <aside className="bg-card rounded-2xl border border-border p-5 h-fit space-y-5">
-            <div><h2 className="text-sm font-bold text-foreground">Add delivery driver</h2><p className="mt-1 text-xs text-muted-foreground">Start manual dispatch before building a full driver app.</p></div>
+            <div><h2 className="text-sm font-bold text-foreground">Add delivery driver</h2><p className="mt-1 text-xs text-muted-foreground">Assign a driver and WhatsApp pickup alert will fire when status becomes driver assigned.</p></div>
             {['full_name', 'phone', 'vehicle_type', 'vehicle_registration', 'service_area'].map((field) => (
               <label key={field} className="block space-y-1"><span className="text-[10px] text-muted-foreground font-semibold uppercase">{field.replace(/_/g, ' ')}</span><input value={(newDriver as any)[field]} onChange={(event) => setNewDriver((current) => ({ ...current, [field]: event.target.value }))} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground" /></label>
             ))}
             <button onClick={() => createDriver.mutate()} disabled={createDriver.isPending || driversLoading} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">{createDriver.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Truck className="h-4 w-4" />} Add driver</button>
+            <div className="rounded-xl border border-border bg-muted/30 p-4 text-xs leading-5 text-muted-foreground">
+              Revenue rule: ChekaMeds keeps 25% of the delivery fee with a P10 minimum. The balance is the estimated driver payout.
+            </div>
           </aside>
         </section>
       </main>
