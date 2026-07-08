@@ -16,6 +16,7 @@ import DeliveryAdmin from "./pages/DeliveryAdmin";
 import ConsultantAdmin from "./pages/ConsultantAdmin";
 import ResetPassword from "./pages/ResetPassword";
 import AdminPanel from "./pages/AdminPanel";
+import CampaignAdmin from "./pages/CampaignAdmin";
 import WhatsAppWebhookAdmin from "./pages/WhatsAppWebhookAdmin";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -50,6 +51,7 @@ const AnimatedRoutes = () => {
           <Route path="/consultant" element={<Consultant />} />
           <Route path="/dashboard/consultant" element={<ProtectedRoute><ConsultantAdmin /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/admin/campaigns" element={<CampaignAdmin />} />
           <Route path="/admin/delivery" element={<ProtectedRoute><DeliveryAdmin /></ProtectedRoute>} />
           <Route path="/admin/whatsapp" element={<WhatsAppWebhookAdmin />} />
           <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
