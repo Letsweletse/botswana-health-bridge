@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate, Link } from 'react-router-dom';
-import { CheckCircle2, XCircle, Building2, Clock, ArrowLeft, Loader2, Users, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, XCircle, Building2, Clock, ArrowLeft, Loader2, Users, ShieldCheck, Mail } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import logo from '@/assets/ChekaMeds_Logo.png';
@@ -98,6 +98,22 @@ const AdminPanel = () => {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+        <Link
+          to="/admin/campaigns"
+          className="flex items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-primary/10 p-5 hover:bg-primary/15 transition-colors"
+        >
+          <div className="flex items-center gap-4">
+            <div className="h-11 w-11 rounded-xl bg-primary/15 flex items-center justify-center">
+              <Mail className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">Email Campaign Helper</p>
+              <p className="text-xs text-muted-foreground mt-1">Paste pharmacy emails, clean duplicates, export Brevo CSV, and copy the ChekaMeds campaign HTML.</p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-primary">Open →</span>
+        </Link>
+
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           {[
