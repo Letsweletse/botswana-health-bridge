@@ -6,7 +6,6 @@ import { TrendingDown, Minus, ArrowUpRight, Search, Pencil, Check, X, Loader2, T
 import AddMedicineDialog from '@/components/AddMedicineDialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import * as XLSX from 'xlsx';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,19 +32,63 @@ const categoryColors: Record<string, string> = {
   Essential: 'bg-muted text-muted-foreground border-border',
 };
 
-function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+function readFileAsText(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Could not read the selected file.'));
-    reader.onload = () => {
-      if (!(reader.result instanceof ArrayBuffer)) {
-        reject(new Error('Could not read the selected file as an Excel workbook.'));
-        return;
-      }
-      resolve(reader.result);
-    };
-    reader.readAsArrayBuffer(file);
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.readAsText(file);
   });
+}
+
+function escapeCsvValue(value: unknown): string {
+  const text = String(value ?? '');
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function rowsToCsv(rows: Record<string, unknown>[]): string {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const body = rows.map((row) => headers.map((header) => escapeCsvValue(row[header])).join(','));
+  return [headers.join(','), ...body].join('\n');
+}
+
+function parseDelimitedRows(text: string): Record<string, string>[] {
+  const rows: string[][] = [];
+  let current = '';
+  let row: string[] = [];
+  let inQuotes = false;
+  const delimiter = text.includes('\t') && !text.includes(',') ? '\t' : ',';
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      current += '"';
+      i += 1;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === delimiter && !inQuotes) {
+      row.push(current.trim());
+      current = '';
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && next === '\n') i += 1;
+      row.push(current.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  row.push(current.trim());
+  if (row.some(Boolean)) rows.push(row);
+  if (rows.length < 2) return [];
+
+  const headers = rows[0].map((header) => header.trim());
+  return rows.slice(1).map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ''])));
 }
 
 function cleanNumber(value: unknown): number | null {
@@ -103,11 +146,16 @@ const InventoryTable = () => {
       updated_at: i.updated_at,
     }));
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Current Stock');
-    XLSX.writeFile(wb, `ChekaMeds_Stock_${displayClinicName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    toast({ title: 'Stock exported', description: `${exportData.length} medicines exported to Excel.` });
+    const csv = rowsToCsv(exportData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `ChekaMeds_Stock_${displayClinicName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(a.href);
+    a.remove();
+    toast({ title: 'Stock exported', description: `${exportData.length} medicines exported to CSV.` });
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,10 +170,10 @@ const InventoryTable = () => {
     setUploading(true);
 
     try {
-      const data = await readFileAsArrayBuffer(file);
-      const wb = XLSX.read(data);
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows: any[] = XLSX.utils.sheet_to_json(ws);
+      if (!/\.(csv|txt)$/i.test(file.name)) {
+        throw new Error('Please upload a CSV export or save the Excel template as CSV before uploading.');
+      }
+      const rows = parseDelimitedRows(await readFileAsText(file));
 
       if (rows.length === 0) throw new Error('The file is empty.');
 
@@ -272,7 +320,7 @@ const InventoryTable = () => {
               <h2 className="text-base font-display font-semibold text-foreground">
                 {displayClinicName} — Stock Inventory
               </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">{filtered.length} items · Upload Excel to bulk-update</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{filtered.length} items · Upload CSV to bulk-update</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button
@@ -293,12 +341,12 @@ const InventoryTable = () => {
                 className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 disabled:opacity-50"
               >
                 {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                {uploading ? 'Uploading...' : 'Upload Excel'}
+                {uploading ? 'Uploading...' : 'Upload CSV'}
               </button>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".xlsx,.xls,.csv"
+                accept=".csv,.txt"
                 onChange={handleFileUpload}
                 className="hidden"
               />

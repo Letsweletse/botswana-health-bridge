@@ -3,17 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Map, Package, BarChart3, MessageCircle, Settings, LogOut,
-  ChevronLeft, ChevronRight, User, Stethoscope, ClipboardList, Brain, QrCode, Phone, CreditCard, Store, Video
+  ChevronLeft, ChevronRight, User, Stethoscope, ClipboardList, Brain, QrCode, Phone, CreditCard, Video, Landmark
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import logo from '@/assets/ChekaMeds_Logo.png';
 
-export type TabId = 'dashboard' | 'map' | 'inventory' | 'analytics' | 'consultant' | 'whatsapp' | 'prescriptions' | 'forecasting' | 'qr_codes' | 'sms_ussd' | 'pricing' | 'settings';
+export type TabId = 'dashboard' | 'map' | 'inventory' | 'national_inventory' | 'analytics' | 'consultant' | 'whatsapp' | 'prescriptions' | 'forecasting' | 'qr_codes' | 'sms_ussd' | 'pricing' | 'settings';
 
 const navItems: { label: string; icon: typeof LayoutDashboard; id: TabId }[] = [
   { label: 'Dashboard', icon: LayoutDashboard, id: 'dashboard' },
   { label: 'Map View', icon: Map, id: 'map' },
   { label: 'My Inventory', icon: Package, id: 'inventory' },
+  { label: 'National v2', icon: Landmark, id: 'national_inventory' },
   { label: 'Analytics', icon: BarChart3, id: 'analytics' },
   { label: 'WhatsApp Bot', icon: MessageCircle, id: 'whatsapp' },
   { label: 'Consultant', icon: Video, id: 'consultant' },
@@ -78,7 +79,7 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
         {navItems.map(item => (
           <button
             key={item.id}
-            onClick={() => onTabChange(item.id)}
+            onClick={() => item.id === 'national_inventory' ? navigate('/national/inventory') : onTabChange(item.id)}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
               activeTab === item.id
                 ? 'bg-primary/15 text-primary font-semibold border border-primary/20'

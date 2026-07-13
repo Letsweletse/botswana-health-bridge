@@ -18,6 +18,7 @@ import ResetPassword from "./pages/ResetPassword";
 import AdminPanel from "./pages/AdminPanel";
 import CampaignAdmin from "./pages/CampaignAdmin";
 import WhatsAppWebhookAdmin from "./pages/WhatsAppWebhookAdmin";
+import InventoryExpansion from "./pages/national/InventoryExpansion";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SiteFooter from "./components/SiteFooter";
@@ -55,6 +56,7 @@ const AnimatedRoutes = () => {
           <Route path="/admin/delivery" element={<ProtectedRoute><DeliveryAdmin /></ProtectedRoute>} />
           <Route path="/admin/whatsapp" element={<WhatsAppWebhookAdmin />} />
           <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+          <Route path="/national/inventory" element={<ProtectedRoute><InventoryExpansion /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.main>
