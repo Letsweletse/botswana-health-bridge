@@ -29,12 +29,14 @@ const tabTitles: Record<TabId, { title: string; subtitle: string }> = {
   qr_codes: { title: 'QR Code Verification', subtitle: 'Generate and manage QR codes for medicine authenticity verification.' },
   sms_ussd: { title: 'SMS/USSD & Integrations', subtitle: 'Feature phone access via *123#, SMS fallback, and DHIS2 government API integration.' },
   pricing: { title: 'Pricing & Payment', subtitle: 'Subscription plans for clinics and pharmacies, with local Botswana payment methods.' },
+  national_inventory: { title: 'National v2 Inventory', subtitle: 'Open the additive ChekaMeds v2.0 supply chain module without changing existing dashboard behavior.' },
   settings: { title: 'System Settings', subtitle: 'IoT device configuration, notification thresholds, and system preferences.' },
 };
 
 const mobileTabs: { id: TabId; label: string }[] = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'inventory', label: 'Inventory' },
+  { id: 'national_inventory', label: 'National v2' },
   { id: 'consultant', label: 'Consultant' },
   { id: 'whatsapp', label: 'WhatsApp' },
   { id: 'prescriptions', label: 'Rx' },
@@ -112,6 +114,14 @@ const Index = () => {
 
               {activeTab === 'inventory' && (
                 <InventoryTable />
+              )}
+
+              {activeTab === 'national_inventory' && (
+                <div className="rounded-2xl border border-primary/20 bg-primary/10 p-6">
+                  <h2 className="text-lg font-bold text-foreground">ChekaMeds v2.0 National Inventory Module</h2>
+                  <p className="mt-2 text-sm text-muted-foreground">Open the dedicated additive module for barcode inventory, CMS monitoring, warehouse transfers, procurement, analytics, alerts, reports and audit workflows.</p>
+                  <a href="/national/inventory" className="mt-4 inline-flex rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Open National Module</a>
+                </div>
               )}
 
               {activeTab === 'analytics' && (
