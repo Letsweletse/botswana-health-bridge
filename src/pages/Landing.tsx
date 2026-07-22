@@ -180,7 +180,7 @@ const Landing = () => {
           <li><Link to="/dashboard">Staff Portal</Link></li>
           <li><a href="https://wa.me/26771424486">Contact</a></li>
         </ul>
-        <div className="f-copy">© 2026 ChekaMeds · Gaborone, Botswana</div>
+        <div className="f-copy">© 2026 IBLIM Enterprise (Pty) Ltd, trading as ChekaMeds. All rights reserved.</div>
       </footer>
     </div>
   );
