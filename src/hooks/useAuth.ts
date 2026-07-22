@@ -53,11 +53,11 @@ export function useAuth() {
       return;
     }
 
-    // Load pharmacy/facility profile
+    // FIX: Load facility by exact ID, not email! (Bypasses casing and RLS issues)
     const { data: facilityData, error: facilityError } = await supabase
       .from('facilities')
       .select('id, email, name, status')
-      .eq('email', currentUser.email)
+      .eq('id', currentUser.id)
       .maybeSingle();
 
     if (facilityError) {
