@@ -26,19 +26,12 @@ export function useAuth() {
       return;
     }
 
-    const [{ data: profileData, error: profileError }, { data: adminRole, error: roleError }] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, email, clinic_name, contact, role, approved, status')
-        .eq('id', currentUser.id)
-        .maybeSingle(),
-      supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', currentUser.id)
-        .eq('role', 'admin')
-        .maybeSingle(),
-    ]);
+    const { data: adminRole, error: roleError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', currentUser.id)
+      .eq('role', 'admin')
+      .maybeSingle();
 
     if (roleError) {
       console.warn('Admin role lookup failed:', roleError.message);
@@ -46,25 +39,6 @@ export function useAuth() {
 
     const userIsAdmin = Boolean(adminRole);
     setIsAdmin(userIsAdmin);
-
-    if (profileError) {
-      console.error('Profile lookup failed:', profileError);
-      setProfile(userIsAdmin ? {
-        id: currentUser.id,
-        email: currentUser.email || null,
-        clinic_name: 'ChekaMeds Admin',
-        contact: null,
-        role: 'admin',
-        approved: true,
-        status: 'approved',
-      } : null);
-      return;
-    }
-
-    if (profileData) {
-      setProfile(profileData as UserProfile);
-      return;
-    }
 
     if (userIsAdmin) {
       setProfile({
@@ -74,12 +48,44 @@ export function useAuth() {
         contact: null,
         role: 'admin',
         approved: true,
-        status: 'approved',
+        status: 'verified_partner',
       });
       return;
     }
 
-    const fallbackClinicName = String(currentUser.user_metadata?.clinic_name || '').trim();
+    // Load pharmacy/facility profile
+    const { data: facilityData, error: facilityError } = await supabase
+      .from('facilities')
+      .select('id, email, name, status')
+      .eq('email', currentUser.email)
+      .maybeSingle();
+
+    if (facilityError) {
+      console.error('Facility lookup failed:', facilityError);
+      setProfile(null);
+      return;
+    }
+
+    if (facilityData) {
+      setProfile({
+        id: facilityData.id,
+        email: facilityData.email,
+        clinic_name: facilityData.name,
+        contact: null,
+        role: 'facility',
+        approved:
+          facilityData.status === 'verified_partner' ||
+          facilityData.status === 'claimed_listing',
+        status: facilityData.status,
+      });
+      return;
+    }
+
+    // Fallback if account has no facility yet
+    const fallbackClinicName = String(
+      currentUser.user_metadata?.clinic_name || ''
+    ).trim();
+
     if (fallbackClinicName) {
       setProfile({
         id: currentUser.id,
@@ -97,7 +103,9 @@ export function useAuth() {
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
         setSession(newSession);
         setUser(newSession?.user ?? null);
@@ -125,5 +133,12 @@ export function useAuth() {
     setIsAdmin(false);
   };
 
-  return { user, session, profile, isAdmin, loading, signOut };
+  return {
+    user,
+    session,
+    profile,
+    isAdmin,
+    loading,
+    signOut,
+  };
 }
