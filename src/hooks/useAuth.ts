@@ -53,7 +53,7 @@ export function useAuth() {
       return;
     }
 
-    // FIX: Load facility by exact ID, not email! (Bypasses casing and RLS issues)
+    // Load facility by exact ID
     const { data: facilityData, error: facilityError } = await supabase
       .from('facilities')
       .select('id, email, name, status')
@@ -77,6 +77,21 @@ export function useAuth() {
           facilityData.status === 'verified_partner' ||
           facilityData.status === 'claimed_listing',
         status: facilityData.status,
+      });
+      return;
+    }
+
+    // Google OAuth users — no facility yet, treat as new user
+    const isGoogleUser = currentUser.app_metadata?.provider === 'google';
+    if (isGoogleUser) {
+      setProfile({
+        id: currentUser.id,
+        email: currentUser.email || null,
+        clinic_name: currentUser.user_metadata?.full_name || null,
+        contact: null,
+        role: 'facility',
+        approved: false,
+        status: 'pending',
       });
       return;
     }
@@ -109,7 +124,6 @@ export function useAuth() {
       async (_event, newSession) => {
         setSession(newSession);
         setUser(newSession?.user ?? null);
-
         setTimeout(async () => {
           await loadProfile(newSession?.user ?? null);
           setLoading(false);
@@ -133,6 +147,18 @@ export function useAuth() {
     setIsAdmin(false);
   };
 
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (error) {
+      console.error('Google sign-in error:', error.message);
+    }
+  };
+
   return {
     user,
     session,
@@ -140,5 +166,6 @@ export function useAuth() {
     isAdmin,
     loading,
     signOut,
+    signInWithGoogle,
   };
 }
