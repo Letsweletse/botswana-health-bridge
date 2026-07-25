@@ -3,8 +3,8 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, Shield, ArrowRight, CheckCircle2, Search, Video } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { toast } from '@/hooks/use-toast';
 import logo from '@/assets/ChekaMeds_Logo.png';
 import heroBg from '@/assets/hero-bg.png';
 
@@ -94,7 +94,7 @@ const Login = () => {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      await signInWithGoogle();
+      await signInWithGoogle(redirectTo);
     } catch (err: any) {
       toast({ title: 'Google sign-in failed', description: err.message, variant: 'destructive' });
       setIsGoogleLoading(false);

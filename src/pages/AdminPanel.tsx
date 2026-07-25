@@ -34,10 +34,12 @@ const AdminPanel = () => {
   const { data: profiles = [], isLoading: profilesLoading } = useQuery({
     queryKey: ['admin-profiles', filter],
     queryFn: async () => {
-      let query = supabase.from('profiles').select('*').order('created_at', { ascending: false });
-      if (filter === 'pending') query = query.eq('approved', false);
-      else if (filter === 'approved') query = query.eq('approved', true);
-      const { data, error } = await query;
+      const query = supabase.from('profiles').select('*').order('created_at', { ascending: false });
+      const { data, error } = await (
+        filter === 'pending' ? query.eq('approved', false)
+        : filter === 'approved' ? query.eq('approved', true)
+        : query
+      );
       if (error) throw error;
       return data;
     },
@@ -49,7 +51,7 @@ const AdminPanel = () => {
       const { error } = await supabase
         .from('profiles')
         .update({ approved })
-        .eq('user_id', userId);
+        .eq('id', userId);
       if (error) throw error;
     },
     onSuccess: (_, { approved }) => {
@@ -182,7 +184,7 @@ const AdminPanel = () => {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">{profile.clinic_name}</p>
                     <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-[11px] text-muted-foreground">{profile.full_name || 'No name'}</span>
+                      <span className="text-[11px] text-muted-foreground">{profile.name || 'No name'}</span>
                       <span className="text-[10px] text-muted-foreground">
                         Joined {new Date(profile.created_at).toLocaleDateString('en-BW', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </span>
@@ -197,7 +199,7 @@ const AdminPanel = () => {
                         Approved
                       </span>
                       <button
-                        onClick={() => approveMutation.mutate({ userId: profile.user_id, approved: false })}
+                        onClick={() => approveMutation.mutate({ userId: profile.id, approved: false })}
                         disabled={approveMutation.isPending}
                         className="p-2 rounded-lg text-muted-foreground hover:text-critical hover:bg-critical/10 transition-colors"
                         title="Revoke access"
@@ -211,7 +213,7 @@ const AdminPanel = () => {
                         Pending
                       </span>
                       <button
-                        onClick={() => approveMutation.mutate({ userId: profile.user_id, approved: true })}
+                        onClick={() => approveMutation.mutate({ userId: profile.id, approved: true })}
                         disabled={approveMutation.isPending}
                         className="p-2 rounded-lg text-muted-foreground hover:text-success hover:bg-success/10 transition-colors"
                         title="Approve facility"
@@ -219,7 +221,7 @@ const AdminPanel = () => {
                         <CheckCircle2 className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => approveMutation.mutate({ userId: profile.user_id, approved: false })}
+                        onClick={() => approveMutation.mutate({ userId: profile.id, approved: false })}
                         disabled={approveMutation.isPending}
                         className="p-2 rounded-lg text-muted-foreground hover:text-critical hover:bg-critical/10 transition-colors"
                         title="Reject"

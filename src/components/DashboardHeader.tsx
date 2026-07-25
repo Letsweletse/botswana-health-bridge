@@ -37,7 +37,7 @@ const DashboardHeader = () => {
         </div>
         <div className="hidden md:block">
           <p className="text-sm text-foreground font-medium">
-            {greeting}, <span className="font-semibold">{profile?.full_name || 'Operator'}</span>
+            {greeting}, <span className="font-semibold">{profile?.name || 'Operator'}</span>
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">{formattedDate} · {profile?.clinic_name || '—'}</p>
         </div>

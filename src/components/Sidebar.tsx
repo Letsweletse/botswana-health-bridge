@@ -137,7 +137,7 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
           <AnimatePresence>
             {!collapsed && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="overflow-hidden flex-1">
-                <p className="text-xs font-semibold truncate text-sidebar-foreground">{profile?.full_name || 'Operator'}</p>
+                <p className="text-xs font-semibold truncate text-sidebar-foreground">{profile?.name || 'Operator'}</p>
                 <p className="text-[10px] text-sidebar-foreground/40 truncate">Health Staff</p>
               </motion.div>
             )}

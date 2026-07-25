@@ -7,6 +7,7 @@ interface UserProfile {
   email: string | null;
   clinic_name: string | null;
   contact: string | null;
+  name: string | null;
   role: string | null;
   approved: boolean | null;
   status: string | null;
@@ -46,6 +47,7 @@ export function useAuth() {
         email: currentUser.email || null,
         clinic_name: 'ChekaMeds Admin',
         contact: null,
+        name: null,
         role: 'admin',
         approved: true,
         status: 'verified_partner',
@@ -53,68 +55,50 @@ export function useAuth() {
       return;
     }
 
-    // Load facility by exact ID
-    const { data: facilityData, error: facilityError } = await supabase
-      .from('facilities')
-      .select('id, email, name, status')
+    const { data: existingProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, clinic_name, contact, name, role, approved, status')
       .eq('id', currentUser.id)
       .maybeSingle();
 
-    if (facilityError) {
-      console.error('Facility lookup failed:', facilityError);
+    if (profileError) {
+      console.error('Profile lookup failed:', profileError);
       setProfile(null);
       return;
     }
 
-    if (facilityData) {
-      setProfile({
-        id: facilityData.id,
-        email: facilityData.email,
-        clinic_name: facilityData.name,
-        contact: null,
-        role: 'facility',
-        approved:
-          facilityData.status === 'verified_partner' ||
-          facilityData.status === 'claimed_listing',
-        status: facilityData.status,
-      });
+    if (existingProfile) {
+      setProfile(existingProfile);
       return;
     }
 
-    // Google OAuth users — no facility yet, treat as new user
-    const isGoogleUser = currentUser.app_metadata?.provider === 'google';
-    if (isGoogleUser) {
-      setProfile({
-        id: currentUser.id,
-        email: currentUser.email || null,
-        clinic_name: currentUser.user_metadata?.full_name || null,
-        contact: null,
-        role: 'facility',
-        approved: false,
-        status: 'pending',
-      });
-      return;
-    }
-
-    // Fallback if account has no facility yet
-    const fallbackClinicName = String(
-      currentUser.user_metadata?.clinic_name || ''
+    // First sign-in: create a pending profile so an admin can review it.
+    const clinicName = String(currentUser.user_metadata?.clinic_name || '').trim();
+    const fullName = String(
+      currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || ''
     ).trim();
 
-    if (fallbackClinicName) {
-      setProfile({
+    const { data: createdProfile, error: insertError } = await supabase
+      .from('profiles')
+      .insert({
         id: currentUser.id,
         email: currentUser.email || null,
-        clinic_name: fallbackClinicName,
-        contact: null,
+        clinic_name: clinicName || fullName || null,
+        name: fullName || null,
         role: 'facility',
         approved: false,
         status: 'pending',
-      });
+      })
+      .select('id, email, clinic_name, contact, name, role, approved, status')
+      .single();
+
+    if (insertError) {
+      console.error('Profile creation failed:', insertError);
+      setProfile(null);
       return;
     }
 
-    setProfile(null);
+    setProfile(createdProfile);
   };
 
   useEffect(() => {
@@ -147,16 +131,14 @@ export function useAuth() {
     setIsAdmin(false);
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (redirectPath: string = '/dashboard') => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/dashboard`,
+        redirectTo: `${window.location.origin}${redirectPath}`,
       },
     });
-    if (error) {
-      console.error('Google sign-in error:', error.message);
-    }
+    if (error) throw error;
   };
 
   return {

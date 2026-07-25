@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import logo from '@/assets/ChekaMeds_Logo.png';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, profile, isAdmin, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -20,18 +20,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  // Google users get straight in — they complete registration inside dashboard
-  const isGoogleUser = user.app_metadata?.provider === 'google';
-  if (isGoogleUser) {
-    return <>{children}</>;
-  }
+  const isApproved = Boolean(profile?.approved);
 
-  const isApproved =
-    profile?.approved ||
-    profile?.status === 'verified_partner' ||
-    profile?.status === 'claimed_listing';
-
-  if (!isAdmin && !isApproved) {
+  if (!isApproved) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="max-w-sm text-center space-y-5">
