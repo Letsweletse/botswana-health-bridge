@@ -20,11 +20,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  // ALLOW ACCESS IF:
-  // - User is Admin
-  // - Legacy approved profile
-  // - Verified partner pharmacy
-  // - Claimed pharmacy listing
+  // Google users get straight in — they complete registration inside dashboard
+  const isGoogleUser = user.app_metadata?.provider === 'google';
+  if (isGoogleUser) {
+    return <>{children}</>;
+  }
+
   const isApproved =
     profile?.approved ||
     profile?.status === 'verified_partner' ||
@@ -39,16 +40,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
             alt="ChekaMeds"
             className="h-16 w-16 mx-auto rounded-2xl bg-white p-1 shadow-md object-contain"
           />
-
           <div className="h-14 w-14 rounded-full bg-warning/10 border border-warning/20 flex items-center justify-center mx-auto">
             <Clock className="h-7 w-7 text-warning" />
           </div>
-
           <div>
             <h2 className="text-xl font-bold text-foreground">
               Access Pending
             </h2>
-
             <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
               {profile?.clinic_name ? (
                 <>
@@ -58,14 +56,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
                 </>
               ) : (
                 <>
-                  Your account is signed in, but no approved facility profile is
-                  linked yet. Please register your facility or contact
-                  ChekaMeds admin.
+                  You're signed in as <strong>{user.email}</strong> but no
+                  approved facility is linked to this account yet. Please
+                  contact ChekaMeds admin to get approved.
                 </>
               )}
             </p>
           </div>
-
           <div className="flex flex-col gap-2">
             <Link
               to="/login"
@@ -73,14 +70,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
             >
               Register or switch account
             </Link>
-
             <Link
               to="/search"
               className="w-full py-2.5 text-sm font-medium rounded-xl border border-border text-foreground hover:bg-muted transition-all text-center"
             >
               Search medicines while you wait
             </Link>
-
             <Link
               to="/"
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
