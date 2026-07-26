@@ -780,16 +780,57 @@ function generateListMenu(query: string, location: string, rows: Row[], customHe
   };
 }
 
+async function facilityWhatsAppNumber(clinicName: string) {
+  try {
+    const { data } = await db()
+      .from("chekameds_facilities")
+      .select("phone_whatsapp")
+      .ilike("facility_name", `%${clinicName.trim()}%`)
+      .not("phone_whatsapp", "is", null)
+      .limit(1)
+      .maybeSingle();
+    return cleanPhone(String((data as any)?.phone_whatsapp || ""));
+  } catch (_) {
+    return "";
+  }
+}
+
 async function reserve(phone: string, selected: SessionOption) {
+  const customerPhone = cleanPhone(phone);
+
+  let pharmacyPhone = cleanPhone(String(selected.contact || ""));
+  if (pharmacyPhone.length < 11) {
+    pharmacyPhone = await facilityWhatsAppNumber(selected.clinic_name);
+  }
+
+  let pharmacyNotified = false;
+  if (pharmacyPhone.length >= 11 && pharmacyPhone !== customerPhone) {
+    try {
+      await sendWhatsApp(pharmacyPhone, {
+        type: "text",
+        text: `🔔 *New ChekaMeds Reservation*\n\n💊 Medicine: *${selected.med_name}*\n💰 Price: *${price(selected.price_bwp)}*\n👤 Customer WhatsApp: +${customerPhone}\n🏥 Facility: *${selected.clinic_name}*\n\n${DIV}\nThe customer plans to collect and pay at the counter. Please prepare the item and message the customer to confirm availability.`,
+      });
+      pharmacyNotified = true;
+    } catch (e) {
+      console.error("pharmacy reservation notify failed", e);
+    }
+  }
+
+  const notifyNote = pharmacyNotified
+    ? `Pharmacy notified on WhatsApp at ${pharmacyPhone}.`
+    : pharmacyPhone
+      ? `Pharmacy WhatsApp notify FAILED for ${pharmacyPhone}.`
+      : "No pharmacy WhatsApp number on file - not notified.";
+
   try {
     await db().from("order_requests").insert({
-      from_number: cleanPhone(phone),
+      from_number: customerPhone,
       medicine: selected.med_name,
       pharmacy: selected.clinic_name,
       amount: selected.price_bwp == null ? null : Number(selected.price_bwp),
       payment_status: "pending_store_payment",
       status: "reserved",
-      notes: `WhatsApp reservation created via interactive menus for ${selected.med_name}`,
+      notes: `WhatsApp reservation created via interactive menus for ${selected.med_name}. ${notifyNote}`,
     });
   } catch (e) {
     console.error(e);
@@ -797,7 +838,7 @@ async function reserve(phone: string, selected: SessionOption) {
 
   const mapLink = realDirections(selected.directions_link);
 
-  return `🏪 *Reservation Recorded*\n\n💊 Item: *${selected.med_name}*\n🏥 Facility: *${selected.clinic_name}*\n💰 Amount: *${price(selected.price_bwp)}*\n\n${mapLink ? `🗺️ Directions: ${mapLink}\n` : ""}Please pay physically at the pharmacy when collecting. Final availability should still be confirmed by the pharmacy.`;
+  return `🏪 *Reservation Recorded*\n\n💊 Item: *${selected.med_name}*\n🏥 Facility: *${selected.clinic_name}*\n💰 Amount: *${price(selected.price_bwp)}*\n\n${mapLink ? `🗺️ Directions: ${mapLink}\n` : ""}${pharmacyNotified ? "✅ The pharmacy has been notified to prepare your item.\n" : ""}Please pay physically at the pharmacy when collecting. Final availability should still be confirmed by the pharmacy.`;
 }
 
 async function sendWhatsApp(to: string, payload: NativeWhatsAppPayload) {
