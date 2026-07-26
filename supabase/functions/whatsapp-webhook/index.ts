@@ -488,7 +488,7 @@ async function loadInventoryRows() {
   try {
     const { data, error } = await db()
       .from("clinic_inventory")
-      .select("clinic_name,med_name,quantity,price_bwp,location,directions_link,contact,strength,dosage_form,generic_name,brand_name,search_tokens,approved")
+      .select("clinic_name,med_name,quantity,price_bwp,location,directions_link,contact,strength,dosage_form,generic_name,brand_name,search_tokens")
       .gt("quantity", 0)
       .neq("clinic_name", "ChekaMeds Admin")
       .limit(5000);
@@ -614,7 +614,7 @@ async function processMessage(message: string, phone: string): Promise<NativeWha
     return formatWelcomeMenu();
   }
 
-  if (/^(video consult|consult|doctor|online consultation|online consult|video)$/.test(text) || text === "video_consult") {
+  if (/^(video consult|consult|doctor|consult doctor|online consultation|online consult|video)$/.test(text) || text === "video_consult") {
     return {
       type: "button",
       text: `🩺 *Book an Online Video Consultation*\n\nSpeak to a clinician from your phone.\n\n🔗 Start here:\nhttps://www.chekameds.co.bw/consultant`,
@@ -624,7 +624,7 @@ async function processMessage(message: string, phone: string): Promise<NativeWha
     };
   }
 
-  if (text === "find_medicine" || text === "search" || text === "stock") {
+  if (text === "find_medicine" || text === "search" || text === "stock" || text === "search stock") {
     return promptForMedicine();
   }
 
@@ -650,7 +650,7 @@ async function processMessage(message: string, phone: string): Promise<NativeWha
     };
   }
 
-  if (/^(store|pay at store|cash|cash payment)$/.test(text)) {
+  if (/^(store|pay at store|cash|cash payment|reserve|reserve pickup)$/.test(text)) {
     if (!session?.selected || session.selected.status === "awaiting_location") {
       return { type: "text", text: "Please search first and select a stock item." };
     }
@@ -768,7 +768,7 @@ function generateListMenu(query: string, location: string, rows: Row[], customHe
 
   return {
     type: "list",
-    text: customHeader || `💊 *ChekaMeds Stock Results*\n\nShowing close stock matches for *${query}* in *${prettyLocation(location)}*.\n\n👇 Tap below to choose an item and view details or reserve.`,
+    text: customHeader || `💊 *ChekaMeds Stock Results*\n\nShowing close stock matches for *${query}* in *${prettyLocation(location)}*.\n\n👇 Reply with a number below to choose an item and view details or reserve.`,
     listTitle: "Select Medication",
     listButtonText: "View Stock",
     sections: [
@@ -841,44 +841,43 @@ async function reserve(phone: string, selected: SessionOption) {
   return `🏪 *Reservation Recorded*\n\n💊 Item: *${selected.med_name}*\n🏥 Facility: *${selected.clinic_name}*\n💰 Amount: *${price(selected.price_bwp)}*\n\n${mapLink ? `🗺️ Directions: ${mapLink}\n` : ""}${pharmacyNotified ? "✅ The pharmacy has been notified to prepare your item.\n" : ""}Please pay physically at the pharmacy when collecting. Final availability should still be confirmed by the pharmacy.`;
 }
 
+function payloadToText(payload: NativeWhatsAppPayload): string {
+  if (payload.type === "text") {
+    return payload.text || "";
+  }
+
+  if (payload.type === "button") {
+    const hints = (payload.buttons || [])
+      .map((button) => `▪️ *${button.text}*`)
+      .join("\n");
+    return `${payload.text || ""}${hints ? `\n\n👇 Reply with one of:\n${hints}` : ""}`;
+  }
+
+  if (payload.type === "list") {
+    const rows = (payload.sections || []).flatMap((section) => section.rows);
+    const lines = rows
+      .map((row, i) => `*${i + 1}.* ${row.title}${row.description ? `\n    ${row.description}` : ""}`)
+      .join("\n");
+    return `${payload.text || ""}\n\n${lines}\n\n👇 Reply with a number (1-${rows.length}) to select.`;
+  }
+
+  return payload.text || "";
+}
+
 async function sendWhatsApp(to: string, payload: NativeWhatsAppPayload) {
   const instanceId = Deno.env.get("ULTRAMSG_INSTANCE_ID");
   const token = Deno.env.get("ULTRAMSG_TOKEN");
   if (!instanceId || !token) throw new Error("UltraMsg configurations missing");
 
-  let endpoint = `https://api.ultramsg.com/${instanceId}/messages/chat`;
-  const bodyRequest: Record<string, any> = {
-    token,
-    to: cleanPhone(to),
-    priority: 10,
-  };
-
-  if (payload.type === "text") {
-    bodyRequest.body = payload.text;
-  } else if (payload.type === "button") {
-    endpoint = `https://api.ultramsg.com/${instanceId}/messages/interactive`;
-    bodyRequest.type = "button";
-    bodyRequest.content = JSON.stringify({ body: payload.text });
-    bodyRequest.buttons = JSON.stringify(
-      payload.buttons?.map((button) => ({
-        type: "reply",
-        reply: { id: button.id, title: button.text.substring(0, 20) },
-      })) || [],
-    );
-  } else if (payload.type === "list") {
-    endpoint = `https://api.ultramsg.com/${instanceId}/messages/interactive`;
-    bodyRequest.type = "list";
-    bodyRequest.content = JSON.stringify({
-      body: payload.text,
-      buttonText: payload.listButtonText || "View Options",
-    });
-    bodyRequest.sections = JSON.stringify(payload.sections || []);
-  }
-
-  const response = await fetch(endpoint, {
+  const response = await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(bodyRequest),
+    body: JSON.stringify({
+      token,
+      to: cleanPhone(to),
+      body: payloadToText(payload),
+      priority: 10,
+    }),
   });
 
   const data = await response.json();
