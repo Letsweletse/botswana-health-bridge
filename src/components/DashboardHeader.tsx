@@ -1,11 +1,12 @@
-import { Bell, Clock, Moon, Sun, Wifi } from 'lucide-react';
+import { Bell, Clock, Moon, ShieldCheck, Sun, Wifi } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
 const DashboardHeader = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [darkMode, setDarkMode] = useState(false);
-  const { profile } = useAuth();
+  const { profile, isAdmin } = useAuth();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -43,6 +44,17 @@ const DashboardHeader = () => {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className="flex items-center gap-1.5 rounded-full border border-warning/25 bg-warning/10 px-3 py-1 text-xs font-semibold text-warning hover:bg-warning/15 transition-colors"
+              title="Facility approvals"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span className="hidden sm:block">Approvals</span>
+            </Link>
+          )}
+
           <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
             <span className="font-mono font-medium">{formattedTime}</span>

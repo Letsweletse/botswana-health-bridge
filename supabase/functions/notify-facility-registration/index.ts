@@ -5,11 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const ADMIN_EMAIL = 'iblimenterprise@zohomail.com';
+const ADMIN_EMAILS = ['iblimenterprise@zohomail.com', 'blimdawoo@gmail.com'];
 const FROM_EMAIL = 'ChekaMeds <noreply@chekameds.co.bw>';
 
 type ResendMessage = {
-  to: string;
+  to: string | string[];
   subject: string;
   html: string;
   text: string;
@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
 
     const recipients: ResendMessage[] = [
       {
-        to: ADMIN_EMAIL,
+        to: ADMIN_EMAILS,
         subject: `New Facility Registered: ${clinicName}`,
         html: adminHtml,
         text: `New facility registered and awaiting approval. Facility: ${clinicName}. Contact: ${fullName || '—'}. Email: ${email}. Registered: ${registeredAt}.`,
@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
         subject: `ChekaMeds Facility Registration Received: ${clinicName}`,
         html: facilityHtml,
         text: `Dumela ${fullName || ''}. Your ChekaMeds facility registration for ${clinicName} was received and is awaiting admin approval. You'll be notified once it's approved.`,
-        reply_to: ADMIN_EMAIL,
+        reply_to: ADMIN_EMAILS[0],
         role: 'facility',
         required: false,
       },
@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
     for (const message of recipients) {
       const payload = {
         from: FROM_EMAIL,
-        to: [message.to],
+        to: Array.isArray(message.to) ? message.to : [message.to],
         subject: message.subject,
         html: message.html,
         text: message.text,

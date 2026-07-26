@@ -99,6 +99,18 @@ export function useAuth() {
     }
 
     setProfile(createdProfile);
+
+    supabase.functions
+      .invoke('notify-facility-registration', {
+        body: {
+          clinicName: createdProfile.clinic_name || 'Unnamed facility',
+          fullName: createdProfile.name || '',
+          email: createdProfile.email || '',
+        },
+      })
+      .then(({ error: notifyError }) => {
+        if (notifyError) console.error('Registration notification email failed:', notifyError);
+      });
   };
 
   useEffect(() => {
