@@ -24,15 +24,15 @@ export default defineConfig(({ mode }) => ({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
       manifest: {
-        name: "ChekaMeds — Medicine Stock Tracker",
+        name: "ChekaMeds — Find Medicine Near You",
         short_name: "ChekaMeds",
-        description: "Real-time medicine stock visibility across Gaborone clinics. Powered by IBLIM ENTERPRISE.",
-        theme_color: "#3a8a5c",
-        background_color: "#0f1419",
+        description: "Find medicine availability across pharmacies in Botswana. Search, reserve, and get directions instantly.",
+        theme_color: "#10b981",
+        background_color: "#ffffff",
         display: "standalone",
         orientation: "portrait-primary",
         scope: "/",
-        start_url: "/",
+        start_url: "/search",
         icons: [
           {
             src: "/app-icon.png",
