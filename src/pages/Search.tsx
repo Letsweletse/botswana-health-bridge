@@ -208,21 +208,6 @@ const SearchPage = () => {
   const [activeTab, setActiveTab] = useState('search');
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchFocused, setSearchFocused] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [showInstallBanner, setShowInstallBanner] = useState(false);
-
-  useEffect(() => {
-    const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); setShowInstallBanner(true); };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const handleInstall = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') setShowInstallBanner(false);
-  };
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -353,24 +338,6 @@ const SearchPage = () => {
           )}
         </div>
       </div>
-
-      {/* PWA Install banner */}
-      <AnimatePresence>
-        {showInstallBanner && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="bg-gray-900 text-white px-4 py-3 flex items-center gap-3 max-w-lg mx-auto">
-            <div className="w-9 h-9 bg-emerald-500 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Pill className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <div className="text-sm font-bold">Add ChekaMeds to your home screen</div>
-              <div className="text-xs text-gray-400">Access instantly, works offline</div>
-            </div>
-            <button onClick={handleInstall} className="bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-xl flex-shrink-0">Install</button>
-            <button onClick={() => setShowInstallBanner(false)} className="text-gray-400 flex-shrink-0"><X className="w-4 h-4" /></button>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Main content */}
       <div className="max-w-lg mx-auto px-4 pb-32">
