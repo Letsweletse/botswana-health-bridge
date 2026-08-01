@@ -18,15 +18,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build
-        run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
 
-      - name: Deploy to Vercel
+      - name: Build & Deploy to Vercel
         run: |
-          npm install -g vercel
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+          export VITE_SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}"
+          export VITE_SUPABASE_PUBLISHABLE_KEY="${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}"
+          npm run build
+          vercel deploy ./dist --prod --yes             --name chekameds             --token ${{ secrets.VERCEL_TOKEN }}             --build-env VITE_SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}"             --build-env VITE_SUPABASE_PUBLISHABLE_KEY="${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}"
