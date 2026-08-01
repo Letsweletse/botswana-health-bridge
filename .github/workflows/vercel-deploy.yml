@@ -1,4 +1,4 @@
-name: Deploy ChekaMeds to Vercel
+name: Deploy to Vercel
 on:
   push:
     branches: [main]
@@ -15,21 +15,13 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
-
-      - name: Build
-        run: npm run build
+      - name: Install deps & build
+        run: |
+          npm install
+          npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
-      - name: Deploy to Vercel (verbose)
-        run: |
-          vercel --version
-          vercel whoami --token ${{ secrets.VERCEL_TOKEN }} || echo "whoami failed"
-          vercel deploy ./dist --prod --yes --name chekameds             --token ${{ secrets.VERCEL_TOKEN }} 2>&1 || true
-          vercel deploy ./dist --prod --yes             --token ${{ secrets.VERCEL_TOKEN }} 2>&1
+      - name: Deploy
+        run: npx vercel@latest deploy dist --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=letsweletses-projects
