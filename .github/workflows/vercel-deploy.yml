@@ -21,9 +21,15 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
-      - name: Build & Deploy to Vercel
+      - name: Build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+
+      - name: Deploy to Vercel (verbose)
         run: |
-          export VITE_SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}"
-          export VITE_SUPABASE_PUBLISHABLE_KEY="${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}"
-          npm run build
-          vercel deploy ./dist --prod --yes             --name chekameds             --token ${{ secrets.VERCEL_TOKEN }}             --build-env VITE_SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}"             --build-env VITE_SUPABASE_PUBLISHABLE_KEY="${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}"
+          vercel --version
+          vercel whoami --token ${{ secrets.VERCEL_TOKEN }} || echo "whoami failed"
+          vercel deploy ./dist --prod --yes --name chekameds             --token ${{ secrets.VERCEL_TOKEN }} 2>&1 || true
+          vercel deploy ./dist --prod --yes             --token ${{ secrets.VERCEL_TOKEN }} 2>&1
