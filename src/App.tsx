@@ -9,65 +9,110 @@ import { useEffect, useState, useRef } from "react";
 const PWAInstallBanner = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [show, setShow] = useState(false);
-  const dismissed = useRef(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
 
   useEffect(() => {
+    // Already installed as PWA — hide
     if (window.matchMedia("(display-mode: standalone)").matches) return;
-    if (sessionStorage.getItem("pwa-dismissed")) return;
+    if ((window.navigator as any).standalone === true) return;
+    // Already dismissed permanently
+    if (localStorage.getItem("pwa-banner-dismissed") === "1") return;
 
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const android = /Android/.test(navigator.userAgent);
+    setIsIOS(ios);
+    setIsAndroid(android);
+
+    // Android — wait for browser install prompt
     const handler = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setTimeout(() => { if (!dismissed.current) setShow(true); }, 3000);
+      setShow(true);
     };
     window.addEventListener("beforeinstallprompt", handler);
 
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isStandalone = (window.navigator as any).standalone;
-    if (isIOS && !isStandalone && !sessionStorage.getItem("pwa-dismissed")) {
-      setTimeout(() => { if (!dismissed.current) setShow(true); }, 3000);
+    // iOS or Android without prompt — show manual instructions after 4s
+    if (ios) {
+      setTimeout(() => setShow(true), 4000);
     }
+
+    // Fallback: if no beforeinstallprompt after 6s on Android, show anyway
+    if (android) {
+      const fallback = setTimeout(() => setShow(true), 6000);
+      return () => {
+        window.removeEventListener("beforeinstallprompt", handler);
+        clearTimeout(fallback);
+      };
+    }
+
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
   const handleInstall = async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      setShow(false);
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") {
+        setShow(false);
+        localStorage.setItem("pwa-banner-dismissed", "1");
+      }
       setDeferredPrompt(null);
     }
   };
 
   const handleDismiss = () => {
-    dismissed.current = true;
     setShow(false);
-    sessionStorage.setItem("pwa-dismissed", "1");
+    localStorage.setItem("pwa-banner-dismissed", "1");
   };
 
   if (!show) return null;
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   return (
     <div style={{
-      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999,
-      background: "#0d1117", borderTop: "1px solid #1e2d3d",
-      padding: "14px 20px", display: "flex", alignItems: "center", gap: 12,
-      boxShadow: "0 -4px 24px rgba(0,0,0,.6)",
+      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 99999,
+      background: "#0d1117", borderTop: "2px solid #10b981",
+      padding: "16px 20px 20px", display: "flex", alignItems: "flex-start", gap: 12,
+      boxShadow: "0 -8px 32px rgba(0,0,0,.8)",
+      paddingBottom: "calc(20px + env(safe-area-inset-bottom))",
     }}>
-      <div style={{ width: 40, height: 40, background: "#10b981", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 18, fontWeight: 800, color: "white" }}>C</div>
+      <div style={{
+        width: 44, height: 44, background: "#10b981", borderRadius: 12,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0, fontSize: 20, fontWeight: 800, color: "white",
+      }}>C</div>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9" }}>Install ChekaMeds App</div>
-        <div style={{ fontSize: 11, color: "#475569", marginTop: 1 }}>
-          {isIOS ? "Tap Share → Add to Home Screen" : "Find medicine faster — works offline too"}
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#f1f5f9", marginBottom: 2 }}>
+          Install ChekaMeds
         </div>
+        {isIOS ? (
+          <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.5 }}>
+            Tap <strong style={{ color: "#10b981" }}>Share</strong> (box with arrow) then <strong style={{ color: "#10b981" }}>Add to Home Screen</strong>
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.5 }}>
+            Find medicine faster · Works offline · No app store needed
+          </div>
+        )}
       </div>
-      {!isIOS && deferredPrompt && (
-        <button onClick={handleInstall} style={{ background: "#10b981", color: "white", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
-          Install
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0, alignItems: "flex-end" }}>
+        {!isIOS && deferredPrompt && (
+          <button onClick={handleInstall} style={{
+            background: "#10b981", color: "white", border: "none",
+            borderRadius: 8, padding: "8px 18px", fontSize: 12,
+            fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+          }}>
+            Install App
+          </button>
+        )}
+        <button onClick={handleDismiss} style={{
+          background: "transparent", border: "1px solid #1e2d3d",
+          color: "#475569", cursor: "pointer", fontSize: 11,
+          padding: "4px 10px", borderRadius: 6, whiteSpace: "nowrap",
+        }}>
+          Not now
         </button>
-      )}
-      <button onClick={handleDismiss} style={{ background: "transparent", border: "none", color: "#475569", cursor: "pointer", fontSize: 18, padding: "4px 8px", flexShrink: 0 }}>✕</button>
+      </div>
     </div>
   );
 };
