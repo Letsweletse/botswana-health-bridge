@@ -95,19 +95,22 @@ const PWAInstallBanner = () => {
         )}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0, alignItems: "flex-end" }}>
-        {!isIOS && deferredPrompt && (
-          <button onClick={handleInstall} style={{
+        {!isIOS && (
+          <button onClick={deferredPrompt ? handleInstall : () => { 
+            // Manual instructions for browsers that don't fire beforeinstallprompt
+            alert("To install:\n1. Tap the 3-dot menu (⋮) in your browser\n2. Tap \'Add to Home screen\'\n3. Tap \'Add\'");
+          }} style={{
             background: "#10b981", color: "white", border: "none",
-            borderRadius: 8, padding: "8px 18px", fontSize: 12,
+            borderRadius: 8, padding: "10px 20px", fontSize: 13,
             fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
           }}>
-            Install App
+            📲 Install App
           </button>
         )}
         <button onClick={handleDismiss} style={{
-          background: "transparent", border: "1px solid #1e2d3d",
+          background: "transparent", border: "none",
           color: "#475569", cursor: "pointer", fontSize: 11,
-          padding: "4px 10px", borderRadius: 6, whiteSpace: "nowrap",
+          padding: "4px 8px", borderRadius: 6, whiteSpace: "nowrap",
         }}>
           Not now
         </button>
