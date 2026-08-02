@@ -16,8 +16,8 @@ const PWAInstallBanner = () => {
     // Already installed as PWA — hide
     if (window.matchMedia("(display-mode: standalone)").matches) return;
     if ((window.navigator as any).standalone === true) return;
-    // Already dismissed permanently
-    if (localStorage.getItem("pwa-banner-dismissed") === "1") return;
+    // Already dismissed permanently THIS session
+    if (sessionStorage.getItem("pwa-banner-hidden") === "1") return;
 
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     const android = /Android/.test(navigator.userAgent);
@@ -55,7 +55,6 @@ const PWAInstallBanner = () => {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === "accepted") {
         setShow(false);
-        localStorage.setItem("pwa-banner-dismissed", "1");
       }
       setDeferredPrompt(null);
     }
@@ -63,7 +62,7 @@ const PWAInstallBanner = () => {
 
   const handleDismiss = () => {
     setShow(false);
-    localStorage.setItem("pwa-banner-dismissed", "1");
+    sessionStorage.setItem("pwa-banner-hidden", "1");
   };
 
   if (!show) return null;
