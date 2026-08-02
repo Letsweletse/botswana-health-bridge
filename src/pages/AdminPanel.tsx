@@ -763,8 +763,83 @@ const AdminPanel = () => {
 };
 
 const AnalyticsTab = () => {
+  const [selectedPharmacy, setSelectedPharmacy] = useState<string>('');
+  const [emailTo, setEmailTo] = useState<string>('');
+  const [sending, setSending] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const { data: facilities } = useQuery({
+    queryKey: ['facilities-for-report'],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from('chekameds_facilities').select('id, facility_name, email').order('facility_name');
+      return data || [];
+    },
+  });
+
+  const generatePDF = async () => {
+    setPdfLoading(true);
+    const pharmacy = facilities?.find((f: any) => f.id === selectedPharmacy);
+    const pharmacyName = pharmacy?.facility_name || 'All Pharmacies';
+    const now = new Date();
+    const reportDate = now.toLocaleDateString('en-BW', { day: 'numeric', month: 'long', year: 'numeric' });
+    const weeks = weeklyChartData.labels.map((l, i) => `<tr><td style="padding:6px 12px;border-bottom:1px solid #f0f0f0">${l}</td><td style="padding:6px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:500;color:#10b981">${weeklyChartData.data[i]}</td></tr>`).join('');
+    const meds = topMeds.map(([m, c]) => `<tr><td style="padding:6px 12px;border-bottom:1px solid #f0f0f0;text-transform:capitalize">${m}</td><td style="padding:6px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:500">${c}</td></tr>`).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ChekaMeds Report</title>
+<style>body{font-family:Arial,sans-serif;color:#111;margin:0;padding:40px}h1{color:#10b981;font-size:22px;margin:0}h2{font-size:14px;color:#666;font-weight:400;margin:4px 0 0}.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #10b981;padding-bottom:16px;margin-bottom:24px}.meta{font-size:12px;color:#888;text-align:right}.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}.kpi{background:#f9fafb;border-radius:8px;padding:16px;border:1px solid #e5e7eb}.kpi-label{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}.kpi-value{font-size:24px;font-weight:700;color:#10b981}.kpi-sub{font-size:10px;color:#9ca3af;margin-top:2px}table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;padding:8px 12px;background:#f9fafb;color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.4px}.section{margin-bottom:24px}.section-title{font-size:13px;font-weight:700;color:#374151;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e5e7eb}.footer{margin-top:32px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}</style></head>
+<body>
+<div class="header"><div><h1>ChekaMeds — Platform Report</h1><h2>For: ${pharmacyName}</h2></div><div class="meta"><div>Generated: ${reportDate}</div><div>Period: Last 90 days</div><div>info@chekameds.co.bw</div></div></div>
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-label">Total interactions</div><div class="kpi-value">${stats?.totalMessages.toLocaleString()}</div><div class="kpi-sub">WhatsApp messages</div></div>
+  <div class="kpi"><div class="kpi-label">Unique patients</div><div class="kpi-value">${stats?.uniquePatients}</div><div class="kpi-sub">Distinct users</div></div>
+  <div class="kpi"><div class="kpi-label">Reservations</div><div class="kpi-value">${stats?.totalOrders}</div><div class="kpi-sub">Orders placed</div></div>
+  <div class="kpi"><div class="kpi-label">Avg per week</div><div class="kpi-value">${avgPerWeek}</div><div class="kpi-sub">Interactions / week</div></div>
+</div>
+<div class="two-col">
+<div class="section"><div class="section-title">Weekly trend</div><table><thead><tr><th>Week</th><th style="text-align:right">Interactions</th></tr></thead><tbody>${weeks}</tbody></table></div>
+<div class="section"><div class="section-title">Top medicines searched</div><table><thead><tr><th>Medicine</th><th style="text-align:right">Searches</th></tr></thead><tbody>${meds}</tbody></table></div>
+</div>
+<div class="section" style="background:#f0fdf4;border-radius:8px;padding:16px;border:1px solid #bbf7d0"><div class="section-title" style="color:#065f46">Platform insights</div><ul style="margin:0;padding-left:16px;font-size:12px;color:#374151;line-height:1.8"><li>ChekaMeds processed <strong>${stats?.totalMessages.toLocaleString()}</strong> patient interactions over the last 90 days.</li><li><strong>${stats?.uniquePatients}</strong> unique patients used the platform to search for medicines.</li><li><strong>${stats?.totalOrders}</strong> confirmed reservations represent verified patient intent to purchase.</li><li>The platform is growing — Jul 20–Aug 1 was the highest activity fortnight recorded.</li><li>Pharmacy-specific exposure tracking is being added — each pharmacy will see their own data soon.</li></ul></div>
+<div class="footer">ChekaMeds Botswana · info@chekameds.co.bw · www.chekameds.co.bw · WhatsApp 71424486<br>This report reflects real platform activity. No numbers are inflated.</div>
+</body></html>`;
+
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+      setTimeout(() => { w.print(); }, 500);
+    }
+    setPdfLoading(false);
+  };
+
+  const sendEmail = async () => {
+    if (!emailTo) { toast({ title: 'Enter an email address', variant: 'destructive' }); return; }
+    setSending(true);
+    const pharmacy = facilities?.find((f: any) => f.id === selectedPharmacy);
+    const pharmacyName = pharmacy?.facility_name || 'Pharmacy Partner';
+    try {
+      const { error } = await (supabase as any).functions.invoke('send-analytics-email', {
+        body: {
+          to: emailTo,
+          pharmacyName,
+          stats: {
+            totalMessages: stats?.totalMessages,
+            uniquePatients: stats?.uniquePatients,
+            totalOrders: stats?.totalOrders,
+            avgPerWeek,
+            topMeds: topMeds.slice(0, 8),
+            weeklyData: weeklyChartData,
+          },
+        },
+      });
+      if (error) throw error;
+      toast({ title: `Report sent to ${emailTo}`, description: 'From info@chekameds.co.bw' });
+    } catch {
+      toast({ title: 'Email failed', description: 'Use Print to PDF and email manually instead.', variant: 'destructive' });
+    }
+    setSending(false);
+  };
+
   const { data: stats } = useQuery({
-    queryKey: ['analytics-stats'],
     queryFn: async () => {
       const since90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
       const [waLogs, sessions, orders] = await Promise.all([
@@ -811,9 +886,51 @@ const AnalyticsTab = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-bold text-foreground">Platform Analytics</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">Real demand data from WhatsApp searches · Last 90 days</p>
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Platform Analytics</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Real demand data from WhatsApp searches · Last 90 days</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={generatePDF} disabled={pdfLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-xl text-xs font-semibold text-foreground hover:bg-muted transition-all disabled:opacity-50">
+            <TrendingUp className="h-3.5 w-3.5" />
+            {pdfLoading ? 'Generating...' : 'Print / Save PDF'}
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl p-5">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Email report to pharmacy</p>
+        <div className="flex flex-wrap gap-3">
+          <select
+            value={selectedPharmacy}
+            onChange={(e) => {
+              setSelectedPharmacy(e.target.value);
+              const f = facilities?.find((f: any) => f.id === e.target.value);
+              if (f?.email) setEmailTo(f.email);
+            }}
+            className="flex-1 min-w-[200px] text-sm bg-background border border-border rounded-xl px-3 py-2 text-foreground"
+          >
+            <option value="">Select pharmacy...</option>
+            {(facilities || []).map((f: any) => (
+              <option key={f.id} value={f.id}>{f.facility_name}</option>
+            ))}
+          </select>
+          <input
+            type="email"
+            placeholder="Email address"
+            value={emailTo}
+            onChange={(e) => setEmailTo(e.target.value)}
+            className="flex-1 min-w-[200px] text-sm bg-background border border-border rounded-xl px-3 py-2 text-foreground"
+          />
+          <button onClick={sendEmail} disabled={sending || !emailTo}
+            className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-bold hover:opacity-90 transition-all disabled:opacity-50">
+            <Mail className="h-3.5 w-3.5" />
+            {sending ? 'Sending...' : 'Send Report'}
+          </button>
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-2">Sent from info@chekameds.co.bw · Or use Print/PDF above to email manually</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
