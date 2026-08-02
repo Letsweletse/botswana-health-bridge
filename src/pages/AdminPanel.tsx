@@ -487,11 +487,11 @@ const AdminPanel = () => {
                   }
                 }
 
-                if (window.Chart) { initCharts(); }
+                if (window.Chart) { setTimeout(initCharts, 100); }
                 else {
                   var s = document.createElement('script');
                   s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
-                  s.onload = initCharts;
+                  s.onload = function() { setTimeout(initCharts, 100); };
                   document.head.appendChild(s);
                 }
               })();
@@ -933,18 +933,20 @@ const AnalyticsTab = () => {
       ]);
       const logs = waLogs.data || [];
 
-      const months: Record<string, { interactions: number; users: Set<string> }> = {};
+      const months: Record<string, { interactions: number; users: Set<string>; label: string }> = {};
       const weeks: Record<string, number> = {};
+      const weekLabels: Record<string, string> = {};
 
       logs.forEach((r: any) => {
         const d = new Date(r.created_at);
-        const mKey = d.toLocaleDateString('en-BW', { month: 'short', year: 'numeric' });
-        if (!months[mKey]) months[mKey] = { interactions: 0, users: new Set() };
+        const mKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        if (!months[mKey]) months[mKey] = { interactions: 0, users: new Set(), label: d.toLocaleDateString('en-BW', { month: 'short', year: 'numeric' }) };
         months[mKey].interactions++;
         if (r.from_number) months[mKey].users.add(r.from_number);
 
         const mon = new Date(d); mon.setDate(d.getDate() - d.getDay() + 1);
-        const wKey = mon.toLocaleDateString('en-BW', { day: 'numeric', month: 'short' });
+        const wKey = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
+        if (!weekLabels[wKey]) weekLabels[wKey] = mon.toLocaleDateString('en-BW', { day: 'numeric', month: 'short' });
         weeks[wKey] = (weeks[wKey] || 0) + 1;
       });
 
@@ -957,7 +959,8 @@ const AnalyticsTab = () => {
         medCounts[body] = (medCounts[body] || 0) + 1;
       });
 
-      const monthlyArr = Object.entries(months).map(([month, d]) => ({ month, interactions: d.interactions, users: d.users.size }));
+      const monthlyArr = Object.keys(months).sort().map(k => ({ month: months[k].label, interactions: months[k].interactions, users: months[k].users.size }));
+      const sortedWeekKeys = Object.keys(weeks).sort();
       const total = logs.length;
       const prevTotal = 368;
       const growth = prevTotal > 0 ? Math.round(((total - prevTotal) / prevTotal) * 100) : 0;
@@ -967,8 +970,8 @@ const AnalyticsTab = () => {
         uniquePatients: new Set(logs.map((r: any) => r.from_number).filter(Boolean)).size,
         totalOrders: orders.data?.length || 0,
         growth,
-        weeklyLabels: Object.keys(weeks),
-        weeklyValues: Object.values(weeks) as number[],
+        weeklyLabels: sortedWeekKeys.map(k => weekLabels[k]),
+        weeklyValues: sortedWeekKeys.map(k => weeks[k]) as number[],
         monthlyData: monthlyArr,
         topMeds: Object.entries(medCounts).sort((a, b) => b[1] - a[1]).slice(0, 8),
         peakWeek: Object.entries(weeks).sort((a, b) => b[1] - a[1])[0]?.[0] || '—',
@@ -1368,11 +1371,11 @@ const AnalyticsTab = () => {
             }
           }
 
-          if (window.Chart) { renderCharts(); }
+          if (window.Chart) { setTimeout(renderCharts, 150); }
           else {
             var s = document.createElement('script');
             s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
-            s.onload = renderCharts;
+            s.onload = function() { setTimeout(renderCharts, 150); };
             document.head.appendChild(s);
           }
         })();
