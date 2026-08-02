@@ -1,11 +1,20 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
-export default defineConfig(() => ({
+export default defineConfig(({ mode }) => ({
+  server: {
+    host: "::",
+    port: 8080,
+    hmr: {
+      overlay: false,
+    },
+  },
   plugins: [
     react(),
+    mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["favicon.png", "app-icon.png"],
@@ -15,38 +24,34 @@ export default defineConfig(() => ({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
       manifest: {
-        name: "ChekaMeds — Find Medicine Near You",
+        name: "ChekaMeds — Medicine Stock Tracker",
         short_name: "ChekaMeds",
-        description: "Find medicine availability across pharmacies in Botswana. Search, reserve, and get directions instantly.",
-        theme_color: "#10b981",
-        background_color: "#ffffff",
+        description: "Real-time medicine stock visibility across Gaborone clinics. Powered by IBLIM ENTERPRISE.",
+        theme_color: "#3a8a5c",
+        background_color: "#0f1419",
         display: "standalone",
         orientation: "portrait-primary",
         scope: "/",
-        start_url: "/search",
+        start_url: "/",
         icons: [
-          { src: "/app-icon.png", sizes: "192x192", type: "image/png" },
-          { src: "/app-icon.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+          {
+            src: "/app-icon.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "/app-icon.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable",
+          },
         ],
       },
     }),
-  ],
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'framer': ['framer-motion'],
-          'supabase': ['@supabase/supabase-js'],
-          'charts': ['recharts'],
-          'radix': ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-toast'],
-        }
-      }
-    }
-  }
 }));
