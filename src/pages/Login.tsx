@@ -19,14 +19,15 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      // Admin shortcut
-      if (email === 'admin' && password === 'chekameds@2028') {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: 'info@chekameds.co.bw',
-          password: 'chekameds@2028',
-        });
-        if (!error) { navigate('/admin'); return; }
-      }
+    // Admin shortcut — username: admin, password: chekameds@2028
+    if ((email === 'admin' || email === 'blimdawoo@gmail.com') && password === 'chekameds@2028') {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: 'blimdawoo@gmail.com',
+        password: 'chekameds@2028',
+      });
+      if (!error) { navigate('/admin'); return; }
+      // If password doesn't match Supabase, fall through to normal login
+    }
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       navigate(redirectTo);
