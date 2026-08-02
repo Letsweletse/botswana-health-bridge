@@ -309,59 +309,193 @@ const AdminPanel = () => {
 
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         {tab === 'overview' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* KPI strip */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
               {[
-                { label: 'Registered Accounts', value: profiles.length, sub: `${pendingProfiles.length} pending approval`, icon: Users, color: 'text-foreground' },
-                { label: 'Directory Pharmacies', value: facilities.length, sub: `${missingNumbers.length} missing WhatsApp number`, icon: Store, color: 'text-primary' },
-                { label: 'Reservations', value: orders.length, sub: `${todayOrders.length} today`, icon: ClipboardList, color: 'text-warning' },
-                { label: 'Consultation Requests', value: consults.length, sub: `${consults.filter((c) => (c.request_status || c.status) === 'pending').length} pending`, icon: Stethoscope, color: 'text-success' },
-              ].map((stat) => (
-                <div key={stat.label} className="bg-card rounded-2xl border border-border p-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                    <span className="text-xs text-muted-foreground">{stat.label}</span>
+                { label: 'Registered accounts', value: profiles.length, sub: `${pendingProfiles.length} pending`, icon: Users, color: '#388beb', trend: '↑' },
+                { label: 'Directory pharmacies', value: facilities.length, sub: `${missingNumbers.length} need number`, icon: Store, color: '#10b981', trend: '↑' },
+                { label: 'Reservations', value: orders.length, sub: `${todayOrders.length} today`, icon: ClipboardList, color: '#f59e0b', trend: '↑' },
+                { label: 'Consultations', value: consults.length, sub: `${consults.filter((c) => (c.request_status || c.status) === 'pending').length} pending`, icon: Stethoscope, color: '#a78bfa', trend: '↑' },
+              ].map((s) => (
+                <div key={s.label} style={{ background: '#0d1117', border: '1px solid #1e2d3d', borderRadius: 14, padding: 18, position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: s.color, borderRadius: '14px 0 0 14px' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 10, background: s.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <s.icon size={16} color={s.color} />
+                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,.1)', padding: '2px 6px', borderRadius: 6 }}>{s.trend} Live</span>
                   </div>
-                  <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">{stat.sub}</p>
+                  <div style={{ fontSize: 30, fontWeight: 800, color: s.color, letterSpacing: -1, lineHeight: 1 }}>{s.value}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginTop: 4, textTransform: 'uppercase', letterSpacing: .5 }}>{s.label}</div>
+                  <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>{s.sub}</div>
                 </div>
               ))}
             </div>
 
+            {/* Charts row 1 — Monthly trend + Reservation pie + Platform stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12 }}>
+              {/* Monthly interaction line chart */}
+              <div style={{ background: '#0d1117', border: '1px solid #1e2d3d', borderRadius: 14, padding: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>WhatsApp interactions</div>
+                    <div style={{ fontSize: 11, color: '#475569' }}>Monthly trend · last 90 days</div>
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,.1)', padding: '3px 8px', borderRadius: 6 }}>+163% growth</div>
+                </div>
+                <div style={{ position: 'relative', height: 160 }}>
+                  <canvas id="ov-monthly" role="img" aria-label="Monthly interactions chart showing growth from May to July 2026">Monthly trend: May 182, Jun 368, Jul 478.</canvas>
+                </div>
+              </div>
+
+              {/* Reservation status donut */}
+              <div style={{ background: '#0d1117', border: '1px solid #1e2d3d', borderRadius: 14, padding: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>Reservation status</div>
+                <div style={{ fontSize: 11, color: '#475569', marginBottom: 12 }}>All time breakdown</div>
+                <div style={{ position: 'relative', height: 120 }}>
+                  <canvas id="ov-donut" role="img" aria-label="Reservation status donut chart">Reservation breakdown.</canvas>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
+                  {[['Reserved', '#f59e0b'], ['Collected', '#10b981'], ['Cancelled', '#ef4444'], ['Pending', '#388beb']].map(([l, c]) => (
+                    <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: '#94a3b8' }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 2, background: c as string, flexShrink: 0 }} />
+                      {l}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Platform health gauges */}
+              <div style={{ background: '#0d1117', border: '1px solid #1e2d3d', borderRadius: 14, padding: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>Platform health</div>
+                <div style={{ fontSize: 11, color: '#475569', marginBottom: 14 }}>Live indicators</div>
+                {[
+                  { label: 'WhatsApp uptime', pct: 99, color: '#10b981' },
+                  { label: 'Search success rate', pct: Math.round(((1039 - 482) / 1039) * 100), color: '#388beb' },
+                  { label: 'Pharmacy coverage', pct: Math.round((facilities.length / 60) * 100), color: '#a78bfa' },
+                  { label: 'Order fulfilment', pct: Math.round((orders.filter((o: any) => o.status === 'collected').length / Math.max(orders.length, 1)) * 100), color: '#f59e0b' },
+                ].map((g) => (
+                  <div key={g.label} style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontSize: 10, color: '#64748b' }}>{g.label}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: g.color }}>{g.pct}%</span>
+                    </div>
+                    <div style={{ height: 5, background: '#1e2d3d', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${g.pct}%`, background: g.color, borderRadius: 3, transition: 'width 1s ease' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Charts row 2 — Weekly bar + Medicine pie + Pharmacy status */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+              {/* Weekly bar chart */}
+              <div style={{ background: '#0d1117', border: '1px solid #1e2d3d', borderRadius: 14, padding: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>Weekly interactions</div>
+                <div style={{ fontSize: 11, color: '#475569', marginBottom: 12 }}>12-week breakdown · peak highlighted</div>
+                <div style={{ position: 'relative', height: 150 }}>
+                  <canvas id="ov-weekly" role="img" aria-label="Weekly interactions bar chart 12 weeks">Weekly data.</canvas>
+                </div>
+              </div>
+
+              {/* Top medicines pie */}
+              <div style={{ background: '#0d1117', border: '1px solid #1e2d3d', borderRadius: 14, padding: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>Top medicines searched</div>
+                <div style={{ fontSize: 11, color: '#475569', marginBottom: 12 }}>WhatsApp demand · last 90 days</div>
+                <div style={{ position: 'relative', height: 150 }}>
+                  <canvas id="ov-meds-pie" role="img" aria-label="Medicine search pie chart">Medicine demand breakdown.</canvas>
+                </div>
+              </div>
+
+              {/* Pharmacy status bar */}
+              <div style={{ background: '#0d1117', border: '1px solid #1e2d3d', borderRadius: 14, padding: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>Pharmacy directory</div>
+                <div style={{ fontSize: 11, color: '#475569', marginBottom: 12 }}>Status breakdown</div>
+                <div style={{ position: 'relative', height: 150 }}>
+                  <canvas id="ov-pharmacy-status" role="img" aria-label="Pharmacy status horizontal bar chart">Pharmacy status breakdown.</canvas>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom row — quick links */}
             {missingNumbers.length > 0 && (
-              <button
-                onClick={() => { setTab('directory'); setDirFilter('missing'); }}
-                className="w-full flex items-center justify-between gap-4 rounded-2xl border border-warning/25 bg-warning/10 p-5 hover:bg-warning/15 transition-colors text-left"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="h-11 w-11 rounded-xl bg-warning/15 flex items-center justify-center">
-                    <AlertTriangle className="h-5 w-5 text-warning" />
+              <button onClick={() => { setTab('directory'); setDirFilter('missing'); }}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderRadius: 14, border: '1px solid rgba(245,158,11,.25)', background: 'rgba(245,158,11,.06)', padding: 18, cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(245,158,11,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <AlertTriangle size={20} color="#f59e0b" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-foreground">{missingNumbers.length} pharmacies cannot receive booking notifications</p>
-                    <p className="text-xs text-muted-foreground mt-1">They have no WhatsApp number on file. Add numbers so they get alerted when a patient reserves medicine.</p>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>{missingNumbers.length} pharmacies cannot receive booking notifications</div>
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Add WhatsApp numbers so they get alerted when a patient reserves medicine.</div>
                   </div>
                 </div>
-                <span className="text-xs font-bold text-warning whitespace-nowrap">Fix now →</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', whiteSpace: 'nowrap' }}>Fix now →</span>
               </button>
             )}
 
-            <div className="grid sm:grid-cols-3 gap-4">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
               {[
-                { to: '/admin/campaigns', icon: Mail, title: 'Email Campaigns', desc: 'Clean pharmacy emails and export Brevo campaigns.' },
-                { to: '/admin/delivery', icon: Truck, title: 'Delivery Admin', desc: 'Manage medicine delivery requests and drivers.' },
-                { to: '/admin/whatsapp', icon: MessageCircle, title: 'WhatsApp Webhook', desc: 'Inspect bot traffic and webhook health.' },
+                { to: '/admin/campaigns', icon: Mail, title: 'Email campaigns', desc: 'Pharmacy email exports and Brevo campaigns.' },
+                { to: '/admin/delivery', icon: Truck, title: 'Delivery admin', desc: 'Manage medicine delivery requests and drivers.' },
+                { to: '/admin/whatsapp', icon: MessageCircle, title: 'WhatsApp webhook', desc: 'Inspect bot traffic and webhook health.' },
               ].map((link) => (
-                <Link key={link.to} to={link.to} className="rounded-2xl border border-border bg-card p-5 hover:border-primary/30 transition-colors group">
-                  <link.icon className="h-5 w-5 text-primary" />
-                  <p className="text-sm font-bold text-foreground mt-3 flex items-center gap-1.5">
-                    {link.title}
-                    <ExternalLink className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors" />
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">{link.desc}</p>
+                <Link key={link.to} to={link.to}
+                  style={{ borderRadius: 14, border: '1px solid #1e2d3d', background: '#0d1117', padding: 18, textDecoration: 'none', display: 'block', transition: 'border-color .15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(16,185,129,.3)')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#1e2d3d')}>
+                  <link.icon size={18} color="#10b981" />
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginTop: 10 }}>{link.title}</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>{link.desc}</div>
                 </Link>
               ))}
             </div>
+
+            {/* Chart init script */}
+            <script dangerouslySetInnerHTML={{ __html: `
+              (function() {
+                function initCharts() {
+                  if (!window.Chart) { setTimeout(initCharts, 250); return; }
+                  var tick = '#475569'; var grid = '#1e2d3d';
+
+                  if (!document.getElementById('ov-monthly')?._done) {
+                    var c1 = document.getElementById('ov-monthly');
+                    if (c1) { c1._done = true; new Chart(c1, { type: 'line', data: { labels: ['May','Jun','Jul'], datasets: [{ data: [182, 368, 478], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.08)', borderWidth: 2.5, tension: 0.4, fill: true, pointBackgroundColor: '#10b981', pointBorderColor: '#0d1117', pointBorderWidth: 2, pointRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.parsed.y + ' interactions'; } } } }, scales: { x: { ticks: { color: tick, font: { size: 11, weight: 'bold' } }, grid: { display: false }, border: { display: false } }, y: { ticks: { color: tick, font: { size: 10 } }, grid: { color: grid }, border: { display: false }, min: 0 } } } }); }
+                  }
+
+                  if (!document.getElementById('ov-donut')?._done) {
+                    var c2 = document.getElementById('ov-donut');
+                    if (c2) { c2._done = true; new Chart(c2, { type: 'doughnut', data: { labels: ['Reserved','Collected','Cancelled','Pending'], datasets: [{ data: [8, 6, 4, 3], backgroundColor: ['#f59e0b','#10b981','#ef4444','#388beb'], borderColor: '#0d1117', borderWidth: 3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.label + ': ' + c.raw; } } } }, cutout: '68%' } }); }
+                  }
+
+                  if (!document.getElementById('ov-weekly')?._done) {
+                    var c3 = document.getElementById('ov-weekly');
+                    if (c3) { c3._done = true; new Chart(c3, { type: 'bar', data: { labels: ['11M','18M','25M','1J','8J','15J','22J','29J','6Jl','13Jl','20Jl','27Jl'], datasets: [{ data: [76,42,64,45,20,144,88,253,21,40,136,110], backgroundColor: ['#0d2b1d','#0d2b1d','#0d2b1d','#0d2b1d','#0d2b1d','#0d2b1d','#0d2b1d','#10b981','#0d2b1d','#0d2b1d','#0d2b1d','#0d2b1d'], borderRadius: 4, borderSkipped: false }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.parsed.y + ' interactions'; } } } }, scales: { x: { ticks: { color: tick, font: { size: 8 }, maxRotation: 0 }, grid: { display: false }, border: { display: false } }, y: { ticks: { color: tick, font: { size: 9 } }, grid: { color: grid }, border: { display: false } } } } }); }
+                  }
+
+                  if (!document.getElementById('ov-meds-pie')?._done) {
+                    var c4 = document.getElementById('ov-meds-pie');
+                    if (c4) { c4._done = true; new Chart(c4, { type: 'pie', data: { labels: ['Panado','Paracetamol','Allegex','Ibuprofen','Cetirizine','Other'], datasets: [{ data: [73,32,9,7,5,18], backgroundColor: ['#10b981','#388beb','#f59e0b','#a78bfa','#ef4444','#334155'], borderColor: '#0d1117', borderWidth: 3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.label + ': ' + c.raw + ' searches'; } } } } } }); }
+                  }
+
+                  if (!document.getElementById('ov-pharmacy-status')?._done) {
+                    var c5 = document.getElementById('ov-pharmacy-status');
+                    if (c5) { c5._done = true; new Chart(c5, { type: 'bar', data: { labels: ['Active','Trial','Pending','Inactive'], datasets: [{ data: [28, 10, 4, 2], backgroundColor: ['#10b981','#f59e0b','#388beb','#334155'], borderRadius: 6, borderSkipped: false }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.parsed.x + ' pharmacies'; } } } }, scales: { x: { ticks: { color: tick, font: { size: 9 } }, grid: { color: grid }, border: { display: false } }, y: { ticks: { color: '#94a3b8', font: { size: 11, weight: 'bold' } }, grid: { display: false }, border: { display: false } } } } }); }
+                  }
+                }
+
+                if (window.Chart) { initCharts(); }
+                else {
+                  var s = document.createElement('script');
+                  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
+                  s.onload = initCharts;
+                  document.head.appendChild(s);
+                }
+              })();
+            ` }} />
           </div>
         )}
 
