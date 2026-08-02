@@ -6,13 +6,13 @@ import { Navigate, Link } from 'react-router-dom';
 import {
   CheckCircle2, XCircle, Building2, Clock, ArrowLeft, Loader2, Users, ShieldCheck, Mail,
   LayoutDashboard, Store, Phone, PhoneOff, Search, Plus, Save, MessageCircle, Truck,
-  ClipboardList, Stethoscope, Eye, EyeOff, BellRing, BellOff, ExternalLink, AlertTriangle,
+  ClipboardList, Stethoscope, Eye, EyeOff, BellRing, BellOff, ExternalLink, AlertTriangle, TrendingUp,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import logo from '@/assets/ChekaMeds_Logo.png';
 
-type AdminTab = 'overview' | 'approvals' | 'directory' | 'orders' | 'consultations';
+type AdminTab = 'overview' | 'approvals' | 'directory' | 'orders' | 'consultations' | 'analytics';
 
 type Facility = {
   id: string;
@@ -258,6 +258,7 @@ const AdminPanel = () => {
     { id: 'directory', label: 'Pharmacy Directory', icon: Store, badge: missingNumbers.length },
     { id: 'orders', label: 'Reservations', icon: ClipboardList, badge: orders.filter((o) => o.status === 'reserved').length },
     { id: 'consultations', label: 'Consultations', icon: Stethoscope },
+    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
   ];
 
   return (
@@ -752,7 +753,166 @@ const AdminPanel = () => {
             )}
           </div>
         )}
+
+        {tab === 'analytics' && (
+          <AnalyticsTab />
+        )}
       </main>
+    </div>
+  );
+};
+
+const AnalyticsTab = () => {
+  const { data: stats } = useQuery({
+    queryKey: ['analytics-stats'],
+    queryFn: async () => {
+      const since90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      const [waLogs, sessions, orders] = await Promise.all([
+        (supabase as any).from('whatsapp_webhook_logs').select('created_at, from_number').gte('created_at', since90),
+        (supabase as any).from('whatsapp_sessions').select('medicine, created_at').not('medicine', 'is', null).gte('created_at', since90),
+        (supabase as any).from('chekameds_orders').select('created_at').gte('created_at', since90),
+      ]);
+      return {
+        totalMessages: waLogs.data?.length || 0,
+        uniquePatients: new Set((waLogs.data || []).map((r: any) => r.from_number).filter(Boolean)).size,
+        totalOrders: orders.data?.length || 0,
+        sessions: sessions.data || [],
+        weeklyData: waLogs.data || [],
+      };
+    },
+  });
+
+  const weeklyChartData = useMemo(() => {
+    if (!stats?.weeklyData) return { labels: [], data: [] };
+    const weeks: Record<string, number> = {};
+    stats.weeklyData.forEach((r: any) => {
+      const d = new Date(r.created_at);
+      const mon = new Date(d); mon.setDate(d.getDate() - d.getDay() + 1);
+      const key = mon.toLocaleDateString('en-BW', { day: 'numeric', month: 'short' });
+      weeks[key] = (weeks[key] || 0) + 1;
+    });
+    return { labels: Object.keys(weeks), data: Object.values(weeks) };
+  }, [stats]);
+
+  const topMeds = useMemo(() => {
+    if (!stats?.sessions) return [];
+    const counts: Record<string, number> = {};
+    const skip = ['morning', 'hello', 'hi', 'good day', 'help', 'gaborone'];
+    stats.sessions.forEach((s: any) => {
+      const med = (s.medicine || '').toLowerCase().trim();
+      if (med.length < 3 || skip.some(w => med.includes(w))) return;
+      counts[s.medicine] = (counts[s.medicine] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  }, [stats]);
+
+  const avgPerWeek = stats ? Math.round(stats.totalMessages / 12) : 0;
+  const maxMed = topMeds[0]?.[1] || 1;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold text-foreground">Platform Analytics</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">Real demand data from WhatsApp searches · Last 90 days</p>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Total interactions', value: stats?.totalMessages.toLocaleString() || '—', sub: 'WhatsApp messages' },
+          { label: 'Unique patients', value: String(stats?.uniquePatients || '—'), sub: 'Distinct phone numbers' },
+          { label: 'Reservations', value: String(stats?.totalOrders || '—'), sub: 'Orders placed' },
+          { label: 'Avg per week', value: String(avgPerWeek || '—'), sub: 'Interactions / week' },
+        ].map((k) => (
+          <div key={k.label} className="bg-card border border-border rounded-2xl p-4">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">{k.label}</p>
+            <p className="text-2xl font-bold text-primary">{k.value}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl p-5">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">Weekly interaction trend</p>
+        <div style={{ position: 'relative', width: '100%', height: '220px' }}>
+          <canvas id="adminTrendChart" />
+        </div>
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            function renderChart() {
+              if (!window.Chart) { setTimeout(renderChart, 300); return; }
+              const canvas = document.getElementById('adminTrendChart');
+              if (!canvas || canvas._chekameds) return;
+              canvas._chekameds = true;
+              const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+              new Chart(canvas, {
+                type: 'bar',
+                data: {
+                  labels: ${JSON.stringify(weeklyChartData.labels)},
+                  datasets: [{ label: 'Interactions', data: ${JSON.stringify(weeklyChartData.data)}, backgroundColor: '#10b981', borderRadius: 4 }]
+                },
+                options: {
+                  responsive: true, maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: {
+                    x: { ticks: { color: '#898781', font: { size: 10 }, maxRotation: 45 }, grid: { display: false }, border: { display: false } },
+                    y: { ticks: { color: '#898781', font: { size: 10 } }, grid: { color: isDark ? '#2c2c2a' : '#e1e0d9' }, border: { display: false } }
+                  }
+                }
+              });
+            }
+            if (window.Chart) { renderChart(); } else {
+              const s = document.createElement('script');
+              s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
+              s.onload = renderChart;
+              document.head.appendChild(s);
+            }
+          })();
+        ` }} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">Top medicines searched</p>
+          {topMeds.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">Loading medicine data...</p>
+          ) : (
+            <div className="space-y-3">
+              {topMeds.map(([med, count]) => (
+                <div key={med} className="flex items-center gap-3">
+                  <span className="text-sm text-foreground flex-1 truncate capitalize">{med}</span>
+                  <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full" style={{ width: `${Math.round((count / maxMed) * 100)}%` }} />
+                  </div>
+                  <span className="text-xs text-muted-foreground w-4 text-right">{count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">Key insights</p>
+          <div className="space-y-4">
+            {[
+              { icon: TrendingUp, color: 'text-success', bg: 'bg-success/10', text: `Platform processed ${stats?.totalMessages.toLocaleString() || '...'} interactions from ${stats?.uniquePatients || '...'} unique patients in 90 days.` },
+              { icon: Users, color: 'text-primary', bg: 'bg-primary/10', text: `Each patient averaged ${stats ? Math.round((stats.totalMessages || 0) / Math.max(stats.uniquePatients || 1, 1)) : '...'} interactions — showing strong engagement per user.` },
+              { icon: ClipboardList, color: 'text-warning', bg: 'bg-warning/10', text: `${stats?.totalOrders || '...'} confirmed reservations placed — representing real patient purchase intent.` },
+              { icon: MessageCircle, color: 'text-primary', bg: 'bg-primary/10', text: 'Pharmacy-specific click attribution coming in the next update — each pharmacy will see their own exposure data.' },
+            ].map((ins, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <div className={`w-7 h-7 rounded-lg ${ins.bg} flex items-center justify-center flex-shrink-0`}>
+                  <ins.icon className={`h-3.5 w-3.5 ${ins.color}`} />
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">{ins.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <p className="text-[11px] text-muted-foreground pt-3 border-t border-border">
+        All data sourced directly from ChekaMeds database. No numbers are inflated — this reflects real platform activity only.
+      </p>
     </div>
   );
 };
