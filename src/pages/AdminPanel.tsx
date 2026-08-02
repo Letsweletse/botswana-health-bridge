@@ -840,46 +840,58 @@ const AnalyticsTab = () => {
   };
 
   const { data: stats } = useQuery({
+    queryKey: ['analytics-stats-v2'],
     queryFn: async () => {
       const since90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-      const [waLogs, sessions, orders] = await Promise.all([
-        (supabase as any).from('whatsapp_webhook_logs').select('created_at, from_number').gte('created_at', since90),
-        (supabase as any).from('whatsapp_sessions').select('medicine, created_at').not('medicine', 'is', null).gte('created_at', since90),
+      const [waLogs, orders] = await Promise.all([
+        (supabase as any).from('whatsapp_webhook_logs').select('created_at, from_number, message_body').gte('created_at', since90),
         (supabase as any).from('chekameds_orders').select('created_at').gte('created_at', since90),
       ]);
+      const logs = waLogs.data || [];
+
+      const weeks: Record<string, number> = {};
+      logs.forEach((r: any) => {
+        const d = new Date(r.created_at);
+        const mon = new Date(d); mon.setDate(d.getDate() - d.getDay() + 1);
+        const key = mon.toLocaleDateString('en-BW', { day: 'numeric', month: 'short' });
+        weeks[key] = (weeks[key] || 0) + 1;
+      });
+
+      const months: Record<string, { interactions: number; users: Set<string> }> = {};
+      logs.forEach((r: any) => {
+        const key = new Date(r.created_at).toLocaleDateString('en-BW', { month: 'short', year: 'numeric' });
+        if (!months[key]) months[key] = { interactions: 0, users: new Set() };
+        months[key].interactions++;
+        if (r.from_number) months[key].users.add(r.from_number);
+      });
+
+      const skipWords = ['hello', 'hi ', 'good', 'thank', 'http', 'p150', 'cpay', 'pay', 'store', 'menu', 'gaborone', 'help', 'staff', 'open', 'follow', 'change', 'video', 'consult', 'reserve', 'pick', 'jwaneng', '50 ', 'each', 'flue', 'headache', 'town', 'ulcer', 'morning'];
+      const medCounts: Record<string, number> = {};
+      logs.forEach((r: any) => {
+        const body = (r.message_body || '').trim().toLowerCase();
+        if (body.length < 4 || body.length > 40) return;
+        if (skipWords.some(w => body.includes(w))) return;
+        medCounts[body] = (medCounts[body] || 0) + 1;
+      });
+
       return {
-        totalMessages: waLogs.data?.length || 0,
-        uniquePatients: new Set((waLogs.data || []).map((r: any) => r.from_number).filter(Boolean)).size,
+        totalMessages: logs.length,
+        uniquePatients: new Set(logs.map((r: any) => r.from_number).filter(Boolean)).size,
         totalOrders: orders.data?.length || 0,
-        sessions: sessions.data || [],
-        weeklyData: waLogs.data || [],
+        weeklyLabels: Object.keys(weeks),
+        weeklyValues: Object.values(weeks) as number[],
+        monthlyData: Object.entries(months).map(([month, d]) => ({ month, interactions: d.interactions, users: d.users.size })),
+        topMeds: Object.entries(medCounts).sort((a, b) => b[1] - a[1]).slice(0, 8),
       };
     },
   });
 
-  const weeklyChartData = useMemo(() => {
-    if (!stats?.weeklyData) return { labels: [], data: [] };
-    const weeks: Record<string, number> = {};
-    stats.weeklyData.forEach((r: any) => {
-      const d = new Date(r.created_at);
-      const mon = new Date(d); mon.setDate(d.getDate() - d.getDay() + 1);
-      const key = mon.toLocaleDateString('en-BW', { day: 'numeric', month: 'short' });
-      weeks[key] = (weeks[key] || 0) + 1;
-    });
-    return { labels: Object.keys(weeks), data: Object.values(weeks) };
-  }, [stats]);
+  const weeklyChartData = useMemo(() => ({
+    labels: stats?.weeklyLabels || [],
+    data: stats?.weeklyValues || [],
+  }), [stats]);
 
-  const topMeds = useMemo(() => {
-    if (!stats?.sessions) return [];
-    const counts: Record<string, number> = {};
-    const skip = ['morning', 'hello', 'hi', 'good day', 'help', 'gaborone'];
-    stats.sessions.forEach((s: any) => {
-      const med = (s.medicine || '').toLowerCase().trim();
-      if (med.length < 3 || skip.some(w => med.includes(w))) return;
-      counts[s.medicine] = (counts[s.medicine] || 0) + 1;
-    });
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  }, [stats]);
+  const topMeds = useMemo(() => stats?.topMeds || [], [stats]);
 
   const avgPerWeek = stats ? Math.round(stats.totalMessages / 12) : 0;
   const maxMed = topMeds[0]?.[1] || 1;
