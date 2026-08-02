@@ -217,3 +217,115 @@
     background: radial-gradient(circle at 20% 0%, rgba(151, 214, 88, 0.16), transparent 35%), #07130f;
   }
 }
+
+/* ═══════════════════════════════════════════
+   CHEKAMEDS COMMAND CENTRE THEME OVERRIDE
+   Dark operational dashboard — A-grade
+   ═══════════════════════════════════════════ */
+
+/* Override CSS vars for dark command centre */
+.dark, [data-theme="dark"], :root {
+  --background: 218 35% 5%;
+  --foreground: 210 40% 92%;
+  --card: 218 30% 7%;
+  --card-foreground: 210 40% 92%;
+  --popover: 218 30% 8%;
+  --popover-foreground: 210 40% 92%;
+  --primary: 158 84% 40%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 218 25% 12%;
+  --secondary-foreground: 210 30% 75%;
+  --muted: 218 25% 10%;
+  --muted-foreground: 215 20% 45%;
+  --accent: 158 84% 40%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 218 25% 13%;
+  --input: 218 25% 10%;
+  --ring: 158 84% 40%;
+  --success: 158 84% 40%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 0%;
+  --critical: 0 72% 51%;
+  --critical-foreground: 0 0% 100%;
+}
+
+/* Force dark theme on whole app */
+body {
+  background: #050d18 !important;
+  color: #e2e8f0 !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #0d1117; }
+::-webkit-scrollbar-thumb { background: #1e2d3d; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #10b981; }
+
+/* Admin header override */
+header { background: #0d1117 !important; border-color: #1e2d3d !important; }
+
+/* Tab active state */
+.bg-primary\/15 { background: rgba(16,185,129,.12) !important; }
+.text-primary { color: #10b981 !important; }
+.border-primary\/20 { border-color: rgba(16,185,129,.2) !important; }
+
+/* Cards */
+.bg-card { background: #0d1117 !important; }
+.border-border { border-color: #1e2d3d !important; }
+
+/* Muted text */
+.text-muted-foreground { color: #475569 !important; }
+.text-foreground { color: #e2e8f0 !important; }
+
+/* KPI cards */
+.rounded-2xl.bg-card { background: #0d1117 !important; border: 1px solid #1e2d3d !important; }
+
+/* Inputs */
+input, select, textarea {
+  background: #050d18 !important;
+  border-color: #1e2d3d !important;
+  color: #e2e8f0 !important;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #10b981 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(16,185,129,.15) !important;
+}
+
+/* Buttons */
+.bg-primary { background: #10b981 !important; }
+
+/* Status pills */
+.bg-success\/10 { background: rgba(16,185,129,.1) !important; }
+.text-success { color: #10b981 !important; }
+.bg-warning\/10 { background: rgba(245,158,11,.1) !important; }
+.text-warning { color: #f59e0b !important; }
+.bg-critical\/10 { background: rgba(239,68,68,.1) !important; }
+.text-critical { color: #ef4444 !important; }
+
+/* Sidebar */
+nav, aside { background: #0a0e1a !important; border-color: #1e2d3d !important; }
+
+/* Table rows */
+table { border-color: #1e2d3d !important; }
+tr:hover { background: #0d1117 !important; }
+td, th { border-color: #1e2d3d !important; color: #94a3b8; }
+th { color: #475569 !important; }
+
+/* Rounded card hover accent */
+.rounded-2xl:hover { border-color: rgba(16,185,129,.2) !important; }
+
+/* Logo image on dark */
+img[alt="ChekaMeds"] { filter: brightness(1.1); }
+
+/* Override background on main */
+.bg-background { background: #050d18 !important; }
+.bg-muted { background: #0d1117 !important; }
+.bg-muted\/30 { background: rgba(13,17,23,.3) !important; }
+
+/* Animate pulse for live indicator */
+@keyframes cheka-pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+.animate-pulse { animation: cheka-pulse 2s cubic-bezier(0.4,0,0.6,1) infinite; }

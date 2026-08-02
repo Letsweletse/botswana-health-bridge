@@ -262,40 +262,52 @@ const AdminPanel = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-xl border-b border-border">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <img src={logo} alt="ChekaMeds" className="h-10 w-10 rounded-xl bg-white p-0.5 shadow-sm object-contain" />
-            <div>
-              <h1 className="text-sm font-bold text-foreground tracking-tight">ChekaMeds Admin</h1>
-              <p className="text-[9px] text-muted-foreground uppercase tracking-widest">Platform Control Center</p>
+    <div className="min-h-screen" style={{ background: '#050d18', color: '#e2e8f0', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      {/* Top command bar */}
+      <header style={{ background: '#0d1117', borderBottom: '1px solid #1e2d3d', position: 'sticky', top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 36, height: 36, background: '#10b981', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800, color: 'white', flexShrink: 0 }}>C</div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9', letterSpacing: -0.3 }}>ChekaMeds Admin</div>
+                <div style={{ fontSize: 9, color: '#334155', textTransform: 'uppercase', letterSpacing: 1 }}>Platform Control Centre</div>
+              </div>
             </div>
-          </Link>
-          <Link to="/" className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-            <ArrowLeft className="h-3 w-3" /> Dashboard
-          </Link>
-        </div>
-        <div className="max-w-6xl mx-auto px-4 pb-2 flex gap-1 overflow-x-auto">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 whitespace-nowrap px-3.5 py-2 text-xs font-semibold rounded-lg transition-all ${
-                tab === t.id ? 'bg-primary/15 text-primary border border-primary/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}
-            >
-              <t.icon className="h-3.5 w-3.5" />
-              {t.label}
-              {typeof t.badge === 'number' && t.badge > 0 && (
-                <span className="bg-warning/20 text-warning text-[10px] font-bold px-1.5 py-0.5 rounded-full">{t.badge}</span>
-              )}
-            </button>
-          ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#10b981' }}>
+                <span style={{ width: 7, height: 7, background: '#10b981', borderRadius: '50%', display: 'inline-block', animation: 'pulse 2s infinite' }}></span>
+                Live
+              </div>
+              <Link to="/" style={{ fontSize: 12, fontWeight: 600, color: '#475569', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <ArrowLeft size={12} /> Dashboard
+              </Link>
+            </div>
+          </div>
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: 2, paddingBottom: 0, overflowX: 'auto' }}>
+            {tabs.map((t) => (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px',
+                  fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', border: 'none', cursor: 'pointer',
+                  borderBottom: tab === t.id ? '2px solid #10b981' : '2px solid transparent',
+                  background: 'transparent',
+                  color: tab === t.id ? '#10b981' : '#475569',
+                  transition: 'all .15s',
+                }}>
+                <t.icon size={13} />
+                {t.label}
+                {typeof t.badge === 'number' && t.badge > 0 && (
+                  <span style={{ background: 'rgba(245,158,11,.15)', color: '#f59e0b', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10 }}>{t.badge}</span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+      <main style={{ maxWidth: 1280, margin: '0 auto', padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         {tab === 'overview' && (
           <div className="space-y-6">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
