@@ -3,37 +3,23 @@ import App from "./App.tsx";
 import "./index.css";
 import "./landing-overrides.css";
 
-// Fix blank screen: clear stale service worker cache on version mismatch
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    // If SW exists but page is blank, force update
-    if (registrations.length > 0) {
-      registrations.forEach((sw) => sw.update());
-    }
-  });
-
-  // Listen for SW controlling the page — reload to get fresh content
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (document.getElementById('root')?.children.length === 0) {
-      window.location.reload();
-    }
-  });
-}
-
 const rootEl = document.getElementById("root")!;
 
-// Safety net: if root is still empty after 5 seconds, force reload
-setTimeout(() => {
-  if (rootEl.children.length === 0) {
-    // Clear all caches and reload
-    if ('caches' in window) {
-      caches.keys().then((names) => {
-        names.forEach((name) => caches.delete(name));
-      }).then(() => window.location.reload());
-    } else {
-      window.location.reload();
-    }
-  }
-}, 5000);
+// BLANK SCREEN FIX: unregister ALL old service workers + clear all caches
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    regs.forEach((reg) => reg.unregister());
+  });
+}
+if ('caches' in window) {
+  caches.keys().then((names) => names.forEach((n) => caches.delete(n)));
+}
 
-createRoot(rootEl).render(<App />);
+// Safety: if still blank after 4s — hard reload
+const blankCheck = setTimeout(() => {
+  if (!rootEl.firstChild) window.location.reload();
+}, 4000);
+
+const root = createRoot(rootEl);
+root.render(<App />);
+clearTimeout(blankCheck);
