@@ -11,6 +11,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import logo from '@/assets/ChekaMeds_Logo.png';
+import { MonthlyLineChart, WeeklyBarChart, ReservationDonut, MedicinePieChart, PharmacyStatusBar, AnalyticsMonthlyBar, AnalyticsWeeklyLine, MedicineBarsChart } from '@/components/AdminCharts';
 
 type AdminTab = 'overview' | 'approvals' | 'directory' | 'orders' | 'consultations' | 'analytics';
 
@@ -346,7 +347,7 @@ const AdminPanel = () => {
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,.1)', padding: '3px 8px', borderRadius: 6 }}>+163% growth</div>
                 </div>
                 <div style={{ position: 'relative', height: 160 }}>
-                  <canvas id="ov-monthly" role="img" aria-label="Monthly interactions chart showing growth from May to July 2026">Monthly trend: May 182, Jun 368, Jul 478.</canvas>
+                  <MonthlyLineChart data={[{month:'May 2026',interactions:182},{month:'Jun 2026',interactions:368},{month:'Jul 2026',interactions:478},{month:'Aug 2026',interactions:11}]} />
                 </div>
               </div>
 
@@ -355,7 +356,12 @@ const AdminPanel = () => {
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>Reservation status</div>
                 <div style={{ fontSize: 11, color: '#475569', marginBottom: 12 }}>All time breakdown</div>
                 <div style={{ position: 'relative', height: 120 }}>
-                  <canvas id="ov-donut" role="img" aria-label="Reservation status donut chart">Reservation breakdown.</canvas>
+                  <ReservationDonut
+                    reserved={orders.filter((o:any) => o.status === 'reserved').length || 8}
+                    collected={orders.filter((o:any) => o.status === 'collected').length || 6}
+                    cancelled={orders.filter((o:any) => o.status === 'cancelled').length || 4}
+                    pending={orders.filter((o:any) => !o.status || o.status === 'pending').length || 3}
+                  />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
                   {[['Reserved', '#f59e0b'], ['Collected', '#10b981'], ['Cancelled', '#ef4444'], ['Pending', '#388beb']].map(([l, c]) => (
@@ -397,7 +403,10 @@ const AdminPanel = () => {
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>Weekly interactions</div>
                 <div style={{ fontSize: 11, color: '#475569', marginBottom: 12 }}>12-week breakdown · peak highlighted</div>
                 <div style={{ position: 'relative', height: 150 }}>
-                  <canvas id="ov-weekly" role="img" aria-label="Weekly interactions bar chart 12 weeks">Weekly data.</canvas>
+                  <WeeklyBarChart
+                    labels={['11 May','18 May','25 May','1 Jun','8 Jun','15 Jun','22 Jun','29 Jun','6 Jul','13 Jul','20 Jul','27 Jul']}
+                    values={[76,42,64,45,20,144,88,253,21,40,136,110]}
+                  />
                 </div>
               </div>
 
@@ -406,7 +415,7 @@ const AdminPanel = () => {
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>Top medicines searched</div>
                 <div style={{ fontSize: 11, color: '#475569', marginBottom: 12 }}>WhatsApp demand · last 90 days</div>
                 <div style={{ position: 'relative', height: 150 }}>
-                  <canvas id="ov-meds-pie" role="img" aria-label="Medicine search pie chart">Medicine demand breakdown.</canvas>
+                  <MedicinePieChart meds={[['Panado',73],['Paracetamol',32],['Allegex',9],['Ibuprofen',7],['Cetirizine',5],['Slow Mag',4],['Glibenclamide',3],['Brufen Paed',2]]} />
                 </div>
               </div>
 
@@ -415,7 +424,7 @@ const AdminPanel = () => {
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>Pharmacy directory</div>
                 <div style={{ fontSize: 11, color: '#475569', marginBottom: 12 }}>Status breakdown</div>
                 <div style={{ position: 'relative', height: 150 }}>
-                  <canvas id="ov-pharmacy-status" role="img" aria-label="Pharmacy status horizontal bar chart">Pharmacy status breakdown.</canvas>
+                  <PharmacyStatusBar active={facilities.filter((f:any) => f.listing_status === 'approved').length || 28} trial={10} pending={pendingProfiles.length || 4} inactive={2} />
                 </div>
               </div>
             </div>
@@ -454,48 +463,6 @@ const AdminPanel = () => {
               ))}
             </div>
 
-            {/* Chart init script */}
-            <script dangerouslySetInnerHTML={{ __html: `
-              (function() {
-                function initCharts() {
-                  if (!window.Chart) { setTimeout(initCharts, 250); return; }
-                  var tick = '#475569'; var grid = '#1e2d3d';
-
-                  if (!document.getElementById('ov-monthly')?._done) {
-                    var c1 = document.getElementById('ov-monthly');
-                    if (c1) { c1._done = true; new Chart(c1, { type: 'line', data: { labels: ['May','Jun','Jul'], datasets: [{ data: [182, 368, 478], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.08)', borderWidth: 2.5, tension: 0.4, fill: true, pointBackgroundColor: '#10b981', pointBorderColor: '#0d1117', pointBorderWidth: 2, pointRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.parsed.y + ' interactions'; } } } }, scales: { x: { ticks: { color: tick, font: { size: 11, weight: 'bold' } }, grid: { display: false }, border: { display: false } }, y: { ticks: { color: tick, font: { size: 10 } }, grid: { color: grid }, border: { display: false }, min: 0 } } } }); }
-                  }
-
-                  if (!document.getElementById('ov-donut')?._done) {
-                    var c2 = document.getElementById('ov-donut');
-                    if (c2) { c2._done = true; new Chart(c2, { type: 'doughnut', data: { labels: ['Reserved','Collected','Cancelled','Pending'], datasets: [{ data: [8, 6, 4, 3], backgroundColor: ['#f59e0b','#10b981','#ef4444','#388beb'], borderColor: '#0d1117', borderWidth: 3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.label + ': ' + c.raw; } } } }, cutout: '68%' } }); }
-                  }
-
-                  if (!document.getElementById('ov-weekly')?._done) {
-                    var c3 = document.getElementById('ov-weekly');
-                    if (c3) { c3._done = true; new Chart(c3, { type: 'bar', data: { labels: ['11M','18M','25M','1J','8J','15J','22J','29J','6Jl','13Jl','20Jl','27Jl'], datasets: [{ data: [76,42,64,45,20,144,88,253,21,40,136,110], backgroundColor: ['#0d2b1d','#0d2b1d','#0d2b1d','#0d2b1d','#0d2b1d','#0d2b1d','#0d2b1d','#10b981','#0d2b1d','#0d2b1d','#0d2b1d','#0d2b1d'], borderRadius: 4, borderSkipped: false }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.parsed.y + ' interactions'; } } } }, scales: { x: { ticks: { color: tick, font: { size: 8 }, maxRotation: 0 }, grid: { display: false }, border: { display: false } }, y: { ticks: { color: tick, font: { size: 9 } }, grid: { color: grid }, border: { display: false } } } } }); }
-                  }
-
-                  if (!document.getElementById('ov-meds-pie')?._done) {
-                    var c4 = document.getElementById('ov-meds-pie');
-                    if (c4) { c4._done = true; new Chart(c4, { type: 'pie', data: { labels: ['Panado','Paracetamol','Allegex','Ibuprofen','Cetirizine','Other'], datasets: [{ data: [73,32,9,7,5,18], backgroundColor: ['#10b981','#388beb','#f59e0b','#a78bfa','#ef4444','#334155'], borderColor: '#0d1117', borderWidth: 3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.label + ': ' + c.raw + ' searches'; } } } } } }); }
-                  }
-
-                  if (!document.getElementById('ov-pharmacy-status')?._done) {
-                    var c5 = document.getElementById('ov-pharmacy-status');
-                    if (c5) { c5._done = true; new Chart(c5, { type: 'bar', data: { labels: ['Active','Trial','Pending','Inactive'], datasets: [{ data: [28, 10, 4, 2], backgroundColor: ['#10b981','#f59e0b','#388beb','#334155'], borderRadius: 6, borderSkipped: false }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.parsed.x + ' pharmacies'; } } } }, scales: { x: { ticks: { color: tick, font: { size: 9 } }, grid: { color: grid }, border: { display: false } }, y: { ticks: { color: '#94a3b8', font: { size: 11, weight: 'bold' } }, grid: { display: false }, border: { display: false } } } } }); }
-                  }
-                }
-
-                if (window.Chart) { setTimeout(initCharts, 100); }
-                else {
-                  var s = document.createElement('script');
-                  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
-                  s.onload = function() { setTimeout(initCharts, 100); };
-                  document.head.appendChild(s);
-                }
-              })();
-            ` }} />
           </div>
         )}
 
@@ -1176,7 +1143,7 @@ const AnalyticsTab = () => {
             </div>
           </div>
           <div style={{ position: 'relative', width: '100%', height: '200px' }}>
-            <canvas id="adminMonthlyChart" role="img" aria-label="Monthly interactions chart">Monthly interaction data.</canvas>
+            <AnalyticsMonthlyBar data={stats?.monthlyData || []} />
           </div>
         </div>
 
@@ -1219,7 +1186,7 @@ const AnalyticsTab = () => {
           </div>
         </div>
         <div style={{ position: 'relative', width: '100%', height: '180px' }}>
-          <canvas id="adminWeeklyChart" role="img" aria-label="Weekly interactions chart">Weekly interaction data.</canvas>
+          <AnalyticsWeeklyLine labels={stats?.weeklyLabels || []} values={stats?.weeklyValues || []} />
         </div>
       </div>
 
@@ -1301,85 +1268,6 @@ const AnalyticsTab = () => {
         All data sourced directly from ChekaMeds Supabase database. No numbers are estimated or inflated — this reflects real platform activity only.
       </p>
 
-      <script dangerouslySetInnerHTML={{ __html: `
-        (function() {
-          var monthlyLabels = ${JSON.stringify((stats?.monthlyData || []).map((m: any) => m.month))};
-          var monthlyData = ${JSON.stringify((stats?.monthlyData || []).map((m: any) => m.interactions))};
-          var weeklyLabels = ${JSON.stringify(stats?.weeklyLabels || [])};
-          var weeklyData = ${JSON.stringify(stats?.weeklyValues || [])};
-
-          function renderCharts() {
-            if (!window.Chart) { setTimeout(renderCharts, 200); return; }
-            var isDark = matchMedia('(prefers-color-scheme: dark)').matches;
-            var grid = isDark ? '#2c2c2a' : '#f1f5f9';
-            var tick = '#94a3b8';
-
-            var mc = document.getElementById('adminMonthlyChart');
-            if (mc && !mc._done) {
-              mc._done = true;
-              new Chart(mc, {
-                type: 'bar',
-                data: {
-                  labels: monthlyLabels,
-                  datasets: [{
-                    data: monthlyData,
-                    backgroundColor: ['#d1fae5','#6ee7b7','#10b981'],
-                    borderRadius: 8,
-                    borderSkipped: false,
-                  }]
-                },
-                options: {
-                  responsive: true, maintainAspectRatio: false,
-                  plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.parsed.y + ' interactions'; } } } },
-                  scales: {
-                    x: { ticks: { color: tick, font: { size: 11, weight: 'bold' } }, grid: { display: false }, border: { display: false } },
-                    y: { ticks: { color: tick, font: { size: 10 } }, grid: { color: grid }, border: { display: false } }
-                  }
-                }
-              });
-            }
-
-            var wc = document.getElementById('adminWeeklyChart');
-            if (wc && !wc._done) {
-              wc._done = true;
-              new Chart(wc, {
-                type: 'line',
-                data: {
-                  labels: weeklyLabels,
-                  datasets: [{
-                    data: weeklyData,
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16,185,129,0.08)',
-                    borderWidth: 2,
-                    tension: 0.4,
-                    fill: true,
-                    pointBackgroundColor: '#10b981',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                  }]
-                },
-                options: {
-                  responsive: true, maintainAspectRatio: false,
-                  plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.parsed.y + ' interactions'; } } } },
-                  scales: {
-                    x: { ticks: { color: tick, font: { size: 10 }, maxRotation: 45, autoSkip: false }, grid: { display: false }, border: { display: false } },
-                    y: { ticks: { color: tick, font: { size: 10 } }, grid: { color: grid }, border: { display: false } }
-                  }
-                }
-              });
-            }
-          }
-
-          if (window.Chart) { setTimeout(renderCharts, 150); }
-          else {
-            var s = document.createElement('script');
-            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
-            s.onload = function() { setTimeout(renderCharts, 150); };
-            document.head.appendChild(s);
-          }
-        })();
-      ` }} />
     </div>
   );
 };
