@@ -19,6 +19,7 @@ import AdminPanel from "./pages/AdminPanel";
 import CampaignAdmin from "./pages/CampaignAdmin";
 import WhatsAppWebhookAdmin from "./pages/WhatsAppWebhookAdmin";
 import NotFound from "./pages/NotFound";
+import Scanner from "./pages/Scanner";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SiteFooter from "./components/SiteFooter";
 
@@ -55,6 +56,7 @@ const AnimatedRoutes = () => {
           <Route path="/admin/delivery" element={<ProtectedRoute><DeliveryAdmin /></ProtectedRoute>} />
           <Route path="/admin/whatsapp" element={<WhatsAppWebhookAdmin />} />
           <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+          <Route path="/scanner" element={<ProtectedRoute><Scanner /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.main>
