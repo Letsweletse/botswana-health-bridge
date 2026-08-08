@@ -795,20 +795,34 @@ async function facilityWhatsAppNumber(clinicName: string) {
   }
 }
 
+// HARDCODED: reservation window is exactly 3 hours
+const RESERVATION_HOURS = 3;
+
 async function reserve(phone: string, selected: SessionOption) {
   const customerPhone = cleanPhone(phone);
 
+  // Get pharmacy WhatsApp number - try contact field first, then facility lookup
   let pharmacyPhone = cleanPhone(String(selected.contact || ""));
   if (pharmacyPhone.length < 11) {
     pharmacyPhone = await facilityWhatsAppNumber(selected.clinic_name);
   }
 
+  // Calculate expiry - hardcoded 3 hours from now
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + RESERVATION_HOURS * 60 * 60 * 1000);
+  const expiresAtISO = expiresAt.toISOString();
+  const expiresTime = expiresAt.toLocaleTimeString("en-BW", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const expiresDate = expiresAt.toLocaleDateString("en-BW", { weekday: "short", month: "short", day: "numeric" });
+
+  const mapLink = realDirections(selected.directions_link);
+
+  // Notify pharmacy with full details including expiry
   let pharmacyNotified = false;
   if (pharmacyPhone.length >= 11 && pharmacyPhone !== customerPhone) {
     try {
       await sendWhatsApp(pharmacyPhone, {
         type: "text",
-        text: `🔔 *New ChekaMeds Reservation*\n\n💊 Medicine: *${selected.med_name}*\n💰 Price: *${price(selected.price_bwp)}*\n👤 Customer WhatsApp: +${customerPhone}\n🏥 Facility: *${selected.clinic_name}*\n\n${DIV}\nThe customer plans to collect and pay at the counter. Please prepare the item and message the customer to confirm availability.`,
+        text: `🔔 *New ChekaMeds Reservation*\n\n💊 Medicine: *${selected.med_name}*\n💰 Price: *${price(selected.price_bwp)}*\n👤 Customer WhatsApp: +${customerPhone}\n🏥 Facility: *${selected.clinic_name}*\n⏰ Reserved for: *${RESERVATION_HOURS} hours*\n🕐 Expires: *${expiresTime} on ${expiresDate}*\n\n${DIV}\nPlease prepare this item. If the customer does not collect by ${expiresTime}, the reservation expires automatically and you may release the stock.`,
       });
       pharmacyNotified = true;
     } catch (e) {
@@ -822,23 +836,25 @@ async function reserve(phone: string, selected: SessionOption) {
       ? `Pharmacy WhatsApp notify FAILED for ${pharmacyPhone}.`
       : "No pharmacy WhatsApp number on file - not notified.";
 
+  // Save reservation with expires_at and pharmacy_phone hardcoded
   try {
     await db().from("order_requests").insert({
       from_number: customerPhone,
       medicine: selected.med_name,
       pharmacy: selected.clinic_name,
+      pharmacy_phone: pharmacyPhone.length >= 11 ? pharmacyPhone : null,
       amount: selected.price_bwp == null ? null : Number(selected.price_bwp),
       payment_status: "pending_store_payment",
       status: "reserved",
-      notes: `WhatsApp reservation created via interactive menus for ${selected.med_name}. ${notifyNote}`,
+      expires_at: expiresAtISO,
+      notes: `WhatsApp reservation. Expires ${expiresTime} ${expiresDate}. ${notifyNote}`,
     });
   } catch (e) {
-    console.error(e);
+    console.error("order insert failed", e);
   }
 
-  const mapLink = realDirections(selected.directions_link);
-
-  return `🏪 *Reservation Recorded*\n\n💊 Item: *${selected.med_name}*\n🏥 Facility: *${selected.clinic_name}*\n💰 Amount: *${price(selected.price_bwp)}*\n\n${mapLink ? `🗺️ Directions: ${mapLink}\n` : ""}${pharmacyNotified ? "✅ The pharmacy has been notified to prepare your item.\n" : ""}Please pay physically at the pharmacy when collecting. Final availability should still be confirmed by the pharmacy.`;
+  // Customer confirmation message with clear 3hr expiry
+  return `🏪 *Reservation Confirmed*\n\n💊 *${selected.med_name}*\n🏥 *${selected.clinic_name}*\n💰 Amount: *${price(selected.price_bwp)}*\n\n⏰ *Reserved for ${RESERVATION_HOURS} hours*\n🕐 Expires: *${expiresTime} on ${expiresDate}*\n\n${pharmacyNotified ? "✅ The pharmacy has been notified and is preparing your item.\n" : ""}${mapLink ? `🗺️ Directions: ${mapLink}\n` : ""}${DIV}\n⚠️ *Please collect before ${expiresTime}.*\nIf you do not collect, your reservation will expire automatically and the stock may be given to another customer.\n\nPay at the counter when you collect.`;
 }
 
 function payloadToText(payload: NativeWhatsAppPayload): string {
