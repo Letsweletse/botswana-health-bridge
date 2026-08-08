@@ -624,7 +624,13 @@ async function processMessage(message: string, phone: string): Promise<NativeWha
     };
   }
 
-  if (text === "find_medicine" || text === "search" || text === "stock" || text === "search stock") {
+  // "Did you mean?" — user confirmed suggestion
+  if (text === "confirm_suggestion" || (session?.selected?.status === "awaiting_confirmation" && /^(yes|yep|ya|yeah|sure|ok|okay|correct|right|yebo|ee|eya|confirm)$/.test(text))) {
+    const suggestion = session?.selected?.suggestion || session?.medicine || "";
+    if (suggestion) return await runMedicineSearch(phone, suggestion, "");
+  }
+
+    if (text === "find_medicine" || text === "search" || text === "stock" || text === "search stock") {
     return promptForMedicine();
   }
 
