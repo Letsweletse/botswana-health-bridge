@@ -288,34 +288,30 @@ let moveType = 'stock_out', torchOn = false, hasTorch = false;
 let stream = null, detector = null, scanning = false, frameId = null;
 let cooldown = false;
 
-// ── AUTH ──
-// Check stored session
-try {
-  const stored = localStorage.getItem('chekameds-scanner-session');
-  if (stored) {
-    const sess = JSON.parse(stored);
-    if (sess && sess.access_token && sess.user) {
-      // Verify token still valid
-      const check = await fetch(SUPA_URL + '/auth/v1/user', {
-        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + sess.access_token }
-      });
-      if (check.ok) {
+// ── AUTH ── wrapped in IIFE - no top-level await (breaks Huawei/Android)
+(function() {
+  try {
+    var stored = localStorage.getItem('chekameds-scanner-session');
+    if (stored) {
+      var sess = JSON.parse(stored);
+      if (sess && sess.access_token && sess.user) {
+        // Quick check - just restore session, verify on first API call
         currentSession = sess;
         currentUser = sess.user;
-        try {
-          const profRes = await fetch(SUPA_URL + '/rest/v1/profiles?id=eq.' + sess.user.id + '&select=clinic_name&limit=1', {
-            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + sess.access_token }
-          });
-          const prof = await profRes.json();
-          document.getElementById('clinicName').textContent = prof?.[0]?.clinic_name || 'Scanner';
-        } catch(_) {}
-        showScreen('scannerScreen');
-      } else {
-        localStorage.removeItem('chekameds-scanner-session');
+        fetch(SUPA_URL + '/rest/v1/profiles?id=eq.' + sess.user.id + '&select=clinic_name&limit=1', {
+          headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + sess.access_token }
+        }).then(function(r) { return r.json(); }).then(function(prof) {
+          document.getElementById('clinicName').textContent = (prof && prof[0] && prof[0].clinic_name) ? prof[0].clinic_name : 'Scanner';
+          showScreen('scannerScreen');
+        }).catch(function() {
+          // Token expired - clear and show login
+          localStorage.removeItem('chekameds-scanner-session');
+          currentSession = null; currentUser = null;
+        });
       }
     }
-  }
-} catch(_) {}
+  } catch(e) { console.log('Session restore error:', e); }
+})();
 
 function togglePw() {
   var inp = document.getElementById('loginPassword');
