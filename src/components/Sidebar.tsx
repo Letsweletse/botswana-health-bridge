@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Map, Package, BarChart3, MessageCircle, Settings, LogOut,
-  ChevronLeft, ChevronRight, User, Stethoscope, ClipboardList, Brain, QrCode, Phone, CreditCard, Store, Video, ShieldCheck
+  ChevronLeft, ChevronRight, User, Stethoscope, ClipboardList, Brain, QrCode, Phone, CreditCard, Store, Video, ShieldCheck, ScanLine
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import logo from '@/assets/ChekaMeds_Logo.png';
@@ -127,6 +127,25 @@ const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
             </AnimatePresence>
           </button>
         )}
+
+        <button
+          onClick={() => navigate('/scanner')}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all text-emerald-600 border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 mt-2"
+        >
+          <ScanLine className="h-4 w-4 flex-shrink-0" />
+          <AnimatePresence>
+            {!collapsed && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="whitespace-nowrap overflow-hidden text-xs font-semibold"
+              >
+                Scanner
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button>
       </nav>
 
       {/* Clinic badge */}
