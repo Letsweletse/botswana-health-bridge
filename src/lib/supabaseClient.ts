@@ -1,14 +1,15 @@
-import { createClient } from "@supabase/supabase-js";
+// Re-export the existing app Supabase client so the scanner uses the same session
+import { supabase } from "@/integrations/supabase/client";
+
+export { supabase };
 
 export const SUPABASE_URL = "https://kcgsxxwgzrmsnnxvpkvi.supabase.co";
-export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjZ3N4eHdnenJtc25ueHZwa3ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2Njc4NjcsImV4cCI6MjA5NDI0Mzg2N30.k7YPpQozgvFxATCgs61YOe_jyMTreifxNydOWgX_ZqM";
 export const STOCK_TRANSACTION_URL = `${SUPABASE_URL}/functions/v1/stock-transaction`;
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export const invokeStockTransaction = async (payload: Record<string, any>) => {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
+  if (!token) throw new Error("Not logged in. Please sign in first.");
   const res = await fetch(STOCK_TRANSACTION_URL, {
     method: "POST",
     headers: {
