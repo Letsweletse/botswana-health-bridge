@@ -281,17 +281,33 @@ let stream = null, detector = null, scanning = false, frameId = null;
 let cooldown = false;
 
 // ── AUTH ──
-sb.auth.getSession().then(async ({ data: { session } }) => {
-  if (session) {
-    currentSession = session;
-    currentUser = session.user;
-    try {
-      const { data: p } = await sb.from('profiles').select('clinic_name').eq('id', session.user.id).single();
-      document.getElementById('clinicName').textContent = p?.clinic_name || 'Scanner';
-    } catch(_) {}
-    showScreen('scannerScreen');
+// Check stored session
+try {
+  const stored = localStorage.getItem('chekameds-scanner-session');
+  if (stored) {
+    const sess = JSON.parse(stored);
+    if (sess && sess.access_token && sess.user) {
+      // Verify token still valid
+      const check = await fetch(SUPA_URL + '/auth/v1/user', {
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + sess.access_token }
+      });
+      if (check.ok) {
+        currentSession = sess;
+        currentUser = sess.user;
+        try {
+          const profRes = await fetch(SUPA_URL + '/rest/v1/profiles?id=eq.' + sess.user.id + '&select=clinic_name&limit=1', {
+            headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + sess.access_token }
+          });
+          const prof = await profRes.json();
+          document.getElementById('clinicName').textContent = prof?.[0]?.clinic_name || 'Scanner';
+        } catch(_) {}
+        showScreen('scannerScreen');
+      } else {
+        localStorage.removeItem('chekameds-scanner-session');
+      }
+    }
   }
-});
+} catch(_) {}
 
 async function doLogin() {
   const email = document.getElementById('loginEmail').value.trim();
@@ -303,17 +319,34 @@ async function doLogin() {
   btn.disabled = true;
   btn.textContent = 'Signing in...';
   try {
-    const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
-    if (error) throw error;
-    currentSession = data.session;
+    // Direct fetch to Supabase auth - no library dependency
+    const res = await fetch(SUPA_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPA_KEY,
+      },
+      body: JSON.stringify({ email, password: pw })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error_description || data.msg || 'Login failed');
+    
+    currentSession = data;
     currentUser = data.user;
+    
+    // Get clinic name
     try {
-      const { data: p } = await sb.from('profiles').select('clinic_name').eq('id', data.user.id).single();
-      document.getElementById('clinicName').textContent = p?.clinic_name || 'Scanner';
+      const profRes = await fetch(SUPA_URL + '/rest/v1/profiles?id=eq.' + data.user.id + '&select=clinic_name&limit=1', {
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + data.access_token }
+      });
+      const prof = await profRes.json();
+      document.getElementById('clinicName').textContent = prof?.[0]?.clinic_name || 'Scanner';
     } catch(_) {}
+    
+    localStorage.setItem('chekameds-scanner-session', JSON.stringify(data));
     showScreen('scannerScreen');
   } catch(e) {
-    err.textContent = e.message || 'Login failed';
+    err.textContent = e.message || 'Login failed. Check your credentials.';
     err.style.display = 'block';
     btn.disabled = false;
     btn.textContent = 'Sign In';
@@ -322,7 +355,10 @@ async function doLogin() {
 
 async function doSignOut() {
   stopCamera();
-  await sb.auth.signOut();
+  localStorage.removeItem('chekameds-scanner-session');
+  currentSession = null;
+  currentUser = null;
+  showScreen('loginScreen');
 }
 
 // ── SCREENS ──
@@ -460,10 +496,11 @@ async function lookupMedicine(barcode) {
   showBusy(true);
   hideNotice();
   try {
-    const { data: { session } } = await sb.auth.getSession();
+    const token = currentSession?.access_token;
+    if (!token) throw new Error('Not logged in');
     const res = await fetch(STOCK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ action: 'lookup', barcode })
     });
     const json = await res.json();
@@ -525,11 +562,12 @@ async function doConfirm() {
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0"></div> &nbsp;Processing...';
   try {
-    const { data: { session } } = await sb.auth.getSession();
+    const token = currentSession?.access_token;
+    if (!token) throw new Error('Not logged in');
     const ref = 'scan-' + Date.now() + '-' + Math.random().toString(36).slice(2);
     const res = await fetch(STOCK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({
         action: 'commit',
         barcode: currentInventory.medicine.barcode,
