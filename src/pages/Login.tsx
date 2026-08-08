@@ -19,18 +19,31 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
     try {
-    // Admin shortcut — username: admin, password: chekameds@2028
-    if ((email === 'admin' || email === 'blimdawoo@gmail.com') && password === 'chekameds@2028') {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: 'blimdawoo@gmail.com',
-        password: 'chekameds@2028',
-      });
-      if (!error) { navigate('/admin'); return; }
-      // If password doesn't match Supabase, fall through to normal login
-    }
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      navigate(redirectTo);
+
+      // Check role and redirect accordingly
+      const user = data.user;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, approved')
+        .eq('id', user.id)
+        .single();
+
+      const { data: adminRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      if (adminRole || profile?.role === 'admin') {
+        navigate('/admin');
+      } else if (profile?.approved) {
+        navigate('/dashboard');
+      } else {
+        navigate('/dashboard'); // will show pending screen
+      }
     } catch (err: any) {
       toast({ title: 'Sign in failed', description: err.message, variant: 'destructive' });
     } finally {
