@@ -1,8 +1,29 @@
-// Emergency SW reset script
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => {
+// ChekaMeds SW v3 - Nuclear cache reset
+const CACHE_VERSION = "chekameds-v3";
+
+self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => self.skipWaiting())
   );
+});
+
+self.addEventListener("activate", (e) => {
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+      .then(() => {
+        // Tell all clients to reload
+        return self.clients.matchAll({ type: "window" }).then(clients => {
+          clients.forEach(client => client.navigate(client.url));
+        });
+      })
+  );
+});
+
+// Network only - no caching at all
+self.addEventListener("fetch", (e) => {
+  e.respondWith(fetch(e.request));
 });
