@@ -21,6 +21,7 @@ import WhatsAppWebhookAdmin from "./pages/WhatsAppWebhookAdmin";
 import NotFound from "./pages/NotFound";
 import Scanner from "./pages/Scanner";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 import SiteFooter from "./components/SiteFooter";
 
 const queryClient = new QueryClient();
@@ -51,10 +52,10 @@ const AnimatedRoutes = () => {
           <Route path="/facilities" element={<Facilities />} />
           <Route path="/consultant" element={<Consultant />} />
           <Route path="/dashboard/consultant" element={<ProtectedRoute><ConsultantAdmin /></ProtectedRoute>} />
-          <Route path="/admin" element={<AdminPanel />} />
-          <Route path="/admin/campaigns" element={<CampaignAdmin />} />
+          <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
+          <Route path="/admin/campaigns" element={<AdminRoute><CampaignAdmin /></AdminRoute>} />
           <Route path="/admin/delivery" element={<ProtectedRoute><DeliveryAdmin /></ProtectedRoute>} />
-          <Route path="/admin/whatsapp" element={<WhatsAppWebhookAdmin />} />
+          <Route path="/admin/whatsapp" element={<AdminRoute><WhatsAppWebhookAdmin /></AdminRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
           <Route path="/scanner" element={<ProtectedRoute><Scanner /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
