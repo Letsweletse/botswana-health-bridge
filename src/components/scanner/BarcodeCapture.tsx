@@ -41,7 +41,7 @@ export default function BarcodeCapture({ onDetected, busy }: { onDetected: (b: s
       <form onSubmit={submit} className="flex gap-2">
         <div className="relative flex-1">
           <Keyboard className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
-          <Input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Enter barcode or medicine name" inputMode="numeric" className="h-12 rounded-xl pl-10" />
+          <Input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Type medicine name or barcode..." inputMode="text" className="h-12 rounded-xl pl-10" />
         </div>
         <Button type="submit" variant="outline" className="h-12 rounded-xl" disabled={busy}>Find</Button>
       </form>
