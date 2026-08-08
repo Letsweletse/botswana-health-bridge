@@ -650,11 +650,33 @@ async function processMessage(message: string, phone: string): Promise<NativeWha
     };
   }
 
-  if (/^(store|pay at store|cash|cash payment|reserve|reserve pickup)$/.test(text)) {
+  // Catch ALL reservation-related phrases before they reach medicine search
+  if (/^(store|pay at store|cash|cash payment|reserve|reserve pickup|pickup|collect|pay|reserv|reserb|resrv|reseve|resrve|confirm|yes|ok|okay|yep|sure|proceed)$/.test(text) || text === "store") {
+    // No session or no selected item — guide them back
     if (!session?.selected || session.selected.status === "awaiting_location") {
-      return { type: "text", text: "Please search first and select a stock item." };
+      return {
+        type: "button",
+        text: `Please search for a medicine first, then select it before reserving.
+
+Type a medicine name to get started:`,
+        buttons: [{ id: "find_medicine", text: "Search Medicine" }],
+      };
     }
     return { type: "text", text: await reserve(phone, session.selected as SessionOption) };
+  }
+
+  // Also catch if text contains reserve/pickup keywords anywhere (typed loosely)
+  if (/(reserve|pickup|collect|pay at store|pay in store)/.test(text) && !looksLikeJunkSearch(text)) {
+    if (session?.selected && session.selected.status !== "awaiting_location") {
+      return { type: "text", text: await reserve(phone, session.selected as SessionOption) };
+    }
+    return {
+      type: "button", 
+      text: `To reserve a medicine, first search for it by name.
+
+What medicine are you looking for?`,
+      buttons: [{ id: "find_medicine", text: "Search Medicine" }],
+    };
   }
 
   if (/^(directions|direction|map|where|send location)$/.test(text)) {
