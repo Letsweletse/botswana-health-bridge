@@ -133,7 +133,10 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     </div>
     <div class="field">
       <label>Password</label>
-      <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password"/>
+      <div style="position:relative">
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" style="padding-right:48px"/>
+        <button type="button" onclick="togglePw()" id="pwToggle" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:#6b7280;cursor:pointer;font-size:18px;padding:0;line-height:1">👁</button>
+      </div>
     </div>
     <div class="error" id="loginError"></div>
     <button class="btn" id="loginBtn" onclick="doLogin()">Sign In</button>
@@ -308,6 +311,13 @@ try {
     }
   }
 } catch(_) {}
+
+function togglePw() {
+  const inp = document.getElementById('loginPassword');
+  const btn = document.getElementById('pwToggle');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
 
 async function doLogin() {
   const email = document.getElementById('loginEmail').value.trim();
