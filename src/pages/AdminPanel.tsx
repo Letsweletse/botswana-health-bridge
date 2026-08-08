@@ -280,7 +280,7 @@ const AdminPanel = () => {
                 <span style={{ width: 7, height: 7, background: '#10b981', borderRadius: '50%', display: 'inline-block', animation: 'pulse 2s infinite' }}></span>
                 Live
               </div>
-              <Link to="/" style={{ fontSize: 12, fontWeight: 600, color: '#475569', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Link to="/dashboard" style={{ fontSize: 12, fontWeight: 600, color: '#475569', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <ArrowLeft size={12} /> Dashboard
               </Link>
             </div>
@@ -822,7 +822,7 @@ const AdminPanel = () => {
                 <h2 className="text-lg font-bold text-foreground">Consultation Requests ({consults.length})</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">Recent virtual care requests. Full management (video links, assignment) lives in the Consultant tab of the dashboard.</p>
               </div>
-              <Link to="/" className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+              <Link to="/dashboard" className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
                 Open Consultant Dashboard <ExternalLink className="h-3 w-3" />
               </Link>
             </div>
