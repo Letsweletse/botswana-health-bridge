@@ -281,15 +281,15 @@ let stream = null, detector = null, scanning = false, frameId = null;
 let cooldown = false;
 
 // ── AUTH ──
-sb.auth.onAuthStateChange(async (_e, session) => {
-  currentSession = session;
-  currentUser = session?.user ?? null;
-  if (currentUser) {
-    const { data } = await sb.from('profiles').select('clinic_name,name').eq('id', currentUser.id).single();
-    document.getElementById('clinicName').textContent = data?.clinic_name || 'Scanner';
+sb.auth.getSession().then(async ({ data: { session } }) => {
+  if (session) {
+    currentSession = session;
+    currentUser = session.user;
+    try {
+      const { data: p } = await sb.from('profiles').select('clinic_name').eq('id', session.user.id).single();
+      document.getElementById('clinicName').textContent = p?.clinic_name || 'Scanner';
+    } catch(_) {}
     showScreen('scannerScreen');
-  } else {
-    showScreen('loginScreen');
   }
 });
 
@@ -299,11 +299,24 @@ async function doLogin() {
   const btn = document.getElementById('loginBtn');
   const err = document.getElementById('loginError');
   err.style.display = 'none';
-  btn.disabled = true; btn.textContent = 'Signing in…';
-  const { error } = await sb.auth.signInWithPassword({ email, password: pw });
-  if (error) {
-    err.textContent = error.message; err.style.display = 'block';
-    btn.disabled = false; btn.textContent = 'Sign In';
+  if (!email || !pw) { err.textContent = 'Enter email and password'; err.style.display = 'block'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Signing in...';
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+    if (error) throw error;
+    currentSession = data.session;
+    currentUser = data.user;
+    try {
+      const { data: p } = await sb.from('profiles').select('clinic_name').eq('id', data.user.id).single();
+      document.getElementById('clinicName').textContent = p?.clinic_name || 'Scanner';
+    } catch(_) {}
+    showScreen('scannerScreen');
+  } catch(e) {
+    err.textContent = e.message || 'Login failed';
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
   }
 }
 
