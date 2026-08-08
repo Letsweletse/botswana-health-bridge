@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#10b981"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<title>ChekaMeds Scanner</title>
+<link rel="manifest" href="/manifest.json"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.39.7/umd/supabase.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0f1a;--surface:#111827;--border:#1f2937;--green:#10b981;--green2:#059669;--text:#f1f5f9;--muted:#6b7280;--danger:#ef4444}
+html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);overflow-x:hidden}
+.screen{display:none;flex-direction:column;min-height:100vh}
+.screen.show{display:flex}
+/* LOGIN */
+#loginScreen{align-items:center;justify-content:center;padding:24px}
+.logo{text-align:center;margin-bottom:32px}
+.logo-icon{width:80px;height:80px;background:linear-gradient(135deg,#10b981,#059669);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:36px;box-shadow:0 8px 32px rgba(16,185,129,.35)}
+.logo h1{font-size:26px;font-weight:800;letter-spacing:-.5px}
+.logo p{font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:2px;text-transform:uppercase;font-weight:600}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px;width:100%;max-width:380px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px}
+.field input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px 16px;font-size:16px;color:var(--text);outline:none;transition:border-color .2s}
+.field input:focus{border-color:var(--green)}
+.btn{width:100%;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(16,185,129,.35)}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);box-shadow:none}
+.error{color:var(--danger);font-size:13px;background:#450a0a;padding:10px 14px;border-radius:10px;margin-bottom:14px;display:none}
+/* HEADER */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;flex-shrink:0}
+.header-brand{display:flex;align-items:center;gap:8px}
+.header-brand span{font-size:15px;font-weight:800}
+.header-badge{font-size:11px;background:var(--green);color:white;border-radius:6px;padding:2px 8px;font-weight:700}
+.header-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.header-actions{display:flex;align-items:center;gap:10px}
+.sync-badge{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--muted)}
+.signout-btn{background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--muted);font-size:12px;cursor:pointer}
+/* SCANNER */
+#scannerScreen{background:var(--bg)}
+.content{padding:20px 16px;max-width:480px;margin:0 auto;flex:1}
+/* VIEWFINDER */
+.viewfinder{position:relative;width:100%;aspect-ratio:4/3;background:#000;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.6);margin-bottom:0}
+#video{width:100%;height:100%;object-fit:cover;display:block}
+.vf-overlay{position:absolute;inset:0;pointer-events:none}
+.vf-scanwindow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:78%;height:110px}
+.corner{position:absolute;width:24px;height:24px}
+.corner-tl{top:0;left:0;border-top:3px solid var(--green);border-left:3px solid var(--green);border-radius:6px 0 0 0}
+.corner-tr{top:0;right:0;border-top:3px solid var(--green);border-right:3px solid var(--green);border-radius:0 6px 0 0}
+.corner-bl{bottom:0;left:0;border-bottom:3px solid var(--green);border-left:3px solid var(--green);border-radius:0 0 0 6px}
+.corner-br{bottom:0;right:0;border-bottom:3px solid var(--green);border-right:3px solid var(--green);border-radius:0 0 6px 0}
+.laser{position:absolute;left:4px;right:4px;height:2px;background:linear-gradient(90deg,transparent,var(--green),#34d399,var(--green),transparent);border-radius:2px;box-shadow:0 0 12px var(--green);animation:laser 2s ease-in-out infinite}
+@keyframes laser{0%{top:8px}50%{top:calc(100% - 10px)}100%{top:8px}}
+.vf-hint{position:absolute;bottom:14px;left:0;right:0;text-align:center;color:rgba(255,255,255,.75);font-size:13px;font-weight:500}
+.vf-idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg)}
+.vf-idle-icon{width:64px;height:64px;background:var(--green);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px}
+.vf-idle h3{font-size:16px;font-weight:700}
+.vf-idle p{font-size:13px;color:var(--muted)}
+.vf-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#000}
+.spinner{width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.torch-btn{position:absolute;top:14px;right:14px;background:rgba(0,0,0,.6);border:none;border-radius:12px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;display:none}
+.torch-btn.visible{display:flex}
+.torch-btn.on{background:var(--green)}
+.close-btn{position:absolute;top:14px;left:14px;background:rgba(0,0,0,.6);border:none;border-radius:12px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:white;display:none}
+.close-btn.visible{display:flex}
+.detected-flash{position:absolute;inset:0;background:rgba(16,185,129,.2);animation:flash .4s ease-out forwards;pointer-events:none;display:none}
+@keyframes flash{0%{opacity:1}100%{opacity:0}}
+/* BUTTONS */
+.scan-btn{width:100%;padding:18px;background:linear-gradient(135deg,#10b981,#059669);border:none;border-radius:16px;color:white;font-size:17px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 20px rgba(16,185,129,.4);margin-top:14px;letter-spacing:.2px}
+.scan-btn:disabled{opacity:.6;cursor:not-allowed}
+.search-toggle{width:100%;padding:14px;background:transparent;border:1px solid var(--border);border-radius:14px;color:var(--muted);font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px}
+.search-row{display:none;gap:8px;margin-top:10px}
+.search-row.show{display:flex}
+.search-input{flex:1;background:var(--surface);border:1px solid var(--green);border-radius:14px;padding:14px 14px 14px 16px;font-size:15px;color:var(--text);outline:none}
+.search-submit{padding:0 20px;background:var(--green);border:none;border-radius:14px;color:white;font-weight:700;font-size:14px;cursor:pointer}
+.search-cancel{padding:0 14px;background:transparent;border:1px solid var(--border);border-radius:14px;color:var(--muted);cursor:pointer;font-size:18px}
+/* NOTICE */
+.notice{padding:14px 16px;border-radius:14px;font-size:14px;font-weight:600;margin-top:14px;display:none}
+.notice.ok{background:#022c22;border:1px solid rgba(16,185,129,.3);color:#34d399;display:block}
+.notice.err{background:#1c0a0a;border:1px solid rgba(239,68,68,.3);color:#f87171;display:block}
+/* RESULT CARD */
+.result-section{display:none;flex-direction:column;gap:14px;margin-top:4px}
+.result-section.show{display:flex}
+.back-btn{display:flex;align-items:center;gap:8px;background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;padding:0}
+.med-card{background:var(--surface);border:1px solid rgba(16,185,129,.2);border-radius:16px;padding:20px}
+.med-found{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--green);margin-bottom:8px}
+.med-name{font-size:20px;font-weight:800;margin-bottom:4px}
+.med-meta{font-size:13px;color:var(--muted);margin-bottom:16px}
+.med-stock{display:flex;align-items:center;justify-content:space-between;padding-top:16px;border-top:1px solid var(--border)}
+.med-stock-num{font-size:42px;font-weight:800;line-height:1}
+.med-stock-num.low{color:var(--danger)}
+.med-stock-num.ok{color:var(--green)}
+.med-stock-label{font-size:11px;color:var(--muted);text-align:right}
+.med-barcode{font-family:monospace;font-size:12px;color:var(--muted);margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.med-location{font-size:12px;color:var(--muted)}
+/* MOVEMENT */
+.section-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+.move-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.move-btn{padding:14px 10px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .15s}
+.move-btn.active{border-color:var(--green);background:rgba(16,185,129,.1);color:var(--green)}
+/* QTY */
+.qty-row{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-radius:16px;border:1px solid var(--border);padding:8px}
+.qty-btn{width:52px;height:52px;border-radius:12px;border:none;font-size:24px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.qty-minus{background:rgba(255,255,255,.05);color:var(--text)}
+.qty-plus{background:rgba(16,185,129,.15);color:var(--green)}
+.qty-val{font-size:36px;font-weight:800;min-width:80px;text-align:center;background:none;border:none;color:var(--text);outline:none}
+/* CONFIRM BTN */
+.confirm-btn{width:100%;padding:18px;border:none;border-radius:16px;color:white;font-size:17px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 4px 20px rgba(16,185,129,.4)}
+.confirm-btn:disabled{background:var(--border);box-shadow:none;cursor:not-allowed}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="screen show">
+  <div class="logo">
+    <div class="logo-icon">📷</div>
+    <h1>ChekaMeds</h1>
+    <p>Pharmacy Scanner</p>
+  </div>
+  <div class="card">
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="pharmacy@email.com" autocomplete="email"/>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <div class="error" id="loginError"></div>
+    <button class="btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+  </div>
+</div>
+
+<!-- SCANNER -->
+<div id="scannerScreen" class="screen">
+  <div class="header">
+    <div>
+      <div class="header-brand">
+        <span>ChekaMeds</span>
+        <span class="header-badge">Scanner</span>
+      </div>
+      <div class="header-sub" id="clinicName">Loading...</div>
+    </div>
+    <div class="header-actions">
+      <div class="sync-badge" id="syncBadge">🟢 Synced</div>
+      <button class="signout-btn" onclick="doSignOut()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- VIEWFINDER -->
+    <div class="viewfinder" id="viewfinder">
+      <video id="video" playsinline muted autoplay></video>
+
+      <!-- Idle state -->
+      <div class="vf-idle" id="vfIdle">
+        <div class="vf-idle-icon">📷</div>
+        <h3>Ready to Scan</h3>
+        <p>Tap Scan Barcode to start</p>
+      </div>
+
+      <!-- Loading state -->
+      <div class="vf-loading" id="vfLoading" style="display:none">
+        <div class="spinner"></div>
+        <p style="color:#6b7280;font-size:14px">Starting camera...</p>
+      </div>
+
+      <!-- Active overlay -->
+      <div class="vf-overlay" id="vfOverlay" style="display:none">
+        <div class="vf-scanwindow">
+          <div class="corner corner-tl"></div>
+          <div class="corner corner-tr"></div>
+          <div class="corner corner-bl"></div>
+          <div class="corner corner-br"></div>
+          <div class="laser"></div>
+        </div>
+        <div class="vf-hint">Align barcode within frame</div>
+      </div>
+
+      <!-- Detected flash -->
+      <div class="detected-flash" id="detectedFlash"></div>
+
+      <!-- Torch -->
+      <button class="torch-btn" id="torchBtn" onclick="toggleTorch()">🔦</button>
+      <!-- Close -->
+      <button class="close-btn" id="closeBtn" onclick="stopCamera()">✕</button>
+    </div>
+
+    <!-- SCAN BUTTON -->
+    <button class="scan-btn" id="scanBtn" onclick="startCamera()">
+      📷 &nbsp;Scan Barcode
+    </button>
+
+    <!-- MANUAL SEARCH -->
+    <button class="search-toggle" id="searchToggle" onclick="toggleSearch()">
+      🔍 &nbsp;Type medicine name or barcode
+    </button>
+    <div class="search-row" id="searchRow">
+      <input class="search-input" id="searchInput" type="text" placeholder="Medicine name or barcode..." autocomplete="off"/>
+      <button class="search-submit" onclick="doManualSearch()">Find</button>
+      <button class="search-cancel" onclick="toggleSearch()">✕</button>
+    </div>
+
+    <!-- NOTICE -->
+    <div class="notice" id="notice"></div>
+
+    <!-- BUSY -->
+    <div id="busyState" style="display:none;text-align:center;padding:20px">
+      <div class="spinner" style="margin:0 auto 12px"></div>
+      <p style="color:#6b7280;font-size:14px">Looking up medicine...</p>
+    </div>
+
+    <!-- RESULT -->
+    <div class="result-section" id="resultSection">
+      <button class="back-btn" onclick="resetScanner()">↩ Scan another</button>
+
+      <div class="med-card">
+        <div class="med-found">✓ Medicine Found</div>
+        <div class="med-name" id="medName">—</div>
+        <div class="med-meta" id="medMeta">—</div>
+        <div class="med-stock">
+          <div>
+            <div class="med-stock-num" id="stockNum">—</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px">units in stock</div>
+          </div>
+          <div style="text-align:right">
+            <div class="med-location" id="medLocation">—</div>
+            <div class="med-barcode" id="medBarcode">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Movement -->
+      <div>
+        <div class="section-label">Stock Movement</div>
+        <div class="move-grid">
+          <button class="move-btn active" id="btn-stock_out" onclick="setType('stock_out')">📤 Stock Out</button>
+          <button class="move-btn" id="btn-stock_in" onclick="setType('stock_in')">📥 Stock In</button>
+          <button class="move-btn" id="btn-return" onclick="setType('return')">🔄 Return</button>
+          <button class="move-btn" id="btn-adjustment" onclick="setType('adjustment')">⚖️ Adjust</button>
+        </div>
+      </div>
+
+      <!-- Quantity -->
+      <div>
+        <div class="section-label" id="qtyLabel">Quantity</div>
+        <div class="qty-row">
+          <button class="qty-btn qty-minus" onclick="changeQty(-1)">−</button>
+          <input class="qty-val" id="qtyVal" type="number" value="1" min="1" inputmode="numeric"/>
+          <button class="qty-btn qty-plus" onclick="changeQty(1)">+</button>
+        </div>
+      </div>
+
+      <!-- Confirm -->
+      <button class="confirm-btn" id="confirmBtn" onclick="doConfirm()">
+        ✓ &nbsp;Confirm Stock Out
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://kcgsxxwgzrmsnnxvpkvi.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjZ3N4eHdnenJtc25ueHZwa3ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2Njc4NjcsImV4cCI6MjA5NDI0Mzg2N30.k7YPpQozgvFxATCgs61YOe_jyMTreifxNydOWgX_ZqM';
+const STOCK_URL = SUPA_URL + '/functions/v1/stock-transaction';
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+let currentUser = null, currentSession = null, currentInventory = null;
+let moveType = 'stock_out', torchOn = false, hasTorch = false;
+let stream = null, detector = null, scanning = false, frameId = null;
+let cooldown = false;
+
+// ── AUTH ──
+sb.auth.onAuthStateChange(async (_e, session) => {
+  currentSession = session;
+  currentUser = session?.user ?? null;
+  if (currentUser) {
+    const { data } = await sb.from('profiles').select('clinic_name,name').eq('id', currentUser.id).single();
+    document.getElementById('clinicName').textContent = data?.clinic_name || 'Scanner';
+    showScreen('scannerScreen');
+  } else {
+    showScreen('loginScreen');
+  }
+});
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw = document.getElementById('loginPassword').value;
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('loginError');
+  err.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+  if (error) {
+    err.textContent = error.message; err.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }
+}
+
+async function doSignOut() {
+  stopCamera();
+  await sb.auth.signOut();
+}
+
+// ── SCREENS ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('show'));
+  document.getElementById(id).classList.add('show');
+}
+
+// ── CAMERA ──
+async function startCamera() {
+  document.getElementById('vfIdle').style.display = 'none';
+  document.getElementById('vfLoading').style.display = 'flex';
+  document.getElementById('scanBtn').style.display = 'none';
+  document.getElementById('searchToggle').style.display = 'none';
+  document.getElementById('searchRow').classList.remove('show');
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
+      audio: false
+    });
+
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+    await video.play();
+
+    // Apply autofocus
+    const track = stream.getVideoTracks()[0];
+    const caps = track.getCapabilities();
+    if (caps.torch) { hasTorch = true; document.getElementById('torchBtn').classList.add('visible'); }
+    try {
+      await track.applyConstraints({ advanced: [{ focusMode: 'continuous', exposureMode: 'continuous', whiteBalanceMode: 'continuous' }] });
+    } catch(_) {}
+
+    document.getElementById('vfLoading').style.display = 'none';
+    document.getElementById('vfOverlay').style.display = 'block';
+    document.getElementById('closeBtn').classList.add('visible');
+    scanning = true;
+
+    // Native BarcodeDetector
+    if ('BarcodeDetector' in window) {
+      detector = new BarcodeDetector({ formats: ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf','qr_code'] });
+      scanFrame();
+    } else {
+      showNotice('Camera active — type the barcode below if scan fails', false);
+      document.getElementById('searchRow').classList.add('show');
+    }
+  } catch(e) {
+    document.getElementById('vfLoading').style.display = 'none';
+    document.getElementById('vfIdle').style.display = 'flex';
+    document.getElementById('scanBtn').style.display = 'flex';
+    document.getElementById('searchToggle').style.display = 'flex';
+    showNotice('Camera error: ' + (e.message || 'Permission denied'), false);
+  }
+}
+
+function scanFrame() {
+  if (!scanning || !detector) return;
+  const video = document.getElementById('video');
+  if (video.readyState >= 2) {
+    detector.detect(video).then(codes => {
+      if (codes.length && !cooldown) {
+        const best = codes.reduce((a,b) => (a.boundingBox?.width||0)>(b.boundingBox?.width||0)?a:b);
+        if (best.rawValue) {
+          cooldown = true;
+          try { navigator.vibrate(80); } catch(_) {}
+          // Flash
+          const flash = document.getElementById('detectedFlash');
+          flash.style.display = 'block';
+          setTimeout(() => flash.style.display = 'none', 400);
+          stopCamera();
+          lookupMedicine(best.rawValue);
+          setTimeout(() => cooldown = false, 2000);
+          return;
+        }
+      }
+      frameId = requestAnimationFrame(scanFrame);
+    }).catch(() => { frameId = requestAnimationFrame(scanFrame); });
+  } else {
+    frameId = requestAnimationFrame(scanFrame);
+  }
+}
+
+function stopCamera() {
+  scanning = false;
+  cancelAnimationFrame(frameId);
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  document.getElementById('vfOverlay').style.display = 'none';
+  document.getElementById('vfLoading').style.display = 'none';
+  document.getElementById('vfIdle').style.display = 'flex';
+  document.getElementById('torchBtn').classList.remove('visible');
+  document.getElementById('closeBtn').classList.remove('visible');
+  document.getElementById('scanBtn').style.display = 'flex';
+  document.getElementById('searchToggle').style.display = 'flex';
+  torchOn = false;
+}
+
+async function toggleTorch() {
+  if (!stream) return;
+  const track = stream.getVideoTracks()[0];
+  torchOn = !torchOn;
+  try { await track.applyConstraints({ advanced: [{ torch: torchOn }] }); }
+  catch(_) {}
+  const btn = document.getElementById('torchBtn');
+  btn.textContent = torchOn ? '💡' : '🔦';
+  btn.classList.toggle('on', torchOn);
+}
+
+// ── SEARCH ──
+function toggleSearch() {
+  const row = document.getElementById('searchRow');
+  row.classList.toggle('show');
+  if (row.classList.contains('show')) document.getElementById('searchInput').focus();
+}
+
+function doManualSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchRow').classList.remove('show');
+  lookupMedicine(q);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('searchRow').classList.contains('show')) doManualSearch();
+});
+
+// ── LOOKUP ──
+async function lookupMedicine(barcode) {
+  stopCamera();
+  showBusy(true);
+  hideNotice();
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(STOCK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ action: 'lookup', barcode })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Not found');
+    showResult(json);
+  } catch(e) {
+    showNotice(e.message || 'Medicine not found', false);
+  }
+  showBusy(false);
+}
+
+// ── RESULT ──
+function showResult(data) {
+  currentInventory = data;
+  document.getElementById('medName').textContent = data.medicine.name;
+  document.getElementById('medMeta').textContent = [data.medicine.strength, data.medicine.dosage_form].filter(Boolean).join(' · ') || data.medicine.barcode;
+  document.getElementById('medBarcode').textContent = data.medicine.barcode;
+  document.getElementById('medLocation').textContent = '📍 ' + (data.branch?.name || '');
+  const qty = data.inventory.quantity;
+  const minStock = data.inventory.minimum_stock || 10;
+  const qtyEl = document.getElementById('stockNum');
+  qtyEl.textContent = qty;
+  qtyEl.className = 'med-stock-num ' + (qty <= minStock ? 'low' : 'ok');
+  document.getElementById('qtyVal').value = 1;
+  setType('stock_out');
+  document.getElementById('resultSection').classList.add('show');
+  document.getElementById('scanBtn').style.display = 'none';
+  document.getElementById('searchToggle').style.display = 'none';
+}
+
+function resetScanner() {
+  currentInventory = null;
+  document.getElementById('resultSection').classList.remove('show');
+  document.getElementById('scanBtn').style.display = 'flex';
+  document.getElementById('searchToggle').style.display = 'flex';
+  hideNotice();
+}
+
+// ── MOVEMENT ──
+function setType(t) {
+  moveType = t;
+  document.querySelectorAll('.move-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + t).classList.add('active');
+  const labels = { stock_out: 'Stock Out', stock_in: 'Stock In', return: 'Return', adjustment: 'Set Exact Count' };
+  document.getElementById('qtyLabel').textContent = t === 'adjustment' ? 'New Stock Count' : 'Quantity';
+  document.getElementById('confirmBtn').textContent = '✓  Confirm ' + labels[t];
+}
+
+function changeQty(d) {
+  const el = document.getElementById('qtyVal');
+  el.value = Math.max(1, parseInt(el.value || 1) + d);
+}
+
+// ── CONFIRM ──
+async function doConfirm() {
+  if (!currentInventory) return;
+  const btn = document.getElementById('confirmBtn');
+  const qty = parseInt(document.getElementById('qtyVal').value) || 1;
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0"></div> &nbsp;Processing...';
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const ref = 'scan-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    const res = await fetch(STOCK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({
+        action: 'commit',
+        barcode: currentInventory.medicine.barcode,
+        inventory_id: currentInventory.inventory.id,
+        quantity: qty,
+        transaction_type: moveType,
+        transaction_at: new Date().toISOString(),
+        client_reference_id: ref
+      })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Failed');
+    const newQty = json.inventory.quantity;
+    document.getElementById('stockNum').textContent = newQty;
+    document.getElementById('stockNum').className = 'med-stock-num ' + (newQty <= (currentInventory.inventory.minimum_stock || 10) ? 'low' : 'ok');
+    try { navigator.vibrate(100); } catch(_) {}
+    showNotice('✓ Stock updated — ' + newQty + ' units remaining', true);
+    document.getElementById('qtyVal').value = 1;
+  } catch(e) {
+    showNotice(e.message || 'Update failed', false);
+  }
+  btn.disabled = false;
+  setType(moveType);
+}
+
+// ── UI HELPERS ──
+function showBusy(v) { document.getElementById('busyState').style.display = v ? 'block' : 'none'; }
+function showNotice(msg, ok) {
+  const el = document.getElementById('notice');
+  el.textContent = msg;
+  el.className = 'notice ' + (ok ? 'ok' : 'err');
+}
+function hideNotice() { document.getElementById('notice').className = 'notice'; }
+</script>
+</body>
+</html>
