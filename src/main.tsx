@@ -5,21 +5,25 @@ import "./landing-overrides.css";
 
 const rootEl = document.getElementById("root")!;
 
-// BLANK SCREEN FIX: unregister ALL old service workers + clear all caches
-if ('serviceWorker' in navigator) {
+// ── NUCLEAR CACHE CLEAR ──
+// Unregister ALL old service workers
+if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations().then((regs) => {
     regs.forEach((reg) => reg.unregister());
   });
+  // Register our reset SW to clear everything
+  navigator.serviceWorker.register("/sw-reset.js", { scope: "/" }).catch(() => {});
 }
-if ('caches' in window) {
+
+// Clear all caches
+if ("caches" in window) {
   caches.keys().then((names) => names.forEach((n) => caches.delete(n)));
 }
 
-// Safety: if still blank after 4s — hard reload
-const blankCheck = setTimeout(() => {
-  if (!rootEl.firstChild) window.location.reload();
-}, 4000);
+// Clear any stale localStorage scanner queue conflicts
+try {
+  const staleKeys = Object.keys(localStorage).filter(k => k.includes("workbox") || k.includes("sw-"));
+  staleKeys.forEach(k => localStorage.removeItem(k));
+} catch (_) {}
 
-const root = createRoot(rootEl);
-root.render(<App />);
-clearTimeout(blankCheck);
+createRoot(rootEl).render(<App />);
