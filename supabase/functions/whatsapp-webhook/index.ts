@@ -762,9 +762,27 @@ async function runMedicineSearch(phone: string, medicine: string, location: stri
       });
     } catch (_) {}
 
+     // "Did you mean?" — find closest match before giving up
+    const suggestion = await findClosestMedicine(normalizedMedicine);
+    if (suggestion && suggestion.toLowerCase() !== normalizedMedicine.toLowerCase()) {
+      await saveSession(phone, {
+        medicine: suggestion.toLowerCase(),
+        options: [],
+        selected: { status: "awaiting_confirmation", suggestion },
+      });
+      return {
+        type: "button",
+        text: `🤔 *Did you mean...*\n\n💊 *${suggestion}*?\n\nI couldn\'t find "*${normalizedMedicine}*" but this is the closest match in stock.`,
+        buttons: [
+          { id: "confirm_suggestion", text: `Yes, search ${suggestion.split(" ")[0]}` },
+          { id: "find_medicine", text: "Search Again" },
+        ],
+      };
+    }
+
     return {
       type: "button",
-      text: `🔎 *No Stock Listed Found*\n\nNo active stock listings matched *${normalizedMedicine}*.\n\nTry a brand, generic name, or a shorter spelling.\n\nExamples:\n*panado*\n*paracetamol*\n*esomeprazole*\n*amoxilin*`,
+      text: `🔎 *No Stock Found*\n\nNo listings matched *${normalizedMedicine}*.\n\nTry a brand name, generic name, or shorter spelling.\n\nExamples:\n*panado* · *amoxicillin* · *esomeprazole*`,
       buttons: [
         { id: "find_medicine", text: "Search Again" },
         { id: "video_consult", text: "Consult Doctor" },
@@ -815,6 +833,43 @@ async function facilityWhatsAppNumber(clinicName: string) {
   } catch (_) {
     return "";
   }
+}
+
+
+// "Did you mean?" — find closest medicine name from inventory
+async function findClosestMedicine(query: string): Promise<string | null> {
+  const q = cleanText(query);
+  if (q.length < 3) return null;
+  try {
+    const { data } = await db()
+      .from("clinic_inventory")
+      .select("med_name, generic_name, brand_name")
+      .gt("quantity", 0)
+      .neq("clinic_name", "ChekaMeds Admin")
+      .limit(3000);
+    if (!data?.length) return null;
+    const names = new Set<string>();
+    for (const row of data) {
+      if (row.med_name) names.add(cleanText(row.med_name));
+      if (row.generic_name) names.add(cleanText(row.generic_name));
+      if (row.brand_name) names.add(cleanText(row.brand_name));
+    }
+    let bestName = "";
+    let bestScore = 0;
+    for (const name of names) {
+      if (!name || name.length < 3) continue;
+      let score = similarity(q, name);
+      if (name.startsWith(q.slice(0, 3))) score += 0.2;
+      if (name.includes(q)) score += 0.3;
+      if (name.startsWith(q)) score += 0.4;
+      for (const word of name.split(" ")) {
+        if (word.length >= 4 && similarity(q, word) > 0.75) score += 0.15;
+      }
+      if (score > bestScore && score >= 0.55) { bestScore = score; bestName = name; }
+    }
+    if (!bestName) return null;
+    return bestName.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  } catch (_) { return null; }
 }
 
 // HARDCODED: reservation window is exactly 3 hours
