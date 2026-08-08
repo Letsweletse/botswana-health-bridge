@@ -127,19 +127,24 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSys
     <p>Pharmacy Scanner</p>
   </div>
   <div class="card">
-    <div class="field">
-      <label>Email</label>
-      <input type="email" id="loginEmail" placeholder="pharmacy@email.com" autocomplete="email"/>
-    </div>
-    <div class="field">
-      <label>Password</label>
-      <div style="position:relative">
-        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" style="padding-right:48px"/>
-        <button type="button" onclick="togglePw()" id="pwToggle" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:#6b7280;cursor:pointer;font-size:18px;padding:0;line-height:1">👁</button>
+    <form id="loginForm" onsubmit="return false;">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="loginEmail" placeholder="pharmacy@email.com" autocomplete="email" required/>
       </div>
-    </div>
-    <div class="error" id="loginError"></div>
-    <button class="btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+      <div class="field">
+        <label>Password</label>
+        <div style="position:relative">
+          <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" required style="padding-right:50px"/>
+          <button type="button" id="pwToggle" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#6b7280;cursor:pointer;font-size:20px;padding:4px;line-height:1;-webkit-tap-highlight-color:transparent">👁</button>
+        </div>
+        <div style="text-align:right;margin-top:6px">
+          <span id="showPwLabel" style="font-size:12px;color:#10b981;cursor:pointer;-webkit-tap-highlight-color:transparent">Show password</span>
+        </div>
+      </div>
+      <div class="error" id="loginError"></div>
+      <button type="submit" id="loginBtn" style="width:100%;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:12px;padding:16px;font-size:17px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation">Sign In</button>
+    </form>
   </div>
 </div>
 
@@ -313,71 +318,62 @@ try {
 } catch(_) {}
 
 function togglePw() {
-  const inp = document.getElementById('loginPassword');
-  const btn = document.getElementById('pwToggle');
-  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
-  else { inp.type = 'password'; btn.textContent = '👁'; }
-}
-
-async function doLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const pw = document.getElementById('loginPassword').value;
-  const btn = document.getElementById('loginBtn');
-  const err = document.getElementById('loginError');
-  err.style.display = 'none';
-  if (!email || !pw) { err.textContent = 'Enter email and password'; err.style.display = 'block'; return; }
-  btn.disabled = true;
-  btn.textContent = 'Signing in...';
-  try {
-    // Direct fetch to Supabase auth - no library dependency
-    const res = await fetch(SUPA_URL + '/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPA_KEY,
-      },
-      body: JSON.stringify({ email, password: pw })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error_description || data.msg || 'Login failed');
-    
-    currentSession = data;
-    currentUser = data.user;
-    
-    // Get clinic name
-    try {
-      const profRes = await fetch(SUPA_URL + '/rest/v1/profiles?id=eq.' + data.user.id + '&select=clinic_name&limit=1', {
-        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + data.access_token }
-      });
-      const prof = await profRes.json();
-      document.getElementById('clinicName').textContent = prof?.[0]?.clinic_name || 'Scanner';
-    } catch(_) {}
-    
-    localStorage.setItem('chekameds-scanner-session', JSON.stringify(data));
-    showScreen('scannerScreen');
-  } catch(e) {
-    err.textContent = e.message || 'Login failed. Check your credentials.';
-    err.style.display = 'block';
-    btn.disabled = false;
-    btn.textContent = 'Sign In';
+  var inp = document.getElementById('loginPassword');
+  var lbl = document.getElementById('showPwLabel');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    lbl.textContent = 'Hide password';
+    document.getElementById('pwToggle').textContent = '🙈';
+  } else {
+    inp.type = 'password';
+    lbl.textContent = 'Show password';
+    document.getElementById('pwToggle').textContent = '👁';
   }
 }
 
-async function doSignOut() {
-  stopCamera();
-  localStorage.removeItem('chekameds-scanner-session');
-  currentSession = null;
-  currentUser = null;
-  showScreen('loginScreen');
+async function doLogin() {
+  var email = document.getElementById('loginEmail').value.trim();
+  var pw = document.getElementById('loginPassword').value;
+  var btn = document.getElementById('loginBtn');
+  var err = document.getElementById('loginError');
+  err.style.display = 'none';
+  if (!email || !pw) {
+    err.textContent = 'Please enter your email and password';
+    err.style.display = 'block';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Signing in...';
+  btn.style.opacity = '0.7';
+  try {
+    var res = await fetch(SUPA_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY },
+      body: JSON.stringify({ email: email, password: pw })
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error_description || data.msg || 'Invalid email or password');
+    currentSession = data;
+    currentUser = data.user;
+    localStorage.setItem('chekameds-scanner-session', JSON.stringify(data));
+    try {
+      var profRes = await fetch(SUPA_URL + '/rest/v1/profiles?id=eq.' + data.user.id + '&select=clinic_name&limit=1', {
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + data.access_token }
+      });
+      var prof = await profRes.json();
+      document.getElementById('clinicName').textContent = (prof && prof[0] && prof[0].clinic_name) ? prof[0].clinic_name : 'Scanner';
+    } catch(e2) { document.getElementById('clinicName').textContent = 'Scanner'; }
+    showScreen('scannerScreen');
+  } catch(e) {
+    err.textContent = e.message || 'Login failed. Try again.';
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+    btn.style.opacity = '1';
+  }
 }
 
-// ── SCREENS ──
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('show'));
-  document.getElementById(id).classList.add('show');
-}
-
-// ── CAMERA ──
+// ── CAMERA ──// ── CAMERA ──
 async function startCamera() {
   document.getElementById('vfIdle').style.display = 'none';
   document.getElementById('vfLoading').style.display = 'flex';
@@ -496,8 +492,32 @@ function doManualSearch() {
   lookupMedicine(q);
 }
 
-document.addEventListener('keydown', e => {
+document.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && document.getElementById('searchRow').classList.contains('show')) doManualSearch();
+});
+
+// Wire login form - works on all browsers including Huawei
+window.addEventListener('load', function() {
+  var form = document.getElementById('loginForm');
+  var btn = document.getElementById('loginBtn');
+  var pwToggleBtn = document.getElementById('pwToggle');
+  var showPwLabel = document.getElementById('showPwLabel');
+
+  if (form) {
+    form.addEventListener('submit', function(e) { e.preventDefault(); doLogin(); });
+  }
+  if (btn) {
+    btn.addEventListener('click', function(e) { e.preventDefault(); doLogin(); });
+    btn.addEventListener('touchend', function(e) { e.preventDefault(); doLogin(); });
+  }
+  if (pwToggleBtn) {
+    pwToggleBtn.addEventListener('click', function(e) { e.preventDefault(); togglePw(); });
+    pwToggleBtn.addEventListener('touchend', function(e) { e.preventDefault(); togglePw(); });
+  }
+  if (showPwLabel) {
+    showPwLabel.addEventListener('click', function() { togglePw(); });
+    showPwLabel.addEventListener('touchend', function(e) { e.preventDefault(); togglePw(); });
+  }
 });
 
 // ── LOOKUP ──
