@@ -57,7 +57,7 @@ const AnimatedRoutes = () => {
           <Route path="/admin/delivery" element={<ProtectedRoute><DeliveryAdmin /></ProtectedRoute>} />
           <Route path="/admin/whatsapp" element={<AdminRoute><WhatsAppWebhookAdmin /></AdminRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-          <Route path="/scanner" element={<ProtectedRoute><Scanner /></ProtectedRoute>} />
+          <Route path="/scanner" element={<Scanner />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.main>
