@@ -1,6 +1,10 @@
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Bell, Clock, Moon, ShieldCheck, Sun, Wifi } from 'lucide-react';
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState, useEffect } from 'react';
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Link } from 'react-router-dom';
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from '@/hooks/useAuth';
 
 const DashboardHeader = () => {
