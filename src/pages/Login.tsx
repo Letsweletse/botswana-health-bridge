@@ -22,14 +22,10 @@ const Login = () => {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      // Check role and redirect accordingly
+      // Bulletproof redirect — check both user_roles and profiles
       const user = data.user;
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, approved')
-        .eq('id', user.id)
-        .single();
-
+      
+      // Check admin first via user_roles (most reliable)
       const { data: adminRole } = await supabase
         .from('user_roles')
         .select('role')
@@ -37,12 +33,24 @@ const Login = () => {
         .eq('role', 'admin')
         .maybeSingle();
 
-      if (adminRole || profile?.role === 'admin') {
+      if (adminRole) {
         navigate('/admin');
-      } else if (profile?.approved) {
-        navigate('/dashboard');
+        return;
+      }
+
+      // Check profile role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, approved, status')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profile?.role === 'admin') {
+        navigate('/admin');
       } else {
-        navigate('/dashboard'); // will show pending screen
+        // All pharmacy/facility accounts go to dashboard
+        // ProtectedRoute handles pending/unapproved state
+        navigate('/dashboard');
       }
     } catch (err: any) {
       toast({ title: 'Sign in failed', description: err.message, variant: 'destructive' });
