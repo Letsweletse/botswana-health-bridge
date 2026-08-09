@@ -26,4 +26,10 @@ try {
   staleKeys.forEach(k => localStorage.removeItem(k));
 } catch (_) {}
 
+// Apply saved theme before render — prevents flash
+const _t = localStorage.getItem("chekameds-theme") || "system";
+if (_t === "dark" || (_t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+  document.documentElement.classList.add("dark");
+}
+
 createRoot(rootEl).render(<App />);
