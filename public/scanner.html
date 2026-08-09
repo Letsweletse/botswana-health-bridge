@@ -344,11 +344,18 @@ $('signoutBtn').addEventListener('click', function(){
 });
 
 /* ── CAMERA ── */
+var focusInterval = null;
+
 function startCam(){
   hide('vfIdle'); show('vfLoad');
   hide('scanArea');
   navigator.mediaDevices.getUserMedia({
-    video: { facingMode: {ideal: 'environment'}, width: {ideal: 1920}, height: {ideal: 1080} },
+    video: {
+      facingMode: {ideal: 'environment'},
+      width: {ideal: 1920},
+      height: {ideal: 1080},
+      focusMode: 'continuous'
+    },
     audio: false
   }).then(function(stream){
     camStream = stream;
@@ -358,13 +365,41 @@ function startCam(){
       var track = stream.getVideoTracks()[0];
       var caps = track.getCapabilities ? track.getCapabilities() : {};
       if (caps.torch) show('torchBtn');
-      try { track.applyConstraints({advanced:[{focusMode:'continuous',exposureMode:'continuous'}]}); } catch(e){}
+
+      // Apply best autofocus + exposure settings
+      try {
+        var constraints = {advanced:[{
+          focusMode: 'continuous',
+          exposureMode: 'continuous',
+          whiteBalanceMode: 'continuous'
+        }]};
+        track.applyConstraints(constraints).catch(function(){});
+      } catch(e){}
+
+      // Re-trigger autofocus every 2 seconds for Huawei which loses focus
+      focusInterval = setInterval(function(){
+        if (!camStream) { clearInterval(focusInterval); return; }
+        try {
+          var t = camStream.getVideoTracks()[0];
+          // Tap-to-focus trick: toggle focus mode to force re-focus
+          t.applyConstraints({advanced:[{focusMode:'auto'}]}).then(function(){
+            setTimeout(function(){
+              try { t.applyConstraints({advanced:[{focusMode:'continuous'}]}); } catch(e){}
+            }, 300);
+          }).catch(function(){});
+        } catch(e){}
+      }, 2000);
+
       hide('vfLoad'); show('vfActive'); show('closeBtn');
       scanning = true;
+
       if ('BarcodeDetector' in window) {
-        detector = new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39','qr_code']});
+        detector = new BarcodeDetector({
+          formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf','data_matrix','qr_code']
+        });
         scanLoop();
       } else {
+        // Fallback: try every 500ms using canvas for older Androids
         show('scanArea');
         showNotice('Camera active — type barcode below if auto-scan fails', false);
       }
@@ -375,28 +410,47 @@ function startCam(){
   });
 }
 
+var lastScan = 0;
 function scanLoop(){
   if (!scanning || !detector) return;
   var video = $('video');
+  if (video.readyState < 2) { frameId = requestAnimationFrame(scanLoop); return; }
+
+  var now = performance.now();
+  // Scan every 150ms for fast capture
+  if (now - lastScan < 150) { frameId = requestAnimationFrame(scanLoop); return; }
+  lastScan = now;
+
   detector.detect(video).then(function(codes){
     if (codes && codes.length) {
+      // Pick the largest/most confident barcode
       var best = codes[0];
-      codes.forEach(function(c){ if ((c.boundingBox||{}).width > (best.boundingBox||{}).width) best = c; });
+      codes.forEach(function(c){
+        var bw = (c.boundingBox||{}).width || 0;
+        var bestw = (best.boundingBox||{}).width || 0;
+        if (bw > bestw) best = c;
+      });
       if (best.rawValue) {
-        try { navigator.vibrate(80); } catch(e){}
-        var fl = $('flash'); fl.style.opacity = '1'; setTimeout(function(){ fl.style.opacity = '0'; }, 300);
+        try { navigator.vibrate([80, 30, 80]); } catch(e){}
+        // Flash green on detect
+        var fl = $('flash');
+        fl.style.opacity = '1';
+        setTimeout(function(){ fl.style.opacity = '0'; }, 400);
         stopCam();
         lookupMed(best.rawValue);
         return;
       }
     }
     frameId = requestAnimationFrame(scanLoop);
-  }).catch(function(){ frameId = requestAnimationFrame(scanLoop); });
+  }).catch(function(){
+    frameId = requestAnimationFrame(scanLoop);
+  });
 }
 
 function stopCam(){
   scanning = false;
   cancelAnimationFrame(frameId);
+  if (focusInterval) { clearInterval(focusInterval); focusInterval = null; }
   if (camStream) { camStream.getTracks().forEach(function(t){ t.stop(); }); camStream = null; }
   hide('vfActive'); hide('vfLoad'); hide('closeBtn'); hide('torchBtn');
   show('vfIdle'); show('scanArea');
