@@ -20,7 +20,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  const isApproved = Boolean(profile?.approved);
+  // Allow if approved OR if admin role
+  const isApproved = Boolean(profile?.approved) || 
+                     Boolean(isAdmin) || 
+                     profile?.role === 'admin' ||
+                     profile?.role === 'pharmacy' ||
+                     profile?.role === 'facility';
 
   if (!isApproved) {
     return (
