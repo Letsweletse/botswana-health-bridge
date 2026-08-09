@@ -27,114 +27,141 @@ export function useAuth() {
       return;
     }
 
-    const { data: adminRole, error: roleError } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', currentUser.id)
-      .eq('role', 'admin')
-      .maybeSingle();
+    try {
+      // Check admin via user_roles
+      const { data: adminRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', currentUser.id)
+        .eq('role', 'admin')
+        .maybeSingle();
 
-    if (roleError) {
-      console.warn('Admin role lookup failed:', roleError.message);
+      const userIsAdmin = Boolean(adminRole);
+      setIsAdmin(userIsAdmin);
+
+      if (userIsAdmin) {
+        setProfile({
+          id: currentUser.id,
+          email: currentUser.email || null,
+          clinic_name: 'ChekaMeds Admin',
+          contact: null,
+          name: 'Admin',
+          role: 'admin',
+          approved: true,
+          status: 'approved',
+        });
+        return;
+      }
+
+      // Load profile for non-admin
+      const { data: existingProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email, clinic_name, contact, name, role, approved, status')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Profile lookup failed:', profileError);
+        // CRITICAL: if profile lookup fails, check if role=admin in profiles table directly
+        // This prevents getting kicked out due to RLS issues
+        const { data: profileRole } = await supabase
+          .from('profiles')
+          .select('role, approved')
+          .eq('id', currentUser.id)
+          .maybeSingle();
+        
+        if (profileRole?.role === 'admin') {
+          setIsAdmin(true);
+          setProfile({
+            id: currentUser.id,
+            email: currentUser.email || null,
+            clinic_name: 'ChekaMeds Admin',
+            contact: null,
+            name: 'Admin',
+            role: 'admin',
+            approved: true,
+            status: 'approved',
+          });
+        }
+        return;
+      }
+
+      if (existingProfile) {
+        // Also check if profile role is admin
+        if (existingProfile.role === 'admin') {
+          setIsAdmin(true);
+        }
+        setProfile(existingProfile);
+        return;
+      }
+
+      // First sign-in: create pending profile
+      const clinicName = String(currentUser.user_metadata?.clinic_name || '').trim();
+      const fullName = String(
+        currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || ''
+      ).trim();
+
+      const { data: createdProfile, error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: currentUser.id,
+          email: currentUser.email || null,
+          clinic_name: clinicName || fullName || null,
+          name: fullName || null,
+          role: 'facility',
+          approved: false,
+          status: 'pending',
+        })
+        .select('id, email, clinic_name, contact, name, role, approved, status')
+        .single();
+
+      if (insertError) {
+        console.error('Profile creation failed:', insertError);
+        return;
+      }
+
+      setProfile(createdProfile);
+
+      supabase.functions
+        .invoke('notify-facility-registration', {
+          body: {
+            clinicName: createdProfile.clinic_name || 'Unnamed facility',
+            fullName: createdProfile.name || '',
+            email: createdProfile.email || '',
+          },
+        })
+        .catch((e) => console.error('Registration notification failed:', e));
+
+    } catch (err) {
+      console.error('loadProfile error:', err);
     }
-
-    const userIsAdmin = Boolean(adminRole);
-    setIsAdmin(userIsAdmin);
-
-    if (userIsAdmin) {
-      setProfile({
-        id: currentUser.id,
-        email: currentUser.email || null,
-        clinic_name: 'ChekaMeds Admin',
-        contact: null,
-        name: null,
-        role: 'admin',
-        approved: true,
-        status: 'verified_partner',
-      });
-      return;
-    }
-
-    const { data: existingProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, email, clinic_name, contact, name, role, approved, status')
-      .eq('id', currentUser.id)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error('Profile lookup failed:', profileError);
-      setProfile(null);
-      return;
-    }
-
-    if (existingProfile) {
-      setProfile(existingProfile);
-      return;
-    }
-
-    // First sign-in: create a pending profile so an admin can review it.
-    const clinicName = String(currentUser.user_metadata?.clinic_name || '').trim();
-    const fullName = String(
-      currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || ''
-    ).trim();
-
-    const { data: createdProfile, error: insertError } = await supabase
-      .from('profiles')
-      .insert({
-        id: currentUser.id,
-        email: currentUser.email || null,
-        clinic_name: clinicName || fullName || null,
-        name: fullName || null,
-        role: 'facility',
-        approved: false,
-        status: 'pending',
-      })
-      .select('id, email, clinic_name, contact, name, role, approved, status')
-      .single();
-
-    if (insertError) {
-      console.error('Profile creation failed:', insertError);
-      setProfile(null);
-      return;
-    }
-
-    setProfile(createdProfile);
-
-    supabase.functions
-      .invoke('notify-facility-registration', {
-        body: {
-          clinicName: createdProfile.clinic_name || 'Unnamed facility',
-          fullName: createdProfile.name || '',
-          email: createdProfile.email || '',
-        },
-      })
-      .then(({ error: notifyError }) => {
-        if (notifyError) console.error('Registration notification email failed:', notifyError);
-      });
   };
 
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
+    let mounted = true;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
+        if (!mounted) return;
         setSession(newSession);
         setUser(newSession?.user ?? null);
-        setTimeout(async () => {
-          await loadProfile(newSession?.user ?? null);
-          setLoading(false);
-        }, 0);
+        await loadProfile(newSession?.user ?? null);
+        if (mounted) setLoading(false);
       }
     );
 
     supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+      if (!mounted) return;
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       await loadProfile(currentSession?.user ?? null);
-      setLoading(false);
+      if (mounted) setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
@@ -146,20 +173,10 @@ export function useAuth() {
   const signInWithGoogle = async (redirectPath: string = '/dashboard') => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}${redirectPath}`,
-      },
+      options: { redirectTo: `${window.location.origin}${redirectPath}` },
     });
     if (error) throw error;
   };
 
-  return {
-    user,
-    session,
-    profile,
-    isAdmin,
-    loading,
-    signOut,
-    signInWithGoogle,
-  };
+  return { user, session, profile, isAdmin, loading, signOut, signInWithGoogle };
 }
