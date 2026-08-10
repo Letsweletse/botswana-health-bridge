@@ -14,12 +14,6 @@ self.addEventListener("activate", (e) => {
     caches.keys()
       .then(keys => Promise.all(keys.map(k => caches.delete(k))))
       .then(() => self.clients.claim())
-      .then(() => {
-        // Tell all clients to reload
-        return self.clients.matchAll({ type: "window" }).then(clients => {
-          clients.forEach(client => client.navigate(client.url));
-        });
-      })
   );
 });
 
