@@ -49,7 +49,24 @@ const Register = () => {
 
       if (pharmacyError) throw pharmacyError;
 
-      // 3. Insert into profiles table
+      // 3. Notify admins of the new pending pharmacy
+      const { error: notifyError } = await supabase
+        .from('admin_notifications')
+        .insert({
+          type: 'new_pharmacy',
+          title: 'New Pharmacy Registration',
+          message: 'New pharmacy registered and pending approval',
+          clinic_name: clinicName,
+          email,
+          profile_id: user.id,
+          role: 'pharmacy',
+          read: false,
+          created_at: new Date().toISOString(),
+        });
+
+      if (notifyError) console.warn('Admin notification insert warning:', notifyError.message);
+
+      // 4. Insert into profiles table
       const { error: profileError } = await supabase
         .from('profiles')
         .insert({

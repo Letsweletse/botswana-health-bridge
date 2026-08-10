@@ -28,6 +28,18 @@ type Facility = {
   can_receive_reservations: boolean | null;
 };
 
+type PharmacyNotification = {
+  id: string;
+  title: string;
+  message: string;
+  clinic_name: string | null;
+  email: string | null;
+  profile_id: string | null;
+  role: string | null;
+  read: boolean;
+  created_at: string;
+};
+
 type OrderRequest = {
   id: string;
   from_number: string | null;
@@ -105,6 +117,21 @@ const AdminPanel = () => {
     enabled: isAdmin === true,
   });
 
+  const { data: pharmacyNotifications = [], isLoading: pharmacyNotificationsLoading } = useQuery({
+    queryKey: ['admin-pharmacy-notifications'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('admin_notifications')
+        .select('id, title, message, clinic_name, email, profile_id, role, read, created_at')
+        .eq('type', 'new_pharmacy')
+        .eq('read', false)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as PharmacyNotification[];
+    },
+    enabled: isAdmin === true,
+  });
+
   const { data: facilities = [], isLoading: facilitiesLoading } = useQuery({
     queryKey: ['admin-facilities'],
     queryFn: async () => {
@@ -160,6 +187,28 @@ const AdminPanel = () => {
       });
     },
     onError: (err: any) => toast({ title: 'Action failed', description: err.message, variant: 'destructive' }),
+  });
+
+  const approvePharmacyMutation = useMutation({
+    mutationFn: async ({ notificationId, profileId }: { notificationId: string; profileId: string }) => {
+      const { error: pharmacyError } = await supabase
+        .from('pharmacies')
+        .update({ status: 'active', visible_in_search: true })
+        .eq('user_id', profileId);
+      if (pharmacyError) throw pharmacyError;
+
+      const { error: notificationError } = await supabase
+        .from('admin_notifications')
+        .update({ read: true })
+        .eq('id', notificationId);
+      if (notificationError) throw notificationError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-pharmacy-notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-facilities'] });
+      toast({ title: 'Pharmacy approved', description: 'It is now active and visible in search.' });
+    },
+    onError: (err: any) => toast({ title: 'Approval failed', description: err.message, variant: 'destructive' }),
   });
 
   const facilityMutation = useMutation({
@@ -468,6 +517,47 @@ const AdminPanel = () => {
 
         {tab === 'approvals' && (
           <div className="space-y-5">
+            <div>
+              <h2 className="text-lg font-bold text-foreground">New Pharmacy Registrations</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Pharmacies that registered directly and are waiting to go live in patient search.
+              </p>
+            </div>
+
+            {pharmacyNotificationsLoading ? (
+              <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+            ) : pharmacyNotifications.length === 0 ? (
+              <div className="text-center py-8 bg-card rounded-2xl border border-border">
+                <p className="text-xs text-muted-foreground">No new pharmacy registrations pending.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pharmacyNotifications.map((n) => (
+                  <div key={n.id} className="bg-card rounded-2xl border border-warning/40 p-5 flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-warning/10 flex-shrink-0">
+                        <Store className="h-5 w-5 text-warning" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{n.clinic_name || 'Unnamed pharmacy'}</p>
+                        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                          <span className="text-[11px] text-muted-foreground">{n.email || ''}</span>
+                          <span className="text-[10px] text-muted-foreground">{fmtDate(n.created_at)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => n.profile_id && approvePharmacyMutation.mutate({ notificationId: n.id, profileId: n.profile_id })}
+                      disabled={approvePharmacyMutation.isPending || !n.profile_id}
+                      className="flex items-center gap-1.5 bg-primary text-primary-foreground text-xs font-bold px-3.5 py-2 rounded-lg hover:opacity-90 disabled:opacity-50 flex-shrink-0"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <h2 className="text-lg font-bold text-foreground">Account Approvals</h2>
