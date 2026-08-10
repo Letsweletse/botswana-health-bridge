@@ -39,10 +39,10 @@ const AnimatedRoutes = () => {
     <AnimatePresence mode="wait" initial={false}>
       <motion.main
         key={location.pathname}
-        initial={shouldReduceMotion ? false : { opacity: 0, y: 10, filter: "blur(6px)" }}
-        animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
-        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -8, filter: "blur(4px)" }}
-        transition={{ duration: 0.18, ease: "easeOut" }}
+        initial={shouldReduceMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.1 }}
       >
         <Routes location={location}>
           <Route path="/" element={<Landing />} />
