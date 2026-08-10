@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Search from "./pages/Search";
 import Facilities from "./pages/Facilities";
 import Consultant from "./pages/Consultant";
@@ -46,6 +47,7 @@ const AnimatedRoutes = () => {
         <Routes location={location}>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/search" element={<Search />} />
           <Route path="/delivery" element={<Delivery />} />
@@ -70,7 +72,6 @@ const PWAInstallBanner = () => {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    // Already installed — don't show
     if (window.matchMedia("(display-mode: standalone)").matches) return;
     if ((window.navigator as any).standalone === true) return;
 
@@ -81,7 +82,6 @@ const PWAInstallBanner = () => {
     };
     window.addEventListener("beforeinstallprompt", handler);
 
-    // iOS — show after 4s with manual instructions
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     if (isIOS) {
       setTimeout(() => setShow(true), 4000);
