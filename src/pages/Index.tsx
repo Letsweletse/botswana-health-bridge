@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useInventoryStats } from '@/hooks/useInventory';
+import { useAuth } from '@/hooks/useAuth';
+import PulseBranchDashboard from '@/components/PulseBranchDashboard';
 import { Loader2 } from 'lucide-react';
 import DashboardHeader from '@/components/DashboardHeader';
 import Sidebar, { type TabId } from '@/components/Sidebar';
@@ -46,6 +48,11 @@ const mobileTabs: { id: TabId; label: string }[] = [
 const Index = () => {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const { isLoading } = useInventoryStats();
+  const { profile } = useAuth();
+
+  // Pulse multi-branch dashboard — any Pulse pharmacy user
+  const isPulseAccount = profile?.email === 'ho@pulse.co.bw' ||
+    String(profile?.clinic_name || '').toLowerCase().includes('pulse');
 
   if (isLoading) {
     return (
@@ -56,6 +63,10 @@ const Index = () => {
         </div>
       </div>
     );
+  }
+
+  if (isPulseAccount) {
+    return <PulseBranchDashboard />;
   }
 
   return (
