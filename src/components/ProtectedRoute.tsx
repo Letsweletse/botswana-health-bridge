@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import logo from '@/assets/ChekaMeds_Logo.png';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, isAdmin } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -20,9 +20,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  // Allow if approved OR if admin role
-  const isApproved = Boolean(profile?.approved) || 
-                     Boolean(isAdmin) || 
+  // Allow if approved OR active status OR admin OR facility role
+  const isApproved = Boolean(profile?.approved) ||
+                     profile?.status === 'active' ||
+                     Boolean(isAdmin) ||
                      profile?.role === 'admin' ||
                      profile?.role === 'pharmacy' ||
                      profile?.role === 'facility';
