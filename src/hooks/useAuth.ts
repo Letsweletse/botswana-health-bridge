@@ -28,15 +28,17 @@ export function useAuth() {
     }
 
     try {
-      // Check admin via user_roles
-      const { data: adminRole } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', currentUser.id)
-        .eq('role', 'admin')
-        .maybeSingle();
+      // Run admin check and profile fetch IN PARALLEL for speed
+      const [adminRoleResult, profileResult] = await Promise.all([
+        supabase.from('user_roles').select('role').eq('user_id', currentUser.id).eq('role', 'admin').maybeSingle(),
+        supabase.from('profiles').select('id, email, clinic_name, contact, name, role, approved, status').eq('id', currentUser.id).maybeSingle(),
+      ]);
 
-      const userIsAdmin = Boolean(adminRole);
+      const adminRole = adminRoleResult.data;
+      const existingProfile = profileResult.data;
+      const profileError = profileResult.error;
+
+      const userIsAdmin = Boolean(adminRole) || existingProfile?.role === 'admin';
       setIsAdmin(userIsAdmin);
 
       if (userIsAdmin) {
@@ -53,44 +55,12 @@ export function useAuth() {
         return;
       }
 
-      // Load profile for non-admin
-      const { data: existingProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, email, clinic_name, contact, name, role, approved, status')
-        .eq('id', currentUser.id)
-        .maybeSingle();
-
       if (profileError) {
         console.error('Profile lookup failed:', profileError);
-        // CRITICAL: if profile lookup fails, check if role=admin in profiles table directly
-        // This prevents getting kicked out due to RLS issues
-        const { data: profileRole } = await supabase
-          .from('profiles')
-          .select('role, approved')
-          .eq('id', currentUser.id)
-          .maybeSingle();
-        
-        if (profileRole?.role === 'admin') {
-          setIsAdmin(true);
-          setProfile({
-            id: currentUser.id,
-            email: currentUser.email || null,
-            clinic_name: 'ChekaMeds Admin',
-            contact: null,
-            name: 'Admin',
-            role: 'admin',
-            approved: true,
-            status: 'approved',
-          });
-        }
         return;
       }
 
       if (existingProfile) {
-        // Also check if profile role is admin
-        if (existingProfile.role === 'admin') {
-          setIsAdmin(true);
-        }
         setProfile(existingProfile);
         return;
       }
@@ -139,24 +109,28 @@ export function useAuth() {
 
   useEffect(() => {
     let mounted = true;
+    let initialized = false;
 
+    // First: get session immediately
+    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+      if (!mounted) return;
+      initialized = true;
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      await loadProfile(currentSession?.user ?? null);
+      if (mounted) setLoading(false);
+    });
+
+    // Then: only handle future auth changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
-        if (!mounted) return;
+        if (!mounted || !initialized) return;
         setSession(newSession);
         setUser(newSession?.user ?? null);
         await loadProfile(newSession?.user ?? null);
         if (mounted) setLoading(false);
       }
     );
-
-    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
-      if (!mounted) return;
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      await loadProfile(currentSession?.user ?? null);
-      if (mounted) setLoading(false);
-    });
 
     return () => {
       mounted = false;
