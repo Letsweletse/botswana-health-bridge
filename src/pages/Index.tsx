@@ -49,22 +49,33 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const { profile, loading: authLoading } = useAuth();
 
+  // Wait for auth to load before deciding which dashboard to show
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Pulse multi-branch dashboard — any Pulse pharmacy user
   const isPulseAccount = profile?.email === 'ho@pulse.co.bw' ||
     String(profile?.clinic_name || '').toLowerCase().includes('pulse');
 
-  // Show Pulse dashboard immediately — skip inventory stats entirely
   if (isPulseAccount) {
     return <PulseBranchDashboard />;
   }
 
-  return <IndexInner activeTab={activeTab} setActiveTab={setActiveTab} authLoading={authLoading} />;
+  return <IndexInner activeTab={activeTab} setActiveTab={setActiveTab} />;
 };
 
-const IndexInner = ({ activeTab, setActiveTab, authLoading }: { activeTab: TabId; setActiveTab: (t: TabId) => void; authLoading: boolean }) => {
+const IndexInner = ({ activeTab, setActiveTab }: { activeTab: TabId; setActiveTab: (t: TabId) => void }) => {
   const { isLoading } = useInventoryStats();
 
-  if (isLoading || authLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-3">
@@ -76,7 +87,7 @@ const IndexInner = ({ activeTab, setActiveTab, authLoading }: { activeTab: TabId
   }
 
   if (false) {
-    // placeholder to maintain structure
+    // placeholder
   }
 
   return (
