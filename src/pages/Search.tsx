@@ -283,6 +283,10 @@ const SearchPage = () => {
     });
 
     return Array.from(map.entries()).sort((a, b) => {
+      // Pulse Pharmacy Tati always appears first
+      const PRIORITY_CLINIC = 'Pulse Pharmacy Tati';
+      if (a[0] === PRIORITY_CLINIC) return -1;
+      if (b[0] === PRIORITY_CLINIC) return 1;
       const aBest = Math.max(...a[1].map((m) => m.score));
       const bBest = Math.max(...b[1].map((m) => m.score));
       if (aBest !== bBest) return bBest - aBest;
