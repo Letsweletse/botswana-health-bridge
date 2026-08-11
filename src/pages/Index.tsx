@@ -47,14 +47,24 @@ const mobileTabs: { id: TabId; label: string }[] = [
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
-  const { isLoading } = useInventoryStats();
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
 
   // Pulse multi-branch dashboard — any Pulse pharmacy user
   const isPulseAccount = profile?.email === 'ho@pulse.co.bw' ||
     String(profile?.clinic_name || '').toLowerCase().includes('pulse');
 
-  if (isLoading) {
+  // Show Pulse dashboard immediately — skip inventory stats entirely
+  if (isPulseAccount) {
+    return <PulseBranchDashboard />;
+  }
+
+  return <IndexInner activeTab={activeTab} setActiveTab={setActiveTab} authLoading={authLoading} />;
+};
+
+const IndexInner = ({ activeTab, setActiveTab, authLoading }: { activeTab: TabId; setActiveTab: (t: TabId) => void; authLoading: boolean }) => {
+  const { isLoading } = useInventoryStats();
+
+  if (isLoading || authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-3">
@@ -65,8 +75,8 @@ const Index = () => {
     );
   }
 
-  if (isPulseAccount) {
-    return <PulseBranchDashboard />;
+  if (false) {
+    // placeholder to maintain structure
   }
 
   return (
