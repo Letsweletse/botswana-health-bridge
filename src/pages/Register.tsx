@@ -20,7 +20,7 @@ const Register = () => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      // 1. Create auth user
+      // 1. Create auth user — DB trigger auto-creates pharmacy record
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -33,51 +33,30 @@ const Register = () => {
       const user = data.user;
       if (!user) throw new Error('Signup failed. Please try again.');
 
-      // 2. Insert into pharmacies table
-      const { error: pharmacyError } = await supabase
-        .from('pharmacies')
-        .insert({
-          user_id: user.id,
-          email,
-          clinic_name: clinicName,
-          contact,
-          status: 'pending',
-          subscription_status: 'trial',
-          payment_required: false,
-          visible_in_search: false,
-        });
+      // 2. Notify admins (non-blocking)
+      supabase.from('admin_notifications').insert({
+        type: 'new_pharmacy',
+        title: 'New Pharmacy Registration',
+        message: 'New pharmacy registered and pending approval',
+        clinic_name: clinicName,
+        email,
+        profile_id: user.id,
+        role: 'pharmacy',
+        read: false,
+        created_at: new Date().toISOString(),
+      }).then(({ error }) => {
+        if (error) console.warn('Admin notification warning:', error.message);
+      });
 
-      if (pharmacyError) throw pharmacyError;
-
-      // 3. Notify admins of the new pending pharmacy
-      const { error: notifyError } = await supabase
-        .from('admin_notifications')
-        .insert({
-          type: 'new_pharmacy',
-          title: 'New Pharmacy Registration',
-          message: 'New pharmacy registered and pending approval',
-          clinic_name: clinicName,
-          email,
-          profile_id: user.id,
-          role: 'pharmacy',
-          read: false,
-          created_at: new Date().toISOString(),
-        });
-
-      if (notifyError) console.warn('Admin notification insert warning:', notifyError.message);
-
-      // 4. Insert into profiles table
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: user.id,
-          role: 'pharmacy',
-        });
-
-      // Profile insert may fail if it already exists via trigger — that's OK
-      if (profileError && !profileError.message.includes('duplicate')) {
-        console.warn('Profile insert warning:', profileError.message);
-      }
+      // 3. Insert into profiles (non-blocking)
+      supabase.from('profiles').insert({
+        id: user.id,
+        role: 'pharmacy',
+      }).then(({ error }) => {
+        if (error && !error.message.includes('duplicate')) {
+          console.warn('Profile insert warning:', error.message);
+        }
+      });
 
       toast({
         title: 'Registration successful!',
