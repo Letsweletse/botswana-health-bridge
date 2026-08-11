@@ -19,20 +19,22 @@ export interface InventoryItem {
   price_bwp: number | null;
 }
 
-/** Fetches ALL inventory (used by stats/map that need global view) */
+/** Fetches ALL inventory - paginated to avoid blank dashboard */
 export function useInventory() {
   return useQuery({
     queryKey: ['clinic-inventory'],
     queryFn: async (): Promise<InventoryItem[]> => {
       const { data, error } = await supabase
         .from('clinic_inventory')
-        .select('*')
-        .order('clinic_name');
+        .select('id, clinic_name, med_name, category, quantity, trend, updated_at, strength, dosage_form, pack_size, atc_code, atc_description, facility_level, price_bwp')
+        .order('clinic_name')
+        .limit(500); // limit to avoid huge load
 
       if (error) throw error;
       return (data ?? []) as InventoryItem[];
     },
-    refetchInterval: 30000,
+    staleTime: 60000,       // cache for 1 min
+    refetchInterval: 60000, // refetch every 1 min instead of 30s
   });
 }
 
@@ -55,14 +57,14 @@ export function useClinicInventory() {
       return (data ?? []) as InventoryItem[];
     },
     enabled: !!clinicName,
-    refetchInterval: 30000,
+    staleTime: 60000,
+    refetchInterval: 60000,
   });
 }
 
 export function useInventoryStats() {
   const { data: inventory = [], isLoading } = useInventory();
 
-  // Derive unique clinics from live database inventory
   const clinicNames = [...new Set(inventory.map(i => i.clinic_name))];
   const totalClinics = clinicNames.length;
   const totalMeds = inventory.length;

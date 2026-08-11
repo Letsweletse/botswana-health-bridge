@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useInventoryStats } from '@/hooks/useInventory';
+import { Loader2 } from 'lucide-react';
 import DashboardHeader from '@/components/DashboardHeader';
 import Sidebar, { type TabId } from '@/components/Sidebar';
 import StatsCards from '@/components/StatsCards';
@@ -43,6 +45,18 @@ const mobileTabs: { id: TabId; label: string }[] = [
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
+  const { isLoading } = useInventoryStats();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex">
