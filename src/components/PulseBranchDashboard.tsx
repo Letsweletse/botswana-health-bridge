@@ -69,7 +69,9 @@ export default function PulseBranchDashboard() {
     const { data } = await supabase.rpc('get_branch_stats');
     const map: Record<string, BranchStats> = {};
     for (const r of (data || []) as any[]) {
-      map[r.clinic_name] = { total: Number(r.total), stable: Number(r.stable), low: Number(r.low), depleting: Number(r.depleting) };
+      if (String(r.clinic_name).toLowerCase().startsWith('pulse pharmacy')) {
+        map[r.clinic_name] = { total: Number(r.total), stable: Number(r.stable), low: Number(r.low), depleting: Number(r.depleting) };
+      }
     }
     setAllStats(map);
     return map;
@@ -78,9 +80,29 @@ export default function PulseBranchDashboard() {
   const selectBranch = async (b: Branch) => {
     setSelected(b); setView('inventory'); setSearch(''); setTrendFilter('all');
     setInvLoading(true);
-    const { data } = await supabase.from('clinic_inventory').select('id,med_name,category,quantity,trend,pack_size,atc_code').eq('clinic_name', b.clinic_name).order('med_name');
-    setInventory((data as InventoryItem[]) || []);
-    setStats(allStats[b.clinic_name] || { total:0,stable:0,low:0,depleting:0 });
+    // Load inventory and branch stats in parallel — fresh from DB
+    const [invRes, trendRes] = await Promise.all([
+      supabase.from('clinic_inventory')
+        .select('id,med_name,category,quantity,trend,pack_size,atc_code')
+        .eq('clinic_name', b.clinic_name)
+        .gt('quantity', 0)
+        .order('med_name'),
+      supabase.from('clinic_inventory')
+        .select('trend')
+        .eq('clinic_name', b.clinic_name)
+        .gt('quantity', 0),
+    ]);
+    setInventory((invRes.data as InventoryItem[]) || []);
+    // Compute fresh stats — never rely on stale allStats
+    const rows = (trendRes.data || []) as {trend:string}[];
+    const fresh: BranchStats = { total: rows.length, stable: 0, low: 0, depleting: 0 };
+    for (const r of rows) {
+      if (r.trend === 'Stable') fresh.stable++;
+      else if (r.trend === 'Low Stock') fresh.low++;
+      else fresh.depleting++;
+    }
+    setStats(fresh);
+    setAllStats(prev => ({ ...prev, [b.clinic_name]: fresh }));
     setInvLoading(false);
   };
 
