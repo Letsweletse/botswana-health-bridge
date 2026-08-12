@@ -2,6 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  LayoutGrid, Package, AlertTriangle, TrendingDown,
+  Search, RefreshCw, Upload, LogOut, Activity,
+  ChevronRight, Clock, Phone, MapPin, CheckCircle,
+  CloudUpload, Boxes, ShieldCheck, Settings,
+  Building2, BarChart3, Menu, X, ArrowRight,
+  Pill, Database, Zap, Calendar
+} from 'lucide-react';
 
 type Branch = {
   id: string; clinic_name: string; location: string; address: string;
@@ -13,13 +21,17 @@ type InventoryItem = {
 };
 type BranchStats = { total: number; stable: number; low: number; depleting: number };
 
-const T = '#00b4b4';   // teal
-const P = '#e91e8c';   // pink/magenta
+const T = '#00b4b4';
+const P = '#e91e8c';
 const W = '#ffffff';
 const BG = '#f0f4f8';
 const DARK = '#2c3e50';
 const GRAY = '#8492a6';
 const LGRAY = '#e8edf2';
+
+const Icon = ({ icon: Ic, size = 16, color = GRAY }: { icon: any; size?: number; color?: string }) => (
+  <Ic size={size} color={color} strokeWidth={1.8} />
+);
 
 export default function PulseBranchDashboard() {
   const { signOut } = useAuth();
@@ -112,7 +124,7 @@ export default function PulseBranchDashboard() {
         setProgress(35 + Math.floor(((i+400)/rows.length)*60));
       }
       setProgress(100);
-      setUploadStatus({ type:'success', msg:`${rows.length.toLocaleString()} items uploaded for ${selected.clinic_name}.` });
+      setUploadStatus({ type:'success', msg:`${rows.length.toLocaleString()} items uploaded successfully for ${selected.clinic_name}.` });
       await selectBranch(selected);
       await loadStats();
     } catch (e: any) { setUploadStatus({ type:'error', msg: e.message }); }
@@ -120,102 +132,97 @@ export default function PulseBranchDashboard() {
   }, [selected, uploadMode]);
 
   const net = branches.reduce((a,b) => { const s=allStats[b.clinic_name]; if(s){a.total+=s.total;a.stable+=s.stable;a.low+=s.low;a.depleting+=s.depleting;} return a; }, {total:0,stable:0,low:0,depleting:0});
-
   const filtered = inventory.filter(i => i.med_name.toLowerCase().includes(search.toLowerCase()) && (trendFilter==='all'||i.trend===trendFilter));
+  const shortName = (n: string) => n.replace('Pulse Pharmacy ','');
+  const healthPct = (s?: BranchStats) => s?.total ? Math.round((s.stable/s.total)*100) : 0;
+  const statusColor = (s?: BranchStats) => s?.depleting ? '#e74c3c' : s?.low ? '#f39c12' : '#27ae60';
 
   if (loading) return (
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',background:BG,fontFamily:'"Segoe UI",Roboto,sans-serif'}}>
       <div style={{textAlign:'center'}}>
-        <div style={{width:40,height:40,border:`4px solid ${LGRAY}`,borderTopColor:T,borderRadius:'50%',animation:'spin 0.7s linear infinite',margin:'0 auto 14px'}} />
-        <p style={{color:GRAY,fontSize:14}}>Loading Pulse Network...</p>
+        <div style={{width:40,height:40,border:`3px solid ${LGRAY}`,borderTopColor:T,borderRadius:'50%',animation:'spin 0.7s linear infinite',margin:'0 auto 14px'}} />
+        <p style={{color:GRAY,fontSize:13,fontWeight:500}}>Loading Pulse Network</p>
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     </div>
   );
 
-  const shortName = (n: string) => n.replace('Pulse Pharmacy ','');
-  const healthPct = (s?: BranchStats) => s?.total ? Math.round((s.stable/s.total)*100) : 0;
-  const statusColor = (s?: BranchStats) => s?.depleting ? '#e74c3c' : s?.low ? '#f39c12' : '#27ae60';
-
   return (
     <div style={{display:'flex',height:'100vh',fontFamily:'"Segoe UI",Roboto,"Helvetica Neue",sans-serif',background:BG,overflow:'hidden'}}>
       <style>{`
         @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-        *{box-sizing:border-box;margin:0;padding:0}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+        *{box-sizing:border-box}
         ::-webkit-scrollbar{width:5px;height:5px}
         ::-webkit-scrollbar-thumb{background:#c0cdd8;border-radius:4px}
-        .nav-item:hover{background:rgba(255,255,255,0.1)!important}
-        .nav-item.active{background:rgba(255,255,255,0.18)!important}
-        .branch-row:hover{background:#f7fafc!important}
+        .nav-item:hover{background:rgba(255,255,255,0.12)!important}
+        .nav-active{background:rgba(255,255,255,0.2)!important}
+        .branch-row:hover{background:#f0f5fa!important;cursor:pointer}
         .inv-row:hover{background:#f7fafc!important}
-        .kpi-card{transition:transform 0.15s,box-shadow 0.15s}
-        .kpi-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.12)!important}
-        .tab-btn{transition:all 0.15s}
+        .kpi-card{transition:box-shadow 0.15s,transform 0.15s}
+        .kpi-card:hover{box-shadow:0 6px 20px rgba(0,0,0,0.12)!important;transform:translateY(-1px)}
       `}</style>
 
       {/* ── SIDEBAR ── */}
-      <aside style={{width: sidebarOpen ? 240 : 60, flexShrink:0, height:'100vh', background:`linear-gradient(180deg, ${T} 0%, #009494 100%)`, display:'flex', flexDirection:'column', transition:'width 0.2s', overflow:'hidden'}}>
+      <aside style={{width:sidebarOpen?240:62,flexShrink:0,height:'100vh',background:`linear-gradient(180deg,${T} 0%,#008888 100%)`,display:'flex',flexDirection:'column',transition:'width 0.2s ease',overflow:'hidden'}}>
 
-        {/* Logo */}
-        <div style={{padding:'16px 14px', borderBottom:'1px solid rgba(255,255,255,0.15)', display:'flex', alignItems:'center', gap:10, minHeight:64, flexShrink:0}}>
-          {/* Pulse Pharmacy logo recreation */}
-          <div style={{display:'flex', flexShrink:0, borderRadius:6, overflow:'hidden', height:34}}>
-            <div style={{background:T, padding:'0 8px', display:'flex', alignItems:'center', borderRight:'2px solid rgba(255,255,255,0.3)'}}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <polyline points="2,12 6,12 8,4 10,20 12,8 14,16 16,12 22,12" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+        {/* Logo block */}
+        <div style={{padding:'0 0 0 0',borderBottom:'1px solid rgba(255,255,255,0.15)',flexShrink:0}}>
+          <div style={{display:'flex',height:62}}>
+            {/* Teal side — ECG icon */}
+            <div style={{width:62,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',borderRight:'1px solid rgba(255,255,255,0.2)'}}>
+              <Activity size={22} color={W} strokeWidth={2} />
             </div>
-            <div style={{background:P, padding:'0 8px', display:'flex', flexDirection:'column', justifyContent:'center', minWidth: sidebarOpen ? 90 : 0, overflow:'hidden', transition:'min-width 0.2s'}}>
-              {sidebarOpen && <>
-                <span style={{fontSize:12, fontWeight:700, color:W, letterSpacing:0.3, lineHeight:1.2}}>Pulse Pharmacy</span>
-                <span style={{fontSize:7, color:'rgba(255,255,255,0.8)', letterSpacing:0.2}}>Your Convenient Chemist</span>
-              </>}
-            </div>
+            {/* Pink side — text */}
+            {sidebarOpen && (
+              <div style={{flex:1,background:P,display:'flex',flexDirection:'column',justifyContent:'center',padding:'0 14px'}}>
+                <div style={{fontSize:13,fontWeight:800,color:W,letterSpacing:0.2,lineHeight:1.2}}>Pulse Pharmacy</div>
+                <div style={{fontSize:9,color:'rgba(255,255,255,0.75)',letterSpacing:0.3,marginTop:2}}>Your Convenient Chemist</div>
+              </div>
+            )}
           </div>
-          <button onClick={()=>setSidebarOpen(!sidebarOpen)} style={{marginLeft:'auto',background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,0.7)',fontSize:18,lineHeight:1,flexShrink:0,padding:2}}>
-            {sidebarOpen ? '‹' : '›'}
+        </div>
+
+        {/* Toggle */}
+        <div style={{padding:'10px 8px',borderBottom:'1px solid rgba(255,255,255,0.1)',display:'flex',alignItems:'center',justifyContent:sidebarOpen?'space-between':'center',flexShrink:0}}>
+          {sidebarOpen && (
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <div style={{width:28,height:28,borderRadius:'50%',background:P,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:W}}>HQ</div>
+              <div>
+                <div style={{fontSize:11,fontWeight:600,color:W,lineHeight:1.2}}>Pulse HQ</div>
+                <div style={{fontSize:9,color:'rgba(255,255,255,0.55)'}}>Administrator</div>
+              </div>
+            </div>
+          )}
+          <button onClick={()=>setSidebarOpen(!sidebarOpen)}
+            style={{background:'rgba(255,255,255,0.12)',border:'none',cursor:'pointer',borderRadius:6,width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center',color:W,flexShrink:0}}>
+            {sidebarOpen ? <X size={14} color={W} /> : <Menu size={14} color={W} />}
           </button>
         </div>
 
-        {/* User */}
-        {sidebarOpen && (
-          <div style={{padding:'12px 14px', borderBottom:'1px solid rgba(255,255,255,0.1)', display:'flex', alignItems:'center', gap:10}}>
-            <div style={{width:32,height:32,borderRadius:'50%',background:P,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:W,flexShrink:0}}>HQ</div>
-            <div>
-              <div style={{fontSize:12,fontWeight:600,color:W}}>Pulse HQ</div>
-              <div style={{fontSize:10,color:'rgba(255,255,255,0.6)'}}>ho@pulse.co.bw</div>
-            </div>
-          </div>
-        )}
-
-        {/* Nav label */}
-        {sidebarOpen && <div style={{padding:'14px 14px 6px',fontSize:9,fontWeight:700,color:'rgba(255,255,255,0.45)',letterSpacing:1.2,textTransform:'uppercase'}}>Navigation</div>}
-
-        {/* Overview nav */}
-        <div style={{padding:'0 8px'}}>
-          <button className={`nav-item${!selected ? ' active' : ''}`} onClick={()=>{setSelected(null);setView('overview');}}
-            style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:6,border:'none',cursor:'pointer',background:'transparent',color:W,textAlign:'left',marginBottom:2}}>
-            <span style={{fontSize:16,flexShrink:0}}>⊞</span>
+        {/* Nav */}
+        <div style={{flex:1,overflowY:'auto',padding:'8px 8px'}}>
+          {sidebarOpen && <div style={{padding:'8px 10px 4px',fontSize:9,fontWeight:700,color:'rgba(255,255,255,0.4)',letterSpacing:1.2,textTransform:'uppercase'}}>Overview</div>}
+          <button className={`nav-item${!selected?' nav-active':''}`} onClick={()=>{setSelected(null);setView('overview');}}
+            style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:7,border:'none',cursor:'pointer',background:'transparent',color:W,marginBottom:2}}>
+            <LayoutGrid size={16} color={W} strokeWidth={1.8} style={{flexShrink:0}} />
             {sidebarOpen && <span style={{fontSize:12,fontWeight:500}}>All Branches</span>}
           </button>
-        </div>
 
-        {sidebarOpen && <div style={{padding:'10px 14px 4px',fontSize:9,fontWeight:700,color:'rgba(255,255,255,0.45)',letterSpacing:1.2,textTransform:'uppercase'}}>Branches</div>}
+          {sidebarOpen && <div style={{padding:'10px 10px 4px',fontSize:9,fontWeight:700,color:'rgba(255,255,255,0.4)',letterSpacing:1.2,textTransform:'uppercase'}}>Branches</div>}
 
-        {/* Branch list */}
-        <div style={{flex:1,overflowY:'auto',padding:'0 8px 8px'}}>
           {branches.map(b => {
             const s = allStats[b.clinic_name];
             const isActive = selected?.id === b.id;
+            const sc = statusColor(s);
             return (
-              <button key={b.id} className={`nav-item${isActive?' active':''}`} onClick={()=>selectBranch(b)}
-                style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:6,border:'none',cursor:'pointer',background:'transparent',color:W,textAlign:'left',marginBottom:1}}>
-                <div style={{width:7,height:7,borderRadius:'50%',background:statusColor(s),flexShrink:0,boxShadow:`0 0 0 2px rgba(255,255,255,0.15)`}} />
+              <button key={b.id} className={`nav-item${isActive?' nav-active':''}`} onClick={()=>selectBranch(b)}
+                style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:7,border:'none',cursor:'pointer',background:'transparent',color:W,marginBottom:1,textAlign:'left'}}>
+                <div style={{width:7,height:7,borderRadius:'50%',background:sc,flexShrink:0,boxShadow:`0 0 0 2px rgba(255,255,255,0.2)`}} />
                 {sidebarOpen && (
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:11,fontWeight:isActive?700:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{shortName(b.clinic_name)}</div>
-                    {s && <div style={{fontSize:9,color:'rgba(255,255,255,0.55)'}}>{s.total} items</div>}
+                    {s?.total ? <div style={{fontSize:9,color:'rgba(255,255,255,0.5)'}}>{s.total.toLocaleString()} items</div> : <div style={{fontSize:9,color:'rgba(255,255,255,0.3)'}}>No data</div>}
                   </div>
                 )}
               </button>
@@ -223,11 +230,11 @@ export default function PulseBranchDashboard() {
           })}
         </div>
 
-        {/* Sign out */}
-        <div style={{padding:'8px',borderTop:'1px solid rgba(255,255,255,0.1)'}}>
+        {/* Bottom */}
+        <div style={{padding:'8px',borderTop:'1px solid rgba(255,255,255,0.1)',flexShrink:0}}>
           <button className="nav-item" onClick={signOut}
-            style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:6,border:'none',cursor:'pointer',background:'transparent',color:'rgba(255,255,255,0.6)'}}>
-            <span style={{fontSize:14}}>↩</span>
+            style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:7,border:'none',cursor:'pointer',background:'transparent',color:'rgba(255,255,255,0.6)'}}>
+            <LogOut size={14} color="rgba(255,255,255,0.6)" strokeWidth={1.8} style={{flexShrink:0}} />
             {sidebarOpen && <span style={{fontSize:11}}>Sign out</span>}
           </button>
         </div>
@@ -236,72 +243,76 @@ export default function PulseBranchDashboard() {
       {/* ── MAIN ── */}
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
 
-        {/* Top nav bar */}
-        <header style={{height:56,background:W,borderBottom:`1px solid ${LGRAY}`,display:'flex',alignItems:'center',padding:'0 24px',gap:16,flexShrink:0,boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
-          {/* Breadcrumb */}
-          <div style={{flex:1}}>
-            <div style={{fontSize:10,color:GRAY}}>Home &rsaquo; Dashboard</div>
-            <div style={{fontSize:15,fontWeight:700,color:DARK,letterSpacing:-0.2}}>{selected ? selected.clinic_name : 'Dashboard'} <span style={{fontSize:11,fontWeight:400,color:GRAY}}>Control panel</span></div>
+        {/* Top bar */}
+        <header style={{height:58,background:W,borderBottom:`1px solid ${LGRAY}`,display:'flex',alignItems:'center',padding:'0 24px',gap:16,flexShrink:0,boxShadow:'0 1px 6px rgba(0,0,0,0.06)'}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:10,color:GRAY,letterSpacing:0.2}}>Home &rsaquo; {selected ? shortName(selected.clinic_name) : 'Dashboard'}</div>
+            <div style={{fontSize:15,fontWeight:700,color:DARK,letterSpacing:-0.2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+              {selected ? selected.clinic_name : 'Dashboard'} <span style={{fontSize:11,fontWeight:400,color:GRAY}}>Control panel</span>
+            </div>
           </div>
 
-          {/* View tabs — only when branch selected */}
           {selected && (
-            <div style={{display:'flex',gap:2,background:LGRAY,borderRadius:8,padding:3}}>
+            <div style={{display:'flex',background:LGRAY,borderRadius:8,padding:3,gap:2}}>
               {(['inventory','upload'] as const).map(v => (
-                <button key={v} className="tab-btn" onClick={()=>setView(v)}
-                  style={{padding:'5px 16px',borderRadius:6,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:view===v?W:'transparent',color:view===v?T:GRAY,boxShadow:view===v?'0 1px 4px rgba(0,0,0,0.1)':'none'}}>
-                  {v==='inventory'?'📦 Inventory':'⬆ Upload'}
+                <button key={v} onClick={()=>setView(v)}
+                  style={{display:'flex',alignItems:'center',gap:6,padding:'6px 16px',borderRadius:6,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:view===v?W:'transparent',color:view===v?T:GRAY,boxShadow:view===v?'0 1px 4px rgba(0,0,0,0.1)':'none',transition:'all 0.15s'}}>
+                  {v==='inventory' ? <Package size={13} color={view===v?T:GRAY} strokeWidth={2} /> : <Upload size={13} color={view===v?T:GRAY} strokeWidth={2} />}
+                  {v==='inventory'?'Inventory':'Upload'}
                 </button>
               ))}
             </div>
           )}
 
-          {/* Actions */}
-          <button onClick={load} style={{width:34,height:34,borderRadius:8,border:`1px solid ${LGRAY}`,background:W,cursor:'pointer',color:GRAY,fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}}>↻</button>
-          <div style={{width:34,height:34,borderRadius:'50%',background:`linear-gradient(135deg,${T},${P})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:W,cursor:'pointer'}}>HQ</div>
+          <button onClick={load} style={{width:34,height:34,borderRadius:7,border:`1px solid ${LGRAY}`,background:W,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <RefreshCw size={14} color={GRAY} strokeWidth={1.8} />
+          </button>
+          <div style={{width:34,height:34,borderRadius:'50%',background:`linear-gradient(135deg,${T},${P})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:W}}>HQ</div>
         </header>
 
         {/* Body */}
-        <div style={{flex:1,overflowY:'auto',padding:24,animation:'fadeIn 0.2s ease'}}>
+        <div style={{flex:1,overflowY:'auto',padding:22,animation:'fadeIn 0.2s ease'}}>
 
           {/* ── OVERVIEW ── */}
           {(view==='overview'||!selected) && (
             <>
-              {/* KPI Cards — FAB Admin style with colored icons */}
-              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+              {/* KPI Cards */}
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:22}}>
                 {[
-                  {label:'BRANCHES',value:branches.length,icon:'🏥',color:T,bg:'#e0f7f7'},
-                  {label:'TOTAL SKUs',value:net.total.toLocaleString(),icon:'💊',color:'#9b59b6',bg:'#f3e5f5'},
-                  {label:'LOW STOCK',value:net.low,icon:'⚠',color:'#f39c12',bg:'#fff8e1'},
-                  {label:'CRITICAL',value:net.depleting,icon:'🔴',color:'#e74c3c',bg:'#fce4e4'},
-                ].map(({label,value,icon,color,bg})=>(
-                  <div key={label} className="kpi-card" style={{background:W,borderRadius:10,padding:'18px 20px',boxShadow:'0 2px 10px rgba(0,0,0,0.07)',display:'flex',alignItems:'center',gap:16}}>
-                    <div style={{width:52,height:52,borderRadius:10,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{icon}</div>
+                  {label:'Branches',value:branches.length,Icon:Building2,color:T,bg:'#e0f7f7'},
+                  {label:'Total SKUs',value:net.total.toLocaleString(),Icon:Package,color:'#8e44ad',bg:'#f3e5f5'},
+                  {label:'Low Stock',value:net.low,Icon:AlertTriangle,color:'#e67e22',bg:'#fef5e7'},
+                  {label:'Critical Items',value:net.depleting,Icon:TrendingDown,color:'#e74c3c',bg:'#fce4e4'},
+                ].map(({label,value,Icon:Ic,color,bg})=>(
+                  <div key={label} className="kpi-card" style={{background:W,borderRadius:10,padding:'16px 18px',boxShadow:'0 2px 8px rgba(0,0,0,0.07)',display:'flex',alignItems:'center',gap:14}}>
+                    <div style={{width:48,height:48,borderRadius:10,background:bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                      <Ic size={22} color={color} strokeWidth={1.8} />
+                    </div>
                     <div>
                       <div style={{fontSize:26,fontWeight:800,color:DARK,letterSpacing:-0.5,lineHeight:1}}>{value}</div>
-                      <div style={{fontSize:10,fontWeight:700,color:GRAY,letterSpacing:1,textTransform:'uppercase',marginTop:3}}>{label}</div>
+                      <div style={{fontSize:10,fontWeight:600,color:GRAY,letterSpacing:0.5,textTransform:'uppercase',marginTop:3}}>{label}</div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* Two-column layout: branch table + network summary */}
+              {/* Two-column */}
               <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16}}>
 
                 {/* Branch table */}
-                <div style={{background:W,borderRadius:10,boxShadow:'0 2px 10px rgba(0,0,0,0.07)',overflow:'hidden'}}>
-                  <div style={{padding:'16px 20px',borderBottom:`1px solid ${LGRAY}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',overflow:'hidden'}}>
+                  <div style={{padding:'14px 18px',borderBottom:`1px solid ${LGRAY}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                     <div>
-                      <div style={{fontSize:14,fontWeight:700,color:DARK}}>Branch Overview</div>
-                      <div style={{fontSize:11,color:GRAY}}>Click any row to view inventory</div>
+                      <div style={{fontSize:13,fontWeight:700,color:DARK}}>Branch Overview</div>
+                      <div style={{fontSize:11,color:GRAY}}>Select a branch to view or manage inventory</div>
                     </div>
-                    <span style={{fontSize:11,background:`${T}15`,color:T,padding:'3px 10px',borderRadius:20,fontWeight:600}}>{branches.length} branches</span>
+                    <span style={{fontSize:11,background:`${T}15`,color:T,padding:'3px 10px',borderRadius:20,fontWeight:600}}>{branches.length} active</span>
                   </div>
                   <table style={{width:'100%',borderCollapse:'collapse'}}>
                     <thead>
-                      <tr style={{background:'#fafbfc'}}>
-                        {['Branch','Location','Items','Status','Health'].map(h=>(
-                          <th key={h} style={{padding:'9px 16px',textAlign:'left',fontSize:10,fontWeight:700,color:GRAY,letterSpacing:0.5,textTransform:'uppercase',borderBottom:`1px solid ${LGRAY}`}}>{h}</th>
+                      <tr style={{background:'#f8fafc'}}>
+                        {['Branch','Location','SKUs','Status','Health'].map(h=>(
+                          <th key={h} style={{padding:'9px 14px',textAlign:'left',fontSize:10,fontWeight:700,color:GRAY,letterSpacing:0.5,textTransform:'uppercase',borderBottom:`1px solid ${LGRAY}`}}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -312,25 +323,27 @@ export default function PulseBranchDashboard() {
                         const sc=statusColor(s);
                         return (
                           <tr key={b.id} className="branch-row" onClick={()=>selectBranch(b)}
-                            style={{borderBottom:`1px solid ${LGRAY}`,cursor:'pointer',background:i%2===0?W:'#fafbfc'}}>
-                            <td style={{padding:'10px 16px',fontSize:12,fontWeight:600,color:DARK}}>{shortName(b.clinic_name)}</td>
-                            <td style={{padding:'10px 16px',fontSize:11,color:GRAY}}>{b.location||'Botswana'}</td>
-                            <td style={{padding:'10px 16px',fontSize:12,fontWeight:700,color:DARK}}>{s?.total?.toLocaleString()||'—'}</td>
-                            <td style={{padding:'10px 16px'}}>
-                              <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:700,background:`${sc}15`,color:sc}}>
+                            style={{borderBottom:`1px solid ${LGRAY}`,background:i%2===0?W:'#fafcfd'}}>
+                            <td style={{padding:'10px 14px'}}>
+                              <div style={{fontSize:12,fontWeight:600,color:DARK}}>{shortName(b.clinic_name)}</div>
+                            </td>
+                            <td style={{padding:'10px 14px',fontSize:11,color:GRAY}}>{b.location||'Botswana'}</td>
+                            <td style={{padding:'10px 14px',fontSize:12,fontWeight:700,color:DARK}}>{s?.total?.toLocaleString()||<span style={{color:LGRAY}}>—</span>}</td>
+                            <td style={{padding:'10px 14px'}}>
+                              <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 9px',borderRadius:20,fontSize:10,fontWeight:700,background:`${sc}15`,color:sc}}>
                                 <div style={{width:5,height:5,borderRadius:'50%',background:sc}} />
-                                {s?.depleting?'Critical':s?.low?'Low Stock':s?.total?'Healthy':'No data'}
+                                {!s?.total?'No data':s.depleting?'Critical':s.low?'Low Stock':'Healthy'}
                               </span>
                             </td>
-                            <td style={{padding:'10px 16px'}}>
+                            <td style={{padding:'10px 14px'}}>
                               {s?.total ? (
                                 <div style={{display:'flex',alignItems:'center',gap:8}}>
-                                  <div style={{flex:1,height:6,background:LGRAY,borderRadius:4,overflow:'hidden',minWidth:60}}>
-                                    <div style={{height:'100%',width:`${hp}%`,background:sc,borderRadius:4,transition:'width 0.3s'}} />
+                                  <div style={{flex:1,height:5,background:LGRAY,borderRadius:3,overflow:'hidden',minWidth:55}}>
+                                    <div style={{height:'100%',width:`${hp}%`,background:sc,borderRadius:3}} />
                                   </div>
                                   <span style={{fontSize:10,fontWeight:700,color:sc,minWidth:28}}>{hp}%</span>
                                 </div>
-                              ) : <span style={{fontSize:10,color:GRAY}}>—</span>}
+                              ) : <span style={{color:LGRAY,fontSize:11}}>—</span>}
                             </td>
                           </tr>
                         );
@@ -339,44 +352,51 @@ export default function PulseBranchDashboard() {
                   </table>
                 </div>
 
-                {/* Right column: network health + quick stats */}
-                <div style={{display:'flex',flexDirection:'column',gap:16}}>
-                  {/* Network health */}
-                  <div style={{background:W,borderRadius:10,boxShadow:'0 2px 10px rgba(0,0,0,0.07)',padding:'18px 20px'}}>
-                    <div style={{fontSize:13,fontWeight:700,color:DARK,marginBottom:4}}>Network Health</div>
-                    <div style={{fontSize:10,color:GRAY,marginBottom:14}}>Across all {branches.length} branches</div>
-                    <div style={{height:10,borderRadius:6,background:LGRAY,overflow:'hidden',display:'flex',marginBottom:10}}>
+                {/* Right panel */}
+                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                  <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',padding:'16px 18px'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+                      <BarChart3 size={15} color={T} strokeWidth={1.8} />
+                      <div style={{fontSize:13,fontWeight:700,color:DARK}}>Network Health</div>
+                    </div>
+                    <div style={{height:8,borderRadius:5,background:LGRAY,overflow:'hidden',display:'flex',marginBottom:12}}>
                       <div style={{width:`${net.total?(net.stable/net.total)*100:0}%`,background:'#27ae60',transition:'width 0.4s'}} />
                       <div style={{width:`${net.total?(net.low/net.total)*100:0}%`,background:'#f39c12'}} />
                       <div style={{width:`${net.total?(net.depleting/net.total)*100:0}%`,background:'#e74c3c'}} />
                     </div>
                     {[
-                      {l:'Stable',v:net.stable,c:'#27ae60',bg:'#e8f8f0'},
-                      {l:'Low Stock',v:net.low,c:'#f39c12',bg:'#fff8e1'},
-                      {l:'Critical',v:net.depleting,c:'#e74c3c',bg:'#fce4e4'},
-                    ].map(({l,v,c,bg})=>(
-                      <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:`1px solid ${LGRAY}`}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8}}>
-                          <div style={{width:10,height:10,borderRadius:3,background:bg,border:`1.5px solid ${c}`}} />
-                          <span style={{fontSize:12,color:DARK}}>{l}</span>
+                      {l:'Stable',v:net.stable,c:'#27ae60',bg:'#eafaf1',Icon:CheckCircle},
+                      {l:'Low Stock',v:net.low,c:'#f39c12',bg:'#fef9e7',Icon:AlertTriangle},
+                      {l:'Critical',v:net.depleting,c:'#e74c3c',bg:'#fce4e4',Icon:TrendingDown},
+                    ].map(({l,v,c,bg,Icon:Ic})=>(
+                      <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 10px',borderRadius:7,background:bg,marginBottom:6}}>
+                        <div style={{display:'flex',alignItems:'center',gap:7}}>
+                          <Ic size={13} color={c} strokeWidth={2} />
+                          <span style={{fontSize:12,color:DARK,fontWeight:500}}>{l}</span>
                         </div>
-                        <span style={{fontSize:13,fontWeight:700,color:c}}>{v.toLocaleString()}</span>
+                        <span style={{fontSize:13,fontWeight:800,color:c}}>{v.toLocaleString()}</span>
                       </div>
                     ))}
                   </div>
 
-                  {/* Branches needing upload */}
-                  <div style={{background:W,borderRadius:10,boxShadow:'0 2px 10px rgba(0,0,0,0.07)',padding:'18px 20px'}}>
-                    <div style={{fontSize:13,fontWeight:700,color:DARK,marginBottom:14}}>Upload Needed</div>
-                    {branches.filter(b=>!allStats[b.clinic_name]?.total).slice(0,5).map(b=>(
-                      <div key={b.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:`1px solid ${LGRAY}`}}>
-                        <span style={{fontSize:11,color:DARK}}>{shortName(b.clinic_name)}</span>
+                  <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',padding:'16px 18px'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+                      <CloudUpload size={15} color={P} strokeWidth={1.8} />
+                      <div style={{fontSize:13,fontWeight:700,color:DARK}}>Needs Upload</div>
+                    </div>
+                    {branches.filter(b=>!allStats[b.clinic_name]?.total).slice(0,6).map(b=>(
+                      <div key={b.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:`1px solid ${LGRAY}`}}>
+                        <span style={{fontSize:11,color:DARK,fontWeight:500}}>{shortName(b.clinic_name)}</span>
                         <button onClick={()=>{selectBranch(b);setView('upload');}}
-                          style={{fontSize:10,background:P,color:W,border:'none',borderRadius:4,padding:'3px 8px',cursor:'pointer',fontWeight:600}}>Upload</button>
+                          style={{fontSize:10,background:P,color:W,border:'none',borderRadius:5,padding:'4px 10px',cursor:'pointer',fontWeight:600,display:'flex',alignItems:'center',gap:4}}>
+                          <Upload size={10} color={W} strokeWidth={2} /> Upload
+                        </button>
                       </div>
                     ))}
-                    {branches.filter(b=>allStats[b.clinic_name]?.total).length===branches.length && (
-                      <div style={{fontSize:12,color:'#27ae60',fontWeight:600}}>✓ All branches have stock data</div>
+                    {!branches.filter(b=>!allStats[b.clinic_name]?.total).length && (
+                      <div style={{display:'flex',alignItems:'center',gap:7,color:'#27ae60',fontSize:12,fontWeight:600}}>
+                        <CheckCircle size={14} color="#27ae60" strokeWidth={2} /> All branches have stock data
+                      </div>
                     )}
                   </div>
                 </div>
@@ -387,78 +407,95 @@ export default function PulseBranchDashboard() {
           {/* ── INVENTORY ── */}
           {view==='inventory' && selected && (
             <>
-              {/* Branch info banner */}
-              <div style={{background:W,borderRadius:10,boxShadow:'0 2px 10px rgba(0,0,0,0.07)',padding:'14px 20px',marginBottom:16,display:'flex',gap:24,alignItems:'center',flexWrap:'wrap'}}>
+              <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',padding:'13px 18px',marginBottom:14,display:'flex',gap:20,alignItems:'center',flexWrap:'wrap'}}>
                 <div style={{display:'flex',alignItems:'center',gap:10}}>
-                  <div style={{width:40,height:40,borderRadius:8,background:`linear-gradient(135deg,${T},${P})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🏥</div>
+                  <div style={{width:38,height:38,borderRadius:8,background:`linear-gradient(135deg,${T},${P})`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <Building2 size={18} color={W} strokeWidth={1.8} />
+                  </div>
                   <div>
                     <div style={{fontSize:13,fontWeight:700,color:DARK}}>{selected.clinic_name}</div>
                     <div style={{fontSize:11,color:GRAY}}>{selected.location||'Botswana'}</div>
                   </div>
                 </div>
-                {selected.weekday_hours && <div style={{fontSize:11,color:GRAY}}>⏰ {selected.weekday_hours}{selected.weekend_hours?` · ${selected.weekend_hours}`:''}</div>}
-                {selected.contact && <div style={{fontSize:11,color:GRAY}}>📞 {selected.contact}</div>}
+                {selected.weekday_hours && (
+                  <div style={{display:'flex',alignItems:'center',gap:5}}>
+                    <Clock size={12} color={GRAY} strokeWidth={1.8} />
+                    <span style={{fontSize:11,color:GRAY}}>{selected.weekday_hours}{selected.weekend_hours?` · ${selected.weekend_hours}`:''}</span>
+                  </div>
+                )}
+                {selected.contact && (
+                  <div style={{display:'flex',alignItems:'center',gap:5}}>
+                    <Phone size={12} color={GRAY} strokeWidth={1.8} />
+                    <span style={{fontSize:11,color:GRAY}}>{selected.contact}</span>
+                  </div>
+                )}
+                {selected.address && (
+                  <div style={{display:'flex',alignItems:'center',gap:5}}>
+                    <MapPin size={12} color={GRAY} strokeWidth={1.8} />
+                    <span style={{fontSize:11,color:GRAY}}>{selected.address}</span>
+                  </div>
+                )}
               </div>
 
-              {/* Stat cards */}
               {stats && (
-                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:16}}>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:14}}>
                   {[
-                    {l:'Total Items',v:stats.total,c:T,bg:'#e0f7f7',icon:'📦'},
-                    {l:'Stable',v:stats.stable,c:'#27ae60',bg:'#e8f8f0',icon:'✅'},
-                    {l:'Low Stock',v:stats.low,c:'#f39c12',bg:'#fff8e1',icon:'⚠️'},
-                    {l:'Critical',v:stats.depleting,c:'#e74c3c',bg:'#fce4e4',icon:'🔴'},
-                  ].map(({l,v,c,bg,icon})=>(
-                    <div key={l} className="kpi-card" style={{background:W,borderRadius:8,padding:'14px 16px',boxShadow:'0 2px 8px rgba(0,0,0,0.06)',display:'flex',alignItems:'center',gap:12}}>
-                      <div style={{width:38,height:38,borderRadius:8,background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>{icon}</div>
+                    {l:'Total Items',v:stats.total,Ic:Package,c:T,bg:'#e0f7f7'},
+                    {l:'Stable',v:stats.stable,Ic:CheckCircle,c:'#27ae60',bg:'#eafaf1'},
+                    {l:'Low Stock',v:stats.low,Ic:AlertTriangle,c:'#f39c12',bg:'#fef9e7'},
+                    {l:'Critical',v:stats.depleting,Ic:TrendingDown,c:'#e74c3c',bg:'#fce4e4'},
+                  ].map(({l,v,Ic,c,bg})=>(
+                    <div key={l} className="kpi-card" style={{background:W,borderRadius:8,padding:'13px 15px',boxShadow:'0 2px 6px rgba(0,0,0,0.06)',display:'flex',alignItems:'center',gap:11}}>
+                      <div style={{width:36,height:36,borderRadius:8,background:bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                        <Ic size={17} color={c} strokeWidth={1.8} />
+                      </div>
                       <div>
-                        <div style={{fontSize:20,fontWeight:800,color:DARK,letterSpacing:-0.3}}>{v.toLocaleString()}</div>
-                        <div style={{fontSize:9,fontWeight:700,color:GRAY,textTransform:'uppercase',letterSpacing:0.5}}>{l}</div>
+                        <div style={{fontSize:20,fontWeight:800,color:DARK,letterSpacing:-0.3,lineHeight:1}}>{v.toLocaleString()}</div>
+                        <div style={{fontSize:9,fontWeight:600,color:GRAY,textTransform:'uppercase',letterSpacing:0.4,marginTop:2}}>{l}</div>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Search & filters */}
-              <div style={{background:W,borderRadius:10,boxShadow:'0 2px 10px rgba(0,0,0,0.07)',overflow:'hidden'}}>
-                <div style={{padding:'12px 16px',borderBottom:`1px solid ${LGRAY}`,display:'flex',gap:10,alignItems:'center'}}>
+              <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',overflow:'hidden'}}>
+                <div style={{padding:'11px 14px',borderBottom:`1px solid ${LGRAY}`,display:'flex',gap:10,alignItems:'center'}}>
                   <div style={{position:'relative',flex:1}}>
-                    <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:GRAY,fontSize:13}}>🔍</span>
+                    <Search size={13} color={GRAY} strokeWidth={1.8} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)'}} />
                     <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search medicines..."
-                      style={{width:'100%',padding:'7px 10px 7px 32px',borderRadius:6,border:`1px solid ${LGRAY}`,fontSize:12,outline:'none',color:DARK}} />
+                      style={{width:'100%',padding:'7px 10px 7px 32px',borderRadius:6,border:`1px solid ${LGRAY}`,fontSize:12,outline:'none',color:DARK,background:'#fafbfc'}} />
                   </div>
                   {['all','Stable','Low Stock','Depleting Fast'].map(f=>{
                     const ac=f==='all'?T:f==='Stable'?'#27ae60':f==='Low Stock'?'#f39c12':'#e74c3c';
                     const active=trendFilter===f;
                     return (
                       <button key={f} onClick={()=>setTrendFilter(f)}
-                        style={{padding:'6px 14px',borderRadius:6,border:'none',cursor:'pointer',fontSize:11,fontWeight:700,background:active?ac:'transparent',color:active?W:GRAY,border:active?'none':`1px solid ${LGRAY}`,whiteSpace:'nowrap',transition:'all 0.15s'}}>
+                        style={{padding:'6px 13px',borderRadius:6,border:`1px solid ${active?'transparent':LGRAY}`,cursor:'pointer',fontSize:11,fontWeight:600,background:active?ac:W,color:active?W:GRAY,transition:'all 0.15s',whiteSpace:'nowrap'}}>
                         {f==='all'?'All':f==='Depleting Fast'?'Critical':f}
                       </button>
                     );
                   })}
-                  <span style={{fontSize:11,color:GRAY,whiteSpace:'nowrap'}}>{filtered.length} items</span>
+                  <span style={{fontSize:11,color:GRAY,whiteSpace:'nowrap',fontWeight:500}}>{filtered.length.toLocaleString()} items</span>
                 </div>
 
-                {/* Table */}
                 {invLoading ? (
                   <div style={{padding:48,textAlign:'center'}}>
-                    <div style={{width:30,height:30,border:`3px solid ${LGRAY}`,borderTopColor:T,borderRadius:'50%',animation:'spin 0.7s linear infinite',margin:'0 auto 10px'}} />
+                    <div style={{width:28,height:28,border:`3px solid ${LGRAY}`,borderTopColor:T,borderRadius:'50%',animation:'spin 0.7s linear infinite',margin:'0 auto 10px'}} />
                     <div style={{color:GRAY,fontSize:12}}>Loading inventory...</div>
                   </div>
                 ) : (
                   <>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 110px 90px 100px',padding:'9px 16px',background:'#fafbfc',borderBottom:`1px solid ${LGRAY}`}}>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 110px 90px 110px',padding:'9px 14px',background:'#f8fafc',borderBottom:`1px solid ${LGRAY}`}}>
                       {['Medicine','Category','Qty','Status'].map(h=>(
                         <div key={h} style={{fontSize:10,fontWeight:700,color:GRAY,textTransform:'uppercase',letterSpacing:0.5}}>{h}</div>
                       ))}
                     </div>
                     {filtered.slice(0,200).map((item,i)=>{
                       const tc=item.trend==='Stable'?'#27ae60':item.trend==='Low Stock'?'#f39c12':'#e74c3c';
+                      const tbg=item.trend==='Stable'?'#eafaf1':item.trend==='Low Stock'?'#fef9e7':'#fce4e4';
                       return (
                         <div key={item.id} className="inv-row"
-                          style={{display:'grid',gridTemplateColumns:'1fr 110px 90px 100px',padding:'9px 16px',borderBottom:`1px solid ${LGRAY}`,alignItems:'center',background:i%2===0?W:'#fafbfc',transition:'background 0.1s'}}>
+                          style={{display:'grid',gridTemplateColumns:'1fr 110px 90px 110px',padding:'9px 14px',borderBottom:`1px solid ${LGRAY}`,alignItems:'center',background:i%2===0?W:'#fafcfd',transition:'background 0.1s'}}>
                           <div>
                             <div style={{fontSize:12,fontWeight:500,color:DARK}}>{item.med_name}</div>
                             {item.pack_size&&<div style={{fontSize:10,color:GRAY}}>Pack: {item.pack_size}</div>}
@@ -466,7 +503,7 @@ export default function PulseBranchDashboard() {
                           <div style={{fontSize:11,color:GRAY}}>{item.category}</div>
                           <div style={{fontSize:13,fontWeight:700,color:item.quantity===0?'#e74c3c':DARK}}>{item.quantity.toLocaleString()}</div>
                           <div>
-                            <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:12,fontSize:10,fontWeight:700,background:`${tc}18`,color:tc}}>
+                            <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 9px',borderRadius:12,fontSize:10,fontWeight:700,background:tbg,color:tc}}>
                               <div style={{width:4,height:4,borderRadius:'50%',background:tc}} />
                               {item.trend==='Depleting Fast'?'Critical':item.trend}
                             </span>
@@ -475,8 +512,8 @@ export default function PulseBranchDashboard() {
                       );
                     })}
                     {filtered.length>200&&(
-                      <div style={{padding:'12px 16px',textAlign:'center',color:GRAY,fontSize:11,background:'#fafbfc',borderTop:`1px solid ${LGRAY}`}}>
-                        Showing 200 of {filtered.length.toLocaleString()} — use search to narrow
+                      <div style={{padding:'11px 14px',textAlign:'center',color:GRAY,fontSize:11,background:'#fafcfd'}}>
+                        Showing 200 of {filtered.length.toLocaleString()} — narrow with search
                       </div>
                     )}
                   </>
@@ -488,39 +525,46 @@ export default function PulseBranchDashboard() {
           {/* ── UPLOAD ── */}
           {view==='upload' && selected && (
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,maxWidth:900}}>
-              <div style={{background:W,borderRadius:10,boxShadow:'0 2px 10px rgba(0,0,0,0.07)',overflow:'hidden'}}>
-                <div style={{background:`linear-gradient(135deg,${T},${P})`,padding:'18px 20px'}}>
-                  <div style={{fontSize:14,fontWeight:700,color:W}}>{shortName(selected.clinic_name)}</div>
-                  <div style={{fontSize:11,color:'rgba(255,255,255,0.75)',marginTop:2}}>Daily stock upload</div>
+              {/* Upload card */}
+              <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',overflow:'hidden'}}>
+                <div style={{background:`linear-gradient(135deg,${T},${P})`,padding:'16px 20px',display:'flex',alignItems:'center',gap:12}}>
+                  <CloudUpload size={22} color={W} strokeWidth={1.8} />
+                  <div>
+                    <div style={{fontSize:13,fontWeight:700,color:W}}>{shortName(selected.clinic_name)}</div>
+                    <div style={{fontSize:11,color:'rgba(255,255,255,0.75)'}}>Daily stock upload</div>
+                  </div>
                 </div>
-                <div style={{padding:'20px'}}>
-                  {/* Mode toggle */}
-                  <div style={{marginBottom:16}}>
+                <div style={{padding:'18px'}}>
+                  <div style={{marginBottom:14}}>
                     <div style={{fontSize:10,fontWeight:700,color:GRAY,letterSpacing:0.5,textTransform:'uppercase',marginBottom:8}}>Upload Mode</div>
-                    <div style={{display:'flex',background:LGRAY,borderRadius:8,padding:3,gap:3}}>
+                    <div style={{display:'flex',background:LGRAY,borderRadius:7,padding:3,gap:2}}>
                       {([{m:'replace',l:'Replace Stock'},{m:'merge',l:'Merge / Add'}] as const).map(({m,l})=>(
                         <button key={m} onClick={()=>setUploadMode(m as 'replace'|'merge')}
-                          style={{flex:1,padding:'8px 0',borderRadius:6,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:uploadMode===m?W:'transparent',color:uploadMode===m?T:GRAY,boxShadow:uploadMode===m?'0 1px 4px rgba(0,0,0,0.1)':'none',transition:'all 0.15s'}}>
+                          style={{flex:1,padding:'7px 0',borderRadius:5,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:uploadMode===m?W:'transparent',color:uploadMode===m?T:GRAY,boxShadow:uploadMode===m?'0 1px 4px rgba(0,0,0,0.1)':'none',transition:'all 0.15s'}}>
                           {l}
                         </button>
                       ))}
                     </div>
-                    <div style={{fontSize:10,color:GRAY,marginTop:6}}>{uploadMode==='replace'?'Clears all existing items and inserts the new file — best for daily morning uploads.':'Keeps existing items and adds new ones from the file.'}</div>
+                    <div style={{fontSize:10,color:GRAY,marginTop:5,lineHeight:1.5}}>
+                      {uploadMode==='replace'?'Clears all existing stock and inserts fresh data — recommended for daily uploads.':'Keeps existing items and adds only new ones from the file.'}
+                    </div>
                   </div>
 
-                  {/* Drop zone */}
                   <div onDrop={e=>{e.preventDefault();setDragOver(false);e.dataTransfer.files[0]&&handleFile(e.dataTransfer.files[0]);}}
                     onDragOver={e=>{e.preventDefault();setDragOver(true);}}
                     onDragLeave={()=>setDragOver(false)}
                     onClick={()=>fileRef.current?.click()}
-                    style={{border:`2px dashed ${dragOver?T:'#c8d6e5'}`,borderRadius:8,padding:'32px 20px',textAlign:'center',cursor:'pointer',background:dragOver?`${T}08`:'#fafbfc',transition:'all 0.2s',marginBottom:14}}>
-                    <div style={{fontSize:32,marginBottom:8}}>⬆️</div>
-                    <div style={{fontSize:13,fontWeight:600,color:DARK,marginBottom:4}}>{dragOver?'Drop to upload':'Drop your Excel file here'}</div>
-                    <div style={{fontSize:11,color:GRAY}}>or click to browse · .xlsx .xls .csv</div>
+                    style={{border:`2px dashed ${dragOver?T:'#c8d6e5'}`,borderRadius:8,padding:'28px 20px',textAlign:'center',cursor:'pointer',background:dragOver?`${T}08`:'#fafbfc',transition:'all 0.2s',marginBottom:12}}>
+                    <div style={{display:'flex',justifyContent:'center',marginBottom:10}}>
+                      <div style={{width:46,height:46,borderRadius:10,background:dragOver?`${T}15`:LGRAY,display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.2s'}}>
+                        <Upload size={20} color={dragOver?T:GRAY} strokeWidth={1.8} />
+                      </div>
+                    </div>
+                    <div style={{fontSize:13,fontWeight:600,color:DARK,marginBottom:3}}>{dragOver?'Release to upload':'Drop your Excel file here'}</div>
+                    <div style={{fontSize:11,color:GRAY}}>or click to browse &nbsp;·&nbsp; .xlsx &nbsp;.xls &nbsp;.csv</div>
                     <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={e=>e.target.files?.[0]&&handleFile(e.target.files[0])} />
                   </div>
 
-                  {/* Progress */}
                   {uploading && (
                     <div style={{marginBottom:12}}>
                       <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>
@@ -533,39 +577,72 @@ export default function PulseBranchDashboard() {
                     </div>
                   )}
 
-                  {/* Status */}
                   {uploadStatus && !uploading && (
-                    <div style={{padding:'10px 14px',borderRadius:8,fontSize:12,fontWeight:500,
-                      background:uploadStatus.type==='success'?'#e8f8f0':uploadStatus.type==='error'?'#fce4e4':'#e0f7f7',
+                    <div style={{padding:'10px 14px',borderRadius:8,fontSize:12,fontWeight:500,display:'flex',alignItems:'center',gap:8,
+                      background:uploadStatus.type==='success'?'#eafaf1':uploadStatus.type==='error'?'#fce4e4':'#e0f7f7',
                       color:uploadStatus.type==='success'?'#27ae60':uploadStatus.type==='error'?'#e74c3c':T,
-                      border:`1px solid ${uploadStatus.type==='success'?'#a3e6b0':uploadStatus.type==='error'?'#f5b7b1':'#7fd4d4'}`}}>
+                      border:`1px solid ${uploadStatus.type==='success'?'#a9dfbf':uploadStatus.type==='error'?'#f1948a':'#76d7c4'}`}}>
+                      {uploadStatus.type==='success'?<CheckCircle size={14} color="#27ae60" strokeWidth={2}/>:uploadStatus.type==='error'?<X size={14} color="#e74c3c" strokeWidth={2}/>:<Zap size={14} color={T} strokeWidth={2}/>}
                       {uploadStatus.msg}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Upload guide */}
-              <div style={{background:W,borderRadius:10,boxShadow:'0 2px 10px rgba(0,0,0,0.07)',padding:'20px'}}>
-                <div style={{fontSize:13,fontWeight:700,color:DARK,marginBottom:4}}>Daily Workflow</div>
-                <div style={{fontSize:11,color:GRAY,marginBottom:16}}>How to update stock every morning</div>
-                {[
-                  {n:'1',t:'Export from POS',d:'Run Stocktotals from Nexus, Medinol, or your pharmacy system. Save as Excel.',icon:'📤'},
-                  {n:'2',t:'Select your branch',d:'Click your branch in the sidebar on the left, then tap Upload tab.',icon:'🏥'},
-                  {n:'3',t:'Drop the file',d:'Use Replace Stock mode. Old numbers clear, new ones in. Under 30 seconds.',icon:'📂'},
-                  {n:'4',t:'Done — live instantly',d:'WhatsApp and web search update immediately with the new quantities.',icon:'✅'},
-                ].map(({n,t,d,icon})=>(
-                  <div key={n} style={{display:'flex',gap:12,marginBottom:14,padding:'10px 12px',background:'#fafbfc',borderRadius:8,border:`1px solid ${LGRAY}`}}>
-                    <div style={{width:30,height:30,borderRadius:6,background:`linear-gradient(135deg,${T},${P})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}>{icon}</div>
-                    <div>
-                      <div style={{fontSize:12,fontWeight:700,color:DARK,marginBottom:2}}>{n}. {t}</div>
-                      <div style={{fontSize:11,color:GRAY,lineHeight:1.5}}>{d}</div>
+              {/* Workflow guide */}
+              <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',padding:'16px 18px'}}>
+                  <div style={{fontSize:13,fontWeight:700,color:DARK,marginBottom:2}}>Daily Workflow</div>
+                  <div style={{fontSize:11,color:GRAY,marginBottom:14}}>How to update stock every morning</div>
+                  {[
+                    {n:'1',t:'Export from POS',d:'Run the Stocktotals report from Nexus, Medinol, or your system. Save as Excel.',Ic:Database},
+                    {n:'2',t:'Select your branch',d:'Click your branch in the sidebar, then select the Upload tab.',Ic:Building2},
+                    {n:'3',t:'Drop the file',d:'Use Replace Stock mode. Old data clears, new data loads in under 30 seconds.',Ic:CloudUpload},
+                    {n:'4',t:'Live immediately',d:'WhatsApp searches and the public website update with the new stock instantly.',Ic:Zap},
+                  ].map(({n,t,d,Ic})=>(
+                    <div key={n} style={{display:'flex',gap:12,marginBottom:10,padding:'10px 12px',background:'#fafbfc',borderRadius:7,border:`1px solid ${LGRAY}`}}>
+                      <div style={{width:30,height:30,borderRadius:6,background:`linear-gradient(135deg,${T},${P})`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                        <Ic size={14} color={W} strokeWidth={2} />
+                      </div>
+                      <div>
+                        <div style={{fontSize:12,fontWeight:700,color:DARK,marginBottom:2}}>{n}. {t}</div>
+                        <div style={{fontSize:11,color:GRAY,lineHeight:1.5}}>{d}</div>
+                      </div>
                     </div>
+                  ))}
+                </div>
+
+                {/* Auto-import explainer */}
+                <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',padding:'16px 18px',border:`1.5px solid ${T}30`}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+                    <div style={{width:28,height:28,borderRadius:7,background:`${T}15`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <Settings size={14} color={T} strokeWidth={1.8} />
+                    </div>
+                    <div style={{fontSize:13,fontWeight:700,color:DARK}}>Auto-Import — How It Works</div>
                   </div>
-                ))}
-                <div style={{padding:'10px 12px',background:'#fff8e1',borderRadius:8,border:'1px solid #fde68a'}}>
-                  <div style={{fontSize:11,fontWeight:700,color:'#92400e',marginBottom:2}}>💡 Pro tip</div>
-                  <div style={{fontSize:11,color:'#78350f',lineHeight:1.5}}>Ask your IT team to schedule auto-export at 7am. We can then auto-import — zero manual uploads needed.</div>
+                  <div style={{fontSize:11,color:DARK,lineHeight:1.7,marginBottom:12}}>
+                    Instead of uploading manually each morning, your IT team can configure the POS system to send the stock file automatically to ChekaMeds every day at 7am. Here is exactly what to tell them:
+                  </div>
+                  {[
+                    {Ic:Calendar,t:'Schedule a daily export',d:'Set the POS (Nexus/Medinol) to run the Stocktotals report automatically every morning at 06:45, and save it to a shared folder or FTP server.'},
+                    {Ic:ArrowRight,t:'Deliver it to ChekaMeds',d:'Email the exported file to a dedicated ChekaMeds inbox, or drop it into an agreed FTP/SFTP path. We watch that location every morning at 07:00.'},
+                    {Ic:Zap,t:'ChekaMeds auto-imports it',d:'We read the file, clear the old stock, and load the new numbers — the same as the manual upload, but with no one touching anything.'},
+                    {Ic:CheckCircle,t:'Result: always fresh stock',d:'By the time your pharmacy opens, the WhatsApp bot and website already show today\'s correct quantities. No staff time needed.'},
+                  ].map(({Ic,t,d},idx)=>(
+                    <div key={idx} style={{display:'flex',gap:10,marginBottom:10,paddingBottom:10,borderBottom:idx<3?`1px solid ${LGRAY}`:'none'}}>
+                      <div style={{width:24,height:24,borderRadius:5,background:`${T}12`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>
+                        <Ic size={12} color={T} strokeWidth={2} />
+                      </div>
+                      <div>
+                        <div style={{fontSize:11,fontWeight:700,color:DARK,marginBottom:2}}>{t}</div>
+                        <div style={{fontSize:11,color:GRAY,lineHeight:1.5}}>{d}</div>
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{padding:'10px 12px',background:`${T}08`,borderRadius:7,border:`1px solid ${T}25`}}>
+                    <div style={{fontSize:11,fontWeight:700,color:T,marginBottom:2}}>What to tell your IT team</div>
+                    <div style={{fontSize:11,color:DARK,lineHeight:1.6}}>"Schedule the Stocktotals export daily at 06:45 and send the Excel file to the ChekaMeds auto-import endpoint. The ChekaMeds team will provide the delivery address and confirm the file format."</div>
+                  </div>
                 </div>
               </div>
             </div>
