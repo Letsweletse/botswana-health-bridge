@@ -54,7 +54,20 @@ export default function PulseBranchDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { load(); }, []);
+  // Uploader registration
+  const [uploader, setUploader] = useState<{name:string;surname:string;role:string}|null>(null);
+  const [regForm, setRegForm] = useState({name:'',surname:'',role:'Branch Manager'});
+  const [regError, setRegError] = useState('');
+  const [regSaving, setRegSaving] = useState(false);
+
+  useEffect(() => {
+    // Check if uploader already registered this session
+    try {
+      const stored = localStorage.getItem('chekameds_uploader');
+      if (stored) setUploader(JSON.parse(stored));
+    } catch(_) {}
+    load();
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -76,6 +89,16 @@ export default function PulseBranchDashboard() {
     }
     setAllStats(map);
     return map;
+  };
+
+  const saveUploader = async () => {
+    if (!regForm.name.trim()) { setRegError('First name is required.'); return; }
+    if (!regForm.surname.trim()) { setRegError('Surname is required.'); return; }
+    setRegSaving(true);
+    const u = { name: regForm.name.trim(), surname: regForm.surname.trim(), role: regForm.role };
+    localStorage.setItem('chekameds_uploader', JSON.stringify(u));
+    setUploader(u);
+    setRegSaving(false);
   };
 
   const selectBranch = async (b: Branch) => {
@@ -151,7 +174,7 @@ export default function PulseBranchDashboard() {
       // Log upload to history
       await supabase.from('upload_logs').insert({
         clinic_name: selected.clinic_name,
-        uploaded_by: 'Pulse HQ',
+        uploaded_by: uploader ? `${uploader.name} ${uploader.surname} (${uploader.role})` : 'Pulse HQ',
         mode: uploadMode,
         items_inserted: rows.length,
         items_deleted: uploadMode === 'replace' ? rows.length : 0,
@@ -210,6 +233,57 @@ export default function PulseBranchDashboard() {
     </div>
   );
 
+  // Registration modal — shown on first login until name is saved
+  if (!uploader) return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',background:BG,fontFamily:'"Segoe UI",Roboto,sans-serif'}}>
+      <div style={{width:'100%',maxWidth:420,background:W,boxShadow:'0 4px 24px rgba(0,0,0,0.12)'}}>
+        {/* Header */}
+        <div style={{background:`linear-gradient(135deg,${T},${P})`,padding:'24px 28px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><polyline points="2,12 6,12 8,5 10,19 12,9 14,15 16,12 22,12" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <span style={{fontSize:15,fontWeight:900,color:W}}>Pulse</span>
+            <div style={{background:P,padding:'2px 10px',marginLeft:2}}>
+              <span style={{fontSize:13,fontWeight:700,color:W}}>Pharmacy</span>
+            </div>
+          </div>
+          <div style={{fontSize:11,color:'rgba(255,255,255,0.7)'}}>ChekaMeds Stock Portal</div>
+        </div>
+        {/* Form */}
+        <div style={{padding:'28px'}}>
+          <div style={{fontSize:15,fontWeight:700,color:DARK,marginBottom:4}}>Who is uploading today?</div>
+          <div style={{fontSize:12,color:GRAY,marginBottom:22,lineHeight:1.5}}>This is recorded with every stock upload so HQ knows who updated which branch and when.</div>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11,fontWeight:700,color:GRAY,textTransform:'uppercase',letterSpacing:0.5,display:'block',marginBottom:5}}>First Name</label>
+            <input value={regForm.name} onChange={e=>setRegForm(f=>({...f,name:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&saveUploader()} placeholder="e.g. Kefilwe"
+              style={{width:'100%',padding:'10px 12px',border:`1px solid ${regError&&!regForm.name.trim()?'#e74c3c':LGRAY}`,fontSize:13,outline:'none',color:DARK,background:'#fafbfc'}} autoFocus />
+          </div>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11,fontWeight:700,color:GRAY,textTransform:'uppercase',letterSpacing:0.5,display:'block',marginBottom:5}}>Surname</label>
+            <input value={regForm.surname} onChange={e=>setRegForm(f=>({...f,surname:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&saveUploader()} placeholder="e.g. Moagi"
+              style={{width:'100%',padding:'10px 12px',border:`1px solid ${regError&&!regForm.surname.trim()?'#e74c3c':LGRAY}`,fontSize:13,outline:'none',color:DARK,background:'#fafbfc'}} />
+          </div>
+          <div style={{marginBottom:22}}>
+            <label style={{fontSize:11,fontWeight:700,color:GRAY,textTransform:'uppercase',letterSpacing:0.5,display:'block',marginBottom:5}}>Role</label>
+            <select value={regForm.role} onChange={e=>setRegForm(f=>({...f,role:e.target.value}))}
+              style={{width:'100%',padding:'10px 12px',border:`1px solid ${LGRAY}`,fontSize:13,outline:'none',color:DARK,background:'#fafbfc',appearance:'auto'}}>
+              <option>Branch Manager</option>
+              <option>Pharmacist</option>
+              <option>Pharmacy Assistant</option>
+              <option>IT / Admin</option>
+              <option>HQ Staff</option>
+            </select>
+          </div>
+          {regError && <div style={{fontSize:12,color:'#e74c3c',marginBottom:12,padding:'8px 10px',background:'#fce4e4',border:'1px solid #f1948a'}}>{regError}</div>}
+          <button onClick={saveUploader} disabled={regSaving}
+            style={{width:'100%',padding:'12px',background:`linear-gradient(135deg,${T},${P})`,color:W,border:'none',cursor:'pointer',fontSize:14,fontWeight:700,letterSpacing:0.2}}>
+            {regSaving ? 'Saving...' : 'Continue to Dashboard →'}
+          </button>
+          <div style={{fontSize:11,color:GRAY,textAlign:'center',marginTop:12,lineHeight:1.5}}>Your details are saved on this device. You won't be asked again until you sign out.</div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{display:'flex',height:'100vh',fontFamily:'"Segoe UI",Roboto,"Helvetica Neue",sans-serif',background:BG,overflow:'hidden'}}>
       <style>{`
@@ -260,10 +334,10 @@ export default function PulseBranchDashboard() {
         <div style={{padding:'10px 8px',borderBottom:'1px solid rgba(255,255,255,0.1)',display:'flex',alignItems:'center',justifyContent:sidebarOpen?'space-between':'center',flexShrink:0}}>
           {sidebarOpen && (
             <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <div style={{width:28,height:28,borderRadius:'50%',background:P,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:W}}>HQ</div>
+              <div style={{width:28,height:28,borderRadius:'50%',background:P,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:W}}>{uploader?`${uploader.name[0]}${uploader.surname[0]}`:'HQ'}</div>
               <div>
-                <div style={{fontSize:11,fontWeight:600,color:W,lineHeight:1.2}}>Pulse HQ</div>
-                <div style={{fontSize:9,color:'rgba(255,255,255,0.55)'}}>Administrator</div>
+                <div style={{fontSize:11,fontWeight:600,color:W,lineHeight:1.2}}>{uploader?`${uploader.name} ${uploader.surname}`:'Pulse HQ'}</div>
+                <div style={{fontSize:9,color:'rgba(255,255,255,0.55)'}}>{uploader?.role||'Administrator'}</div>
               </div>
             </div>
           )}
@@ -305,7 +379,7 @@ export default function PulseBranchDashboard() {
 
         {/* Bottom */}
         <div style={{padding:'8px',borderTop:'1px solid rgba(255,255,255,0.1)',flexShrink:0}}>
-          <button className="nav-item" onClick={signOut}
+          <button className="nav-item" onClick={()=>{localStorage.removeItem('chekameds_uploader');signOut();}}
             style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:0,border:'none',cursor:'pointer',background:'transparent',color:'rgba(255,255,255,0.6)'}}>
             <LogOut size={14} color="rgba(255,255,255,0.6)" strokeWidth={1.8} style={{flexShrink:0}} />
             {sidebarOpen && <span style={{fontSize:11}}>Sign out</span>}
