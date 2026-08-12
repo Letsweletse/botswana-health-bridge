@@ -159,6 +159,24 @@ export default function PulseBranchDashboard() {
       });
       // Stamp last_upload_at on pharmacy record
       await supabase.from('pharmacies').update({ last_upload_at: new Date().toISOString() }).eq('clinic_name', selected.clinic_name);
+      // Fire upload confirmation email — non-blocking
+      const fresh = await supabase.from('clinic_inventory').select('trend').eq('clinic_name', selected.clinic_name).gt('quantity', 0);
+      const freshRows = (fresh.data || []) as {trend:string}[];
+      const fStable = freshRows.filter(r=>r.trend==='Stable').length;
+      const fLow = freshRows.filter(r=>r.trend==='Low Stock').length;
+      const fCritical = freshRows.filter(r=>r.trend==='Depleting Fast').length;
+      supabase.functions.invoke('upload-notify', {
+        body: {
+          type: 'upload_confirm',
+          branch: selected.clinic_name,
+          mode: uploadMode,
+          items: rows.length,
+          stable: fStable,
+          low: fLow,
+          critical: fCritical,
+          fileName: file.name,
+        }
+      }).catch(e => console.warn('Email notification failed silently:', e));
       await selectBranch(selected);
       await loadStats();
     } catch (e: any) { setUploadStatus({ type:'error', msg: e.message }); }
