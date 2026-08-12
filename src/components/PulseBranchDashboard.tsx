@@ -53,26 +53,28 @@ export default function PulseBranchDashboard() {
 
   const loadBranches = async () => {
     setLoading(true);
-    const { data } = await supabase.from('pharmacies')
-      .select('id,clinic_name,location,address,contact,weekday_hours,weekend_hours,status')
-      .eq('parent_email', 'ho@pulse.co.bw').order('clinic_name');
-    if (data) {
-      setBranches(data as Branch[]);
-      await loadAllStats(data.map((b: any) => b.clinic_name));
-    }
+    // Fetch branches and stats in parallel — not sequentially
+    const [branchRes] = await Promise.all([
+      supabase.from('pharmacies')
+        .select('id,clinic_name,location,address,contact,weekday_hours,weekend_hours,status')
+        .eq('parent_email', 'ho@pulse.co.bw').order('clinic_name'),
+      loadAllStats([]),
+    ]);
+    if (branchRes.data) setBranches(branchRes.data as Branch[]);
     setLoading(false);
   };
 
-  const loadAllStats = async (names: string[]) => {
-    const { data } = await supabase.from('clinic_inventory')
-      .select('clinic_name,trend').in('clinic_name', names).gt('quantity', 0);
+  const loadAllStats = async (_names: string[]) => {
+    // Single aggregated DB query — no row scanning on client
+    const { data } = await supabase.rpc('get_branch_stats');
     const map: Record<string, BranchStats> = {};
-    for (const row of data || []) {
-      if (!map[row.clinic_name]) map[row.clinic_name] = { total: 0, stable: 0, low: 0, depleting: 0 };
-      map[row.clinic_name].total++;
-      if (row.trend === 'Stable') map[row.clinic_name].stable++;
-      else if (row.trend === 'Low Stock') map[row.clinic_name].low++;
-      else map[row.clinic_name].depleting++;
+    for (const row of (data || []) as any[]) {
+      map[row.clinic_name] = {
+        total: Number(row.total),
+        stable: Number(row.stable),
+        low: Number(row.low),
+        depleting: Number(row.depleting),
+      };
     }
     setAllStats(map);
   };
@@ -86,6 +88,7 @@ export default function PulseBranchDashboard() {
       .select('id,med_name,category,quantity,trend,pack_size,atc_code')
       .eq('clinic_name', branch.clinic_name).order('med_name');
     setInventory((data as InventoryItem[]) || []);
+    // Use cached stats — no extra DB call needed
     setStats(allStats[branch.clinic_name] || { total: 0, stable: 0, low: 0, depleting: 0 });
     setInventoryLoading(false);
   };
