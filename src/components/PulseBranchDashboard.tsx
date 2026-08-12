@@ -166,18 +166,25 @@ export default function PulseBranchDashboard() {
       {/* ── SIDEBAR ── */}
       <aside style={{width:sidebarOpen?240:62,flexShrink:0,height:'100vh',background:`linear-gradient(180deg,${T} 0%,#008888 100%)`,display:'flex',flexDirection:'column',transition:'width 0.2s ease',overflow:'hidden'}}>
 
-        {/* Logo block */}
-        <div style={{padding:'0 0 0 0',borderBottom:'1px solid rgba(255,255,255,0.15)',flexShrink:0}}>
-          <div style={{display:'flex',height:62}}>
-            {/* Teal side — ECG icon */}
-            <div style={{width:62,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',borderRight:'1px solid rgba(255,255,255,0.2)'}}>
-              <Activity size={22} color={W} strokeWidth={2} />
+        {/* Logo block — faithful Pulse Pharmacy brand */}
+        <div style={{flexShrink:0,borderBottom:'1px solid rgba(255,255,255,0.15)',overflow:'hidden'}}>
+          <div style={{display:'flex',height:64,minWidth:240}}>
+            {/* LEFT: teal block — "Pulse" + ECG line */}
+            <div style={{width:sidebarOpen?96:62,flexShrink:0,background:T,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 12px',gap:6,transition:'width 0.2s ease'}}>
+              {/* ECG pulse SVG — matches logo exactly */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{flexShrink:0}}>
+                <polyline points="2,12 6,12 8,5 10,19 12,9 14,15 16,12 22,12"
+                  stroke={W} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {sidebarOpen && (
+                <span style={{fontSize:18,fontWeight:900,color:W,letterSpacing:-0.5,fontFamily:'"Segoe UI",Arial,sans-serif'}}>Pulse</span>
+              )}
             </div>
-            {/* Pink side — text */}
+            {/* RIGHT: pink block — "Pharmacy" + tagline */}
             {sidebarOpen && (
-              <div style={{flex:1,background:P,display:'flex',flexDirection:'column',justifyContent:'center',padding:'0 14px'}}>
-                <div style={{fontSize:13,fontWeight:800,color:W,letterSpacing:0.2,lineHeight:1.2}}>Pulse Pharmacy</div>
-                <div style={{fontSize:9,color:'rgba(255,255,255,0.75)',letterSpacing:0.3,marginTop:2}}>Your Convenient Chemist</div>
+              <div style={{flex:1,background:P,display:'flex',flexDirection:'column',justifyContent:'center',padding:'0 14px',minWidth:0}}>
+                <div style={{fontSize:16,fontWeight:700,color:W,letterSpacing:0.1,lineHeight:1.2,fontFamily:'"Segoe UI",Arial,sans-serif'}}>Pharmacy</div>
+                <div style={{fontSize:8.5,color:'rgba(255,255,255,0.85)',letterSpacing:0.2,marginTop:2,fontWeight:400}}>Your Convenient Chemist</div>
               </div>
             )}
           </div>
