@@ -204,7 +204,7 @@ export default function PulseBranchDashboard() {
       await loadStats();
     } catch (e: any) { setUploadStatus({ type:'error', msg: e.message }); }
     setUploading(false);
-  }, [selected, uploadMode]);
+  }, [selected, uploadMode, uploader]);
 
   const net = branches.reduce((a,b) => { const s=allStats[b.clinic_name]; if(s){a.total+=s.total;a.stable+=s.stable;a.low+=s.low;a.depleting+=s.depleting;} return a; }, {total:0,stable:0,low:0,depleting:0});
   const filtered = inventory.filter(i => i.med_name.toLowerCase().includes(search.toLowerCase()) && (trendFilter==='all'||i.trend===trendFilter));
