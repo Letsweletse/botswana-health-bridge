@@ -2,37 +2,35 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import * as XLSX from 'xlsx';
 import {
-  Building2, Package, TrendingDown, AlertTriangle,
-  ChevronRight, Upload, Search, RefreshCw, MapPin,
-  Clock, Phone, CheckCircle, LayoutGrid, List,
-  ArrowUpRight, Activity, Zap, Shield, X, Menu,
-  CloudUpload, BarChart3, Circle, ChevronDown, ChevronUp
+  Activity, Package, TrendingDown, AlertTriangle,
+  ChevronRight, Search, RefreshCw, CheckCircle,
+  LayoutGrid, ArrowUpRight, Upload, X, LogOut,
+  ChevronDown, BarChart3, Clock, Phone, MapPin,
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 type Branch = {
-  id: string;
-  clinic_name: string;
-  location: string;
-  address: string;
-  contact: string;
-  weekday_hours: string;
-  weekend_hours: string;
-  status: string;
+  id: string; clinic_name: string; location: string; address: string;
+  contact: string; weekday_hours: string; weekend_hours: string; status: string;
 };
-
 type InventoryItem = {
-  id: string;
-  med_name: string;
-  category: string;
-  quantity: number;
-  trend: string;
-  pack_size: string;
-  atc_code: string;
+  id: string; med_name: string; category: string; quantity: number;
+  trend: string; pack_size: string; atc_code: string;
 };
-
 type BranchStats = { total: number; stable: number; low: number; depleting: number };
 
+const COLORS = {
+  blue: '#0071e3', blueDark: '#0058b0', blueLight: '#e8f0fb',
+  green: '#34c759', greenLight: '#e9fbe9',
+  amber: '#ff9f0a', amberLight: '#fff5e0',
+  red: '#ff3b30', redLight: '#fff0ef',
+  gray50: '#f9f9fb', gray100: '#f2f2f7', gray200: '#e5e5ea',
+  gray400: '#aeaeb2', gray600: '#636366', gray900: '#1c1c1e',
+  white: '#ffffff',
+};
+
 export default function PulseBranchDashboard() {
+  const { signOut } = useAuth();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -41,28 +39,24 @@ export default function PulseBranchDashboard() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [inventoryLoading, setInventoryLoading] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeView, setActiveView] = useState<'overview' | 'inventory' | 'upload'>('overview');
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [uploadMode, setUploadMode] = useState<'replace' | 'merge'>('replace');
+  const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error' | 'info'; msg: string } | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [trendFilter, setTrendFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'name' | 'quantity'>('name');
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [trendFilter, setTrendFilter] = useState('all');
+  const [sortBy, setSortBy] = useState<'name' | 'qty'>('name');
   const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadBranches(); }, []);
 
   const loadBranches = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('pharmacies')
-      .select('id, clinic_name, location, address, contact, weekday_hours, weekend_hours, status')
-      .eq('parent_email', 'ho@pulse.co.bw')
-      .order('clinic_name');
-    if (error) console.error('Branch load error:', error);
-    if (data && data.length > 0) {
+    const { data } = await supabase.from('pharmacies')
+      .select('id,clinic_name,location,address,contact,weekday_hours,weekend_hours,status')
+      .eq('parent_email', 'ho@pulse.co.bw').order('clinic_name');
+    if (data) {
       setBranches(data as Branch[]);
       await loadAllStats(data.map((b: any) => b.clinic_name));
     }
@@ -70,19 +64,15 @@ export default function PulseBranchDashboard() {
   };
 
   const loadAllStats = async (names: string[]) => {
-    const { data, error } = await supabase
-      .from('clinic_inventory')
-      .select('clinic_name, trend')
-      .in('clinic_name', names)
-      .gt('quantity', 0);
-    if (error) return;
+    const { data } = await supabase.from('clinic_inventory')
+      .select('clinic_name,trend').in('clinic_name', names).gt('quantity', 0);
     const map: Record<string, BranchStats> = {};
-    for (const row of (data || [])) {
+    for (const row of data || []) {
       if (!map[row.clinic_name]) map[row.clinic_name] = { total: 0, stable: 0, low: 0, depleting: 0 };
       map[row.clinic_name].total++;
       if (row.trend === 'Stable') map[row.clinic_name].stable++;
       else if (row.trend === 'Low Stock') map[row.clinic_name].low++;
-      else if (row.trend === 'Depleting Fast') map[row.clinic_name].depleting++;
+      else map[row.clinic_name].depleting++;
     }
     setAllStats(map);
   };
@@ -90,79 +80,51 @@ export default function PulseBranchDashboard() {
   const selectBranch = async (branch: Branch) => {
     setSelectedBranch(branch);
     setActiveView('inventory');
-    setSearch('');
-    setTrendFilter('all');
+    setSearch(''); setTrendFilter('all');
     setInventoryLoading(true);
-    const { data, error } = await supabase
-      .from('clinic_inventory')
-      .select('id, med_name, category, quantity, trend, pack_size, atc_code')
-      .eq('clinic_name', branch.clinic_name)
-      .order('med_name');
-    if (error) console.error('Inventory load error:', error);
+    const { data } = await supabase.from('clinic_inventory')
+      .select('id,med_name,category,quantity,trend,pack_size,atc_code')
+      .eq('clinic_name', branch.clinic_name).order('med_name');
     setInventory((data as InventoryItem[]) || []);
-    const s = allStats[branch.clinic_name] || { total: 0, stable: 0, low: 0, depleting: 0 };
-    setStats(s);
+    setStats(allStats[branch.clinic_name] || { total: 0, stable: 0, low: 0, depleting: 0 });
     setInventoryLoading(false);
   };
 
   const handleFile = useCallback(async (file: File) => {
-    if (!selectedBranch) return;
-    if (!file) return;
-
-    setIsUploading(true);
-    setUploadProgress(0);
-    setUploadStatus('Reading file...');
-
+    if (!selectedBranch || !file) return;
+    setIsUploading(true); setUploadProgress(5); setUploadStatus(null);
     try {
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf);
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rawRows: any[] = XLSX.utils.sheet_to_json(ws, { header: 1 });
-
-      // Find header row
       let headerIdx = -1;
       for (let i = 0; i < Math.min(rawRows.length, 15); i++) {
-        const row = rawRows[i];
-        if (row && row.some((c: any) => String(c).toLowerCase().includes('descr'))) {
-          headerIdx = i;
-          break;
-        }
+        if (rawRows[i]?.some((c: any) => String(c).toUpperCase().includes('DESCR'))) { headerIdx = i; break; }
       }
-      if (headerIdx === -1) { setUploadStatus('❌ Could not find header row. Expected DESCR column.'); setIsUploading(false); return; }
-
+      if (headerIdx === -1) { setUploadStatus({ type: 'error', msg: 'Could not find header row. File must contain a DESCR column.' }); setIsUploading(false); return; }
       const headers = rawRows[headerIdx].map((h: any) => String(h).toUpperCase().trim());
       const descrIdx = headers.findIndex((h: string) => h.includes('DESCR'));
       const stockIdx = headers.findIndex((h: string) => h.includes('STOCKOH'));
       const packIdx = headers.findIndex((h: string) => h.includes('PACKSIZE'));
       const stockcdIdx = headers.findIndex((h: string) => h.includes('STOCKCD'));
       const depdescIdx = headers.findIndex((h: string) => h.includes('DEPDESCR'));
-
-      if (descrIdx === -1 || stockIdx === -1) {
-        setUploadStatus('❌ Missing required columns: DESCR, STOCKOH');
-        setIsUploading(false);
-        return;
-      }
-
+      if (descrIdx === -1 || stockIdx === -1) { setUploadStatus({ type: 'error', msg: 'Missing required columns: DESCR and STOCKOH.' }); setIsUploading(false); return; }
       const rows = rawRows.slice(headerIdx + 1)
-        .filter(r => r && r[descrIdx] && String(r[descrIdx]).trim())
+        .filter(r => r?.[descrIdx] && String(r[descrIdx]).trim())
         .map(r => {
           const qty = parseFloat(String(r[stockIdx] || 0)) || 0;
           const dep = depdescIdx >= 0 ? String(r[depdescIdx] || '').toUpperCase() : '';
-          const category = dep.includes('FRONT') ? 'Front Shop' :
-            (dep.includes('S4') || dep.includes('VATABLE')) ? 'Schedule 4' : 'Pharmacy';
+          const category = dep.includes('FRONT') ? 'Front Shop' : dep.includes('S4') ? 'Schedule 4' : 'Pharmacy';
           const trend = qty < 20 ? 'Depleting Fast' : qty < 50 ? 'Low Stock' : 'Stable';
-          const name = String(r[descrIdx]).replace(/_x000D_/g, '').replace(/[\r\n]/g, '').trim();
           return {
             clinic_name: selectedBranch.clinic_name,
-            med_name: name,
-            category,
-            quantity: Math.floor(qty),
-            trend,
-            strength: '',
-            dosage_form: '',
+            med_name: String(r[descrIdx]).replace(/_x000D_/g, '').replace(/[\r\n]/g, '').trim(),
+            category, quantity: Math.floor(qty), trend,
+            strength: '', dosage_form: '',
             pack_size: packIdx >= 0 ? String(parseInt(r[packIdx]) || 1) : '1',
             atc_code: stockcdIdx >= 0 ? String(r[stockcdIdx] || '') : '',
-            atc_description: name,
+            atc_description: String(r[descrIdx]).trim(),
             facility_level: 'Pharmacy',
             location: selectedBranch.location || '',
             contact: selectedBranch.contact || '',
@@ -170,351 +132,238 @@ export default function PulseBranchDashboard() {
           };
         })
         .filter(r => r.quantity > 0);
-
       setUploadProgress(20);
-
       if (uploadMode === 'replace') {
-        setUploadStatus(`Clearing old stock for ${selectedBranch.clinic_name}...`);
-        const { error: delErr } = await supabase
-          .from('clinic_inventory')
-          .delete()
-          .eq('clinic_name', selectedBranch.clinic_name);
-        if (delErr) { setUploadStatus(`❌ Delete error: ${delErr.message}`); setIsUploading(false); return; }
+        setUploadStatus({ type: 'info', msg: `Clearing existing stock for ${selectedBranch.clinic_name}...` });
+        const { error: delErr } = await supabase.from('clinic_inventory').delete().eq('clinic_name', selectedBranch.clinic_name);
+        if (delErr) { setUploadStatus({ type: 'error', msg: `Delete failed: ${delErr.message}` }); setIsUploading(false); return; }
       }
-
       setUploadProgress(35);
-      setUploadStatus(`Uploading ${rows.length} items...`);
-
+      setUploadStatus({ type: 'info', msg: `Uploading ${rows.length} items...` });
       const BATCH = 400;
       for (let i = 0; i < rows.length; i += BATCH) {
-        const batch = rows.slice(i, i + BATCH);
-        const { error: insErr } = await supabase.from('clinic_inventory').insert(batch);
-        if (insErr) { setUploadStatus(`❌ Insert error at row ${i}: ${insErr.message}`); setIsUploading(false); return; }
+        const { error } = await supabase.from('clinic_inventory').insert(rows.slice(i, i + BATCH));
+        if (error) { setUploadStatus({ type: 'error', msg: `Upload error at row ${i}: ${error.message}` }); setIsUploading(false); return; }
         setUploadProgress(35 + Math.floor(((i + BATCH) / rows.length) * 60));
       }
-
       setUploadProgress(100);
-      setUploadStatus(`✅ ${rows.length} items uploaded successfully for ${selectedBranch.clinic_name}!`);
-
-      // Reload
+      setUploadStatus({ type: 'success', msg: `${rows.length.toLocaleString()} items uploaded for ${selectedBranch.clinic_name}.` });
       await selectBranch(selectedBranch);
       await loadAllStats(branches.map(b => b.clinic_name));
     } catch (e: any) {
-      setUploadStatus(`❌ Error: ${e.message}`);
+      setUploadStatus({ type: 'error', msg: `Error: ${e.message}` });
     }
     setIsUploading(false);
   }, [selectedBranch, uploadMode, branches]);
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  };
+  const filtered = inventory.filter(i => {
+    const ms = i.med_name.toLowerCase().includes(search.toLowerCase());
+    const mt = trendFilter === 'all' || i.trend === trendFilter;
+    return ms && mt;
+  }).sort((a, b) => sortBy === 'qty' ? a.quantity - b.quantity : a.med_name.localeCompare(b.med_name));
 
-  const filteredInventory = inventory
-    .filter(item => {
-      const matchSearch = item.med_name.toLowerCase().includes(search.toLowerCase());
-      const matchTrend = trendFilter === 'all' || item.trend === trendFilter;
-      return matchSearch && matchTrend;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'quantity') return a.quantity - b.quantity;
-      return a.med_name.localeCompare(b.med_name);
-    });
-
-  const totalBranchStats = branches.reduce((acc, b) => {
+  const net = branches.reduce((a, b) => {
     const s = allStats[b.clinic_name];
-    if (s) { acc.total += s.total; acc.depleting += s.depleting; acc.low += s.low; acc.stable += s.stable; }
-    return acc;
+    if (s) { a.total += s.total; a.stable += s.stable; a.low += s.low; a.depleting += s.depleting; }
+    return a;
   }, { total: 0, stable: 0, low: 0, depleting: 0 });
 
-  const trendColor = (t: string) => {
-    if (t === 'Stable') return '#16a34a';
-    if (t === 'Low Stock') return '#d97706';
-    return '#dc2626';
-  };
-
-  const trendBg = (t: string) => {
-    if (t === 'Stable') return '#f0fdf4';
-    if (t === 'Low Stock') return '#fffbeb';
-    return '#fef2f2';
-  };
-
-  const trendDot = (t: string) => {
-    if (t === 'Stable') return '#16a34a';
-    if (t === 'Low Stock') return '#d97706';
-    return '#dc2626';
-  };
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#f5f5f7', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 40, height: 40, border: '3px solid #e5e7eb', borderTopColor: '#0066cc', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-          <p style={{ color: '#6b7280', fontSize: 14, fontWeight: 500, letterSpacing: 0.2 }}>Loading Pulse Network</p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: COLORS.gray50, fontFamily: '-apple-system, "SF Pro Display", "Helvetica Neue", sans-serif' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 36, height: 36, border: `3px solid ${COLORS.gray200}`, borderTopColor: COLORS.blue, borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 14px' }} />
+        <p style={{ color: COLORS.gray600, fontSize: 13, fontWeight: 500 }}>Loading Pulse Network</p>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}} * {box-sizing:border-box} ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-thumb{background:#d1d1d6;border-radius:4px}`}</style>
       </div>
-    );
-  }
-
-  const SIDEBAR_W = sidebarOpen ? 260 : 64;
+    </div>
+  );
 
   return (
-    <div style={{ display: 'flex', height: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif', background: '#f5f5f7', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100vh', fontFamily: '-apple-system,"SF Pro Display","Helvetica Neue",sans-serif', background: COLORS.gray50, overflow: 'hidden' }}>
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        .branch-row:hover { background: #f0f4ff !important; }
-        .inv-row:hover { background: #f9fafb !important; }
-        .nav-item:hover { background: rgba(0,102,204,0.08) !important; }
-        .btn-primary:hover { background: #0050a0 !important; }
-        .btn-ghost:hover { background: #f3f4f6 !important; }
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
-        * { box-sizing: border-box; }
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        *{box-sizing:border-box}
+        ::-webkit-scrollbar{width:4px;height:4px}
+        ::-webkit-scrollbar-thumb{background:#c7c7cc;border-radius:4px}
+        .row-hover:hover{background:#f2f2f7!important}
+        .branch-card:hover{background:#f2f2f7!important;transform:translateY(-1px)}
+        .nav-btn:hover{background:rgba(0,113,227,0.08)!important}
+        .btn-ghost:hover{background:${COLORS.gray100}!important}
       `}</style>
 
       {/* ── SIDEBAR ── */}
-      <aside style={{
-        width: SIDEBAR_W, minWidth: SIDEBAR_W, height: '100vh', background: '#fff',
-        borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column',
-        transition: 'width 0.2s ease', overflow: 'hidden', flexShrink: 0,
-        boxShadow: '1px 0 0 #f0f0f0'
-      }}>
-        {/* Logo area */}
-        <div style={{ padding: '20px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg, #0066cc 0%, #0044aa 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-          }}>
-            <Activity size={16} color="#fff" />
-          </div>
-          {sidebarOpen && (
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', letterSpacing: -0.3 }}>Pulse HQ</div>
-              <div style={{ fontSize: 11, color: '#6b7280', letterSpacing: 0.1 }}>{branches.length} branches</div>
+      <aside style={{ width: 240, flexShrink: 0, height: '100vh', background: COLORS.white, borderRight: `1px solid ${COLORS.gray200}`, display: 'flex', flexDirection: 'column' }}>
+        {/* Brand */}
+        <div style={{ padding: '20px 20px 16px', borderBottom: `1px solid ${COLORS.gray100}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: `linear-gradient(135deg, ${COLORS.blue} 0%, #0058b0 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Activity size={16} color="#fff" />
             </div>
-          )}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="btn-ghost"
-            style={{ marginLeft: 'auto', border: 'none', background: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#6b7280', flexShrink: 0 }}
-          >
-            <Menu size={16} />
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.gray900, letterSpacing: -0.3 }}>Pulse HQ</div>
+              <div style={{ fontSize: 11, color: COLORS.gray400 }}>{branches.length} branches</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Network health pill */}
+        <div style={{ padding: '12px 20px', borderBottom: `1px solid ${COLORS.gray100}` }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: COLORS.gray400, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8 }}>Network Health</div>
+          <div style={{ height: 5, borderRadius: 5, background: COLORS.gray100, overflow: 'hidden', display: 'flex' }}>
+            <div style={{ width: `${net.total ? (net.stable / net.total) * 100 : 0}%`, background: COLORS.green, transition: 'width 0.4s' }} />
+            <div style={{ width: `${net.total ? (net.low / net.total) * 100 : 0}%`, background: COLORS.amber }} />
+            <div style={{ width: `${net.total ? (net.depleting / net.total) * 100 : 0}%`, background: COLORS.red }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+            <span style={{ fontSize: 10, color: COLORS.gray600 }}>{net.total.toLocaleString()} SKUs</span>
+            {net.depleting > 0 && <span style={{ fontSize: 10, color: COLORS.red, fontWeight: 600 }}>{net.depleting} critical</span>}
+          </div>
+        </div>
+
+        {/* Nav: Overview */}
+        <div style={{ padding: '8px 10px 4px' }}>
+          <button className="nav-btn" onClick={() => { setActiveView('overview'); setSelectedBranch(null); }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', textAlign: 'left', background: activeView === 'overview' && !selectedBranch ? COLORS.blueLight : 'transparent', transition: 'background 0.15s' }}>
+            <LayoutGrid size={15} color={activeView === 'overview' && !selectedBranch ? COLORS.blue : COLORS.gray600} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: activeView === 'overview' && !selectedBranch ? COLORS.blue : COLORS.gray900 }}>All Branches</span>
           </button>
         </div>
 
-        {/* Overview nav item */}
-        <div style={{ padding: '8px 8px 4px' }}>
-          <button
-            className="nav-item"
-            onClick={() => { setActiveView('overview'); setSelectedBranch(null); }}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
-              borderRadius: 8, border: 'none', cursor: 'pointer', textAlign: 'left',
-              background: activeView === 'overview' && !selectedBranch ? 'rgba(0,102,204,0.1)' : 'transparent',
-              color: activeView === 'overview' && !selectedBranch ? '#0066cc' : '#374151',
-              transition: 'background 0.15s'
-            }}
-          >
-            <LayoutGrid size={16} style={{ flexShrink: 0 }} />
-            {sidebarOpen && <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: -0.1 }}>All Branches</span>}
-          </button>
-        </div>
-
-        <div style={{ padding: '4px 8px 2px 12px' }}>
-          {sidebarOpen && <span style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', letterSpacing: 1, textTransform: 'uppercase' }}>Branches</span>}
-        </div>
+        <div style={{ padding: '4px 20px 4px', fontSize: 10, fontWeight: 600, color: COLORS.gray400, letterSpacing: 0.8, textTransform: 'uppercase' }}>Branches</div>
 
         {/* Branch list */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '2px 8px 8px' }}>
-          {branches.map(branch => {
-            const s = allStats[branch.clinic_name];
-            const isSelected = selectedBranch?.id === branch.id;
-            const shortName = branch.clinic_name.replace('Pulse Pharmacy ', '');
+        <div style={{ flex: 1, overflowY: 'auto', padding: '2px 10px 10px' }}>
+          {branches.map(b => {
+            const s = allStats[b.clinic_name];
+            const isActive = selectedBranch?.id === b.id;
+            const dotColor = s?.depleting ? COLORS.red : s?.low ? COLORS.amber : COLORS.green;
             return (
-              <button
-                key={branch.id}
-                className="nav-item"
-                onClick={() => selectBranch(branch)}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px',
-                  borderRadius: 8, border: 'none', cursor: 'pointer', textAlign: 'left',
-                  background: isSelected ? 'rgba(0,102,204,0.1)' : 'transparent',
-                  color: isSelected ? '#0066cc' : '#374151',
-                  transition: 'background 0.15s', marginBottom: 1
-                }}
-              >
-                <div style={{
-                  width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                  background: s && s.depleting > 0 ? '#ef4444' : s && s.low > 0 ? '#f59e0b' : '#10b981'
-                }} />
-                {sidebarOpen && (
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: isSelected ? 600 : 500, letterSpacing: -0.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {shortName}
-                    </div>
-                    {s && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 1 }}>{s.total} items</div>}
+              <button key={b.id} className="nav-btn" onClick={() => selectBranch(b)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', textAlign: 'left', background: isActive ? COLORS.blueLight : 'transparent', marginBottom: 1, transition: 'background 0.15s' }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: isActive ? 600 : 500, color: isActive ? COLORS.blue : COLORS.gray900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {b.clinic_name.replace('Pulse Pharmacy ', '')}
                   </div>
-                )}
+                  {s && <div style={{ fontSize: 10, color: COLORS.gray400 }}>{s.total} items</div>}
+                </div>
               </button>
             );
           })}
         </div>
 
-        {/* Bottom - network health */}
-        {sidebarOpen && (
-          <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f0f0', background: '#fafafa' }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Network Health</div>
-            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-              <div style={{ flex: totalBranchStats.stable, height: 4, background: '#10b981', borderRadius: 4 }} />
-              <div style={{ flex: totalBranchStats.low, height: 4, background: '#f59e0b', borderRadius: 4 }} />
-              <div style={{ flex: totalBranchStats.depleting, height: 4, background: '#ef4444', borderRadius: 4 }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-              <span style={{ fontSize: 10, color: '#6b7280' }}>{totalBranchStats.total.toLocaleString()} total SKUs</span>
-              <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 600 }}>{totalBranchStats.depleting} alerts</span>
-            </div>
-          </div>
-        )}
+        {/* Sign out */}
+        <div style={{ padding: '12px 10px', borderTop: `1px solid ${COLORS.gray100}` }}>
+          <button className="nav-btn" onClick={signOut}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent' }}>
+            <LogOut size={14} color={COLORS.gray600} />
+            <span style={{ fontSize: 12, fontWeight: 500, color: COLORS.gray600 }}>Sign Out</span>
+          </button>
+        </div>
       </aside>
 
-      {/* ── MAIN CONTENT ── */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-        {/* Top bar */}
-        <header style={{
-          height: 56, background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center',
-          padding: '0 24px', gap: 16, flexShrink: 0
-        }}>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: 0, letterSpacing: -0.4 }}>
+      {/* ── MAIN ── */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+        {/* Topbar */}
+        <header style={{ height: 56, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${COLORS.gray200}`, display: 'flex', alignItems: 'center', padding: '0 28px', gap: 16, flexShrink: 0 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontSize: 15, fontWeight: 700, color: COLORS.gray900, margin: 0, letterSpacing: -0.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {selectedBranch ? selectedBranch.clinic_name : 'Pulse Pharmacy Network'}
             </h1>
-            <p style={{ fontSize: 11, color: '#6b7280', margin: 0, letterSpacing: 0.1 }}>
-              {selectedBranch
-                ? `${selectedBranch.location || ''} · ${selectedBranch.contact || ''}`
-                : `${branches.length} branches · Botswana`
-              }
-            </p>
+            {selectedBranch && (
+              <p style={{ fontSize: 11, color: COLORS.gray600, margin: 0 }}>
+                {selectedBranch.weekday_hours || selectedBranch.location || ''}
+              </p>
+            )}
           </div>
-
           {selectedBranch && (
-            <div style={{ display: 'flex', gap: 6 }}>
-              {(['inventory', 'upload'] as const).map(view => (
-                <button
-                  key={view}
-                  onClick={() => setActiveView(view)}
-                  style={{
-                    padding: '5px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                    fontSize: 12, fontWeight: 600, letterSpacing: -0.1,
-                    background: activeView === view ? '#0066cc' : 'transparent',
-                    color: activeView === view ? '#fff' : '#6b7280',
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  {view === 'inventory' ? '📦 Inventory' : '⬆ Upload'}
+            <div style={{ display: 'flex', background: COLORS.gray100, borderRadius: 10, padding: 3, gap: 2 }}>
+              {(['inventory', 'upload'] as const).map(v => (
+                <button key={v} onClick={() => setActiveView(v)}
+                  style={{ padding: '5px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: activeView === v ? COLORS.white : 'transparent', color: activeView === v ? COLORS.gray900 : COLORS.gray600, boxShadow: activeView === v ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
+                  {v === 'inventory' ? 'Inventory' : 'Upload'}
                 </button>
               ))}
             </div>
           )}
-
-          <button onClick={loadBranches} className="btn-ghost" style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 8, borderRadius: 8, color: '#6b7280' }}>
-            <RefreshCw size={15} />
+          <button className="btn-ghost" onClick={loadBranches} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 7, borderRadius: 8, color: COLORS.gray600, display: 'flex' }}>
+            <RefreshCw size={14} />
           </button>
         </header>
 
         {/* Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 24, animation: 'fadeIn 0.2s ease' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24, animation: 'fadeUp 0.2s ease' }}>
 
-          {/* ── OVERVIEW VIEW ── */}
+          {/* ── OVERVIEW ── */}
           {(activeView === 'overview' || !selectedBranch) && (
             <>
-              {/* Summary cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
+              {/* KPI cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
                 {[
-                  { label: 'Total Branches', value: branches.length, icon: Building2, color: '#0066cc', bg: '#eff6ff' },
-                  { label: 'Network SKUs', value: totalBranchStats.total.toLocaleString(), icon: Package, color: '#059669', bg: '#f0fdf4' },
-                  { label: 'Low Stock Alerts', value: totalBranchStats.low, icon: AlertTriangle, color: '#d97706', bg: '#fffbeb' },
-                  { label: 'Critical Alerts', value: totalBranchStats.depleting, icon: TrendingDown, color: '#dc2626', bg: '#fef2f2' },
+                  { label: 'Branches', value: branches.length, icon: LayoutGrid, color: COLORS.blue, bg: COLORS.blueLight },
+                  { label: 'Total SKUs', value: net.total.toLocaleString(), icon: Package, color: COLORS.green, bg: COLORS.greenLight },
+                  { label: 'Low Stock', value: net.low, icon: AlertTriangle, color: COLORS.amber, bg: COLORS.amberLight },
+                  { label: 'Critical', value: net.depleting, icon: TrendingDown, color: COLORS.red, bg: COLORS.redLight },
                 ].map(({ label, value, icon: Icon, color, bg }) => (
-                  <div key={label} style={{ background: '#fff', borderRadius: 14, padding: '18px 20px', border: '1px solid #f0f0f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', letterSpacing: 0.3, textTransform: 'uppercase' }}>{label}</span>
-                      <div style={{ width: 32, height: 32, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Icon size={15} color={color} />
+                  <div key={label} style={{ background: COLORS.white, borderRadius: 14, padding: '18px 20px', border: `1px solid ${COLORS.gray200}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.gray600, letterSpacing: 0.2, textTransform: 'uppercase' }}>{label}</span>
+                      <div style={{ width: 30, height: 30, borderRadius: 8, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon size={14} color={color} />
                       </div>
                     </div>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: '#111827', letterSpacing: -1 }}>{value}</div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: COLORS.gray900, letterSpacing: -1 }}>{value}</div>
                   </div>
                 ))}
               </div>
 
               {/* Branch grid */}
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 14, letterSpacing: -0.1 }}>
-                All Branches <span style={{ color: '#9ca3af', fontWeight: 500 }}>({branches.length})</span>
+              <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.gray600, marginBottom: 12 }}>
+                All Branches <span style={{ color: COLORS.gray400, fontWeight: 400 }}>({branches.length})</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
-                {branches.map(branch => {
-                  const s = allStats[branch.clinic_name];
-                  const shortName = branch.clinic_name.replace('Pulse Pharmacy ', '');
-                  const healthPct = s && s.total > 0 ? Math.round((s.stable / s.total) * 100) : 0;
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(290px,1fr))', gap: 12 }}>
+                {branches.map(b => {
+                  const s = allStats[b.clinic_name];
+                  const health = s?.total ? Math.round((s.stable / s.total) * 100) : 0;
+                  const hColor = health >= 70 ? COLORS.green : health >= 40 ? COLORS.amber : COLORS.red;
                   return (
-                    <div
-                      key={branch.id}
-                      className="branch-row"
-                      onClick={() => selectBranch(branch)}
-                      style={{
-                        background: '#fff', borderRadius: 14, padding: '18px 20px', border: '1px solid #f0f0f0',
-                        cursor: 'pointer', transition: 'all 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <div key={b.id} className="branch-card" onClick={() => selectBranch(b)}
+                      style={{ background: COLORS.white, borderRadius: 14, padding: '18px 20px', border: `1px solid ${COLORS.gray200}`, cursor: 'pointer', transition: 'all 0.15s' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                         <div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', letterSpacing: -0.3, marginBottom: 3 }}>{shortName}</div>
-                          <div style={{ fontSize: 11, color: '#6b7280' }}>{branch.location || 'Botswana'}</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.gray900, letterSpacing: -0.2, marginBottom: 2 }}>
+                            {b.clinic_name.replace('Pulse Pharmacy ', '')}
+                          </div>
+                          <div style={{ fontSize: 11, color: COLORS.gray600 }}>{b.location || 'Botswana'}</div>
                         </div>
-                        <div style={{
-                          display: 'flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 20,
-                          background: healthPct >= 70 ? '#f0fdf4' : healthPct >= 40 ? '#fffbeb' : '#fef2f2',
-                          border: `1px solid ${healthPct >= 70 ? '#bbf7d0' : healthPct >= 40 ? '#fde68a' : '#fecaca'}`
-                        }}>
-                          <div style={{ width: 5, height: 5, borderRadius: '50%', background: healthPct >= 70 ? '#16a34a' : healthPct >= 40 ? '#d97706' : '#dc2626' }} />
-                          <span style={{ fontSize: 11, fontWeight: 600, color: healthPct >= 70 ? '#16a34a' : healthPct >= 40 ? '#d97706' : '#dc2626' }}>{healthPct}%</span>
+                        <div style={{ padding: '3px 10px', borderRadius: 20, background: `${hColor}15`, border: `1px solid ${hColor}40` }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: hColor }}>{health}%</span>
                         </div>
                       </div>
-
-                      {s && s.total > 0 ? (
+                      {s?.total ? (
                         <>
-                          <div style={{ height: 5, borderRadius: 5, background: '#f3f4f6', overflow: 'hidden', marginBottom: 12 }}>
-                            <div style={{ height: '100%', borderRadius: 5, background: 'linear-gradient(90deg, #10b981 0%, #10b981 100%)', width: `${healthPct}%`, transition: 'width 0.4s ease' }} />
+                          <div style={{ height: 4, borderRadius: 4, background: COLORS.gray100, overflow: 'hidden', marginBottom: 14, display: 'flex' }}>
+                            <div style={{ width: `${(s.stable / s.total) * 100}%`, background: COLORS.green }} />
+                            <div style={{ width: `${(s.low / s.total) * 100}%`, background: COLORS.amber }} />
+                            <div style={{ width: `${(s.depleting / s.total) * 100}%`, background: COLORS.red }} />
                           </div>
-                          <div style={{ display: 'flex', gap: 14 }}>
-                            {[
-                              { label: 'Stable', val: s.stable, color: '#16a34a' },
-                              { label: 'Low', val: s.low, color: '#d97706' },
-                              { label: 'Critical', val: s.depleting, color: '#dc2626' },
-                            ].map(({ label, val, color }) => (
-                              <div key={label}>
-                                <div style={{ fontSize: 16, fontWeight: 700, color, letterSpacing: -0.5 }}>{val}</div>
-                                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 1 }}>{label}</div>
+                          <div style={{ display: 'flex', gap: 18 }}>
+                            {[{ l: 'Stable', v: s.stable, c: COLORS.green }, { l: 'Low', v: s.low, c: COLORS.amber }, { l: 'Critical', v: s.depleting, c: COLORS.red }].map(({ l, v, c }) => (
+                              <div key={l}>
+                                <div style={{ fontSize: 17, fontWeight: 700, color: c, letterSpacing: -0.5 }}>{v}</div>
+                                <div style={{ fontSize: 10, color: COLORS.gray400 }}>{l}</div>
                               </div>
                             ))}
                           </div>
                         </>
                       ) : (
-                        <div style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>No inventory data · Upload to activate</div>
+                        <div style={{ fontSize: 12, color: COLORS.gray400, fontStyle: 'italic' }}>No inventory — upload to activate</div>
                       )}
-
                       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#0066cc' }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.blue, display: 'flex', alignItems: 'center', gap: 3 }}>
                           View <ChevronRight size={13} />
-                        </div>
+                        </span>
                       </div>
                     </div>
                   );
@@ -523,111 +372,112 @@ export default function PulseBranchDashboard() {
             </>
           )}
 
-          {/* ── INVENTORY VIEW ── */}
+          {/* ── INVENTORY ── */}
           {activeView === 'inventory' && selectedBranch && (
             <>
-              {/* Stats row */}
+              {/* Branch info banner */}
+              <div style={{ background: COLORS.white, borderRadius: 14, padding: '16px 20px', border: `1px solid ${COLORS.gray200}`, marginBottom: 16, display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                {selectedBranch.weekday_hours && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Clock size={13} color={COLORS.gray600} />
+                    <span style={{ fontSize: 12, color: COLORS.gray900, fontWeight: 500 }}>{selectedBranch.weekday_hours}</span>
+                    {selectedBranch.weekend_hours && <span style={{ fontSize: 12, color: COLORS.gray600 }}>· {selectedBranch.weekend_hours}</span>}
+                  </div>
+                )}
+                {selectedBranch.contact && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Phone size={13} color={COLORS.gray600} />
+                    <span style={{ fontSize: 12, color: COLORS.gray900, fontWeight: 500 }}>{selectedBranch.contact}</span>
+                  </div>
+                )}
+                {selectedBranch.address && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <MapPin size={13} color={COLORS.gray600} />
+                    <span style={{ fontSize: 12, color: COLORS.gray900 }}>{selectedBranch.address}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Stats */}
               {stats && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
                   {[
-                    { label: 'Total Items', value: stats.total, color: '#0066cc', bg: '#eff6ff' },
-                    { label: 'Stable', value: stats.stable, color: '#16a34a', bg: '#f0fdf4' },
-                    { label: 'Low Stock', value: stats.low, color: '#d97706', bg: '#fffbeb' },
-                    { label: 'Critical', value: stats.depleting, color: '#dc2626', bg: '#fef2f2' },
-                  ].map(({ label, value, color, bg }) => (
-                    <div key={label} style={{ background: '#fff', borderRadius: 12, padding: '14px 18px', border: '1px solid #f0f0f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>{label}</div>
-                      <div style={{ fontSize: 24, fontWeight: 700, color, letterSpacing: -0.8 }}>{value}</div>
+                    { l: 'Total Items', v: stats.total, c: COLORS.blue, bg: COLORS.blueLight },
+                    { l: 'Stable', v: stats.stable, c: COLORS.green, bg: COLORS.greenLight },
+                    { l: 'Low Stock', v: stats.low, c: COLORS.amber, bg: COLORS.amberLight },
+                    { l: 'Critical', v: stats.depleting, c: COLORS.red, bg: COLORS.redLight },
+                  ].map(({ l, v, c, bg }) => (
+                    <div key={l} style={{ background: COLORS.white, borderRadius: 12, padding: '14px 16px', border: `1px solid ${COLORS.gray200}` }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: COLORS.gray600, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 }}>{l}</div>
+                      <div style={{ fontSize: 24, fontWeight: 700, color: c, letterSpacing: -0.5 }}>{v}</div>
                     </div>
                   ))}
                 </div>
               )}
 
               {/* Filters */}
-              <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center' }}>
                 <div style={{ flex: 1, position: 'relative' }}>
-                  <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-                  <input
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    placeholder="Search medicines..."
-                    style={{
-                      width: '100%', padding: '9px 12px 9px 34px', borderRadius: 10, border: '1px solid #e5e7eb',
-                      fontSize: 13, outline: 'none', background: '#fff', color: '#111827',
-                    }}
-                  />
+                  <Search size={13} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: COLORS.gray400 }} />
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search medicines..."
+                    style={{ width: '100%', padding: '8px 12px 8px 32px', borderRadius: 9, border: `1px solid ${COLORS.gray200}`, fontSize: 13, outline: 'none', background: COLORS.white, color: COLORS.gray900 }} />
                 </div>
-                {['all', 'Stable', 'Low Stock', 'Depleting Fast'].map(f => (
-                  <button
-                    key={f}
-                    onClick={() => setTrendFilter(f)}
-                    style={{
-                      padding: '7px 14px', borderRadius: 8, border: '1px solid',
-                      borderColor: trendFilter === f ? '#0066cc' : '#e5e7eb',
-                      background: trendFilter === f ? '#eff6ff' : '#fff',
-                      color: trendFilter === f ? '#0066cc' : '#6b7280',
-                      fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap'
-                    }}
-                  >
-                    {f === 'all' ? 'All' : f}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setSortBy(sortBy === 'name' ? 'quantity' : 'name')}
-                  style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                >
-                  Sort: {sortBy === 'name' ? 'A–Z' : 'Qty ↑'}
+                {/* Solid color filter buttons */}
+                {['all', 'Stable', 'Low Stock', 'Depleting Fast'].map(f => {
+                  const active = trendFilter === f;
+                  const fColor = f === 'Stable' ? COLORS.green : f === 'Low Stock' ? COLORS.amber : f === 'Depleting Fast' ? COLORS.red : COLORS.blue;
+                  return (
+                    <button key={f} onClick={() => setTrendFilter(f)}
+                      style={{ padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: active ? fColor : COLORS.gray100, color: active ? COLORS.white : COLORS.gray600, transition: 'all 0.15s', whiteSpace: 'nowrap' }}>
+                      {f === 'all' ? 'All' : f === 'Depleting Fast' ? 'Critical' : f}
+                    </button>
+                  );
+                })}
+                <button onClick={() => setSortBy(sortBy === 'name' ? 'qty' : 'name')}
+                  style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid ${COLORS.gray200}`, background: COLORS.white, color: COLORS.gray600, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  {sortBy === 'name' ? 'A–Z' : 'Qty ↑'}
                 </button>
               </div>
 
-              <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10 }}>
-                {filteredInventory.length} of {inventory.length} items
-              </div>
+              <div style={{ fontSize: 11, color: COLORS.gray400, marginBottom: 10 }}>{filtered.length} of {inventory.length} items</div>
 
               {/* Table */}
               {inventoryLoading ? (
                 <div style={{ textAlign: 'center', padding: 60 }}>
-                  <div style={{ width: 32, height: 32, border: '3px solid #e5e7eb', borderTopColor: '#0066cc', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-                  <p style={{ color: '#9ca3af', fontSize: 13 }}>Loading inventory...</p>
+                  <div style={{ width: 28, height: 28, border: `3px solid ${COLORS.gray200}`, borderTopColor: COLORS.blue, borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 12px' }} />
+                  <p style={{ color: COLORS.gray400, fontSize: 13 }}>Loading inventory...</p>
                 </div>
               ) : (
-                <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 100px 110px', padding: '10px 20px', borderBottom: '1px solid #f0f0f0', background: '#fafafa' }}>
-                    {['Medicine', 'Category', 'Stock', 'Status'].map(h => (
-                      <div key={h} style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: 0.5, textTransform: 'uppercase' }}>{h}</div>
+                <div style={{ background: COLORS.white, borderRadius: 14, border: `1px solid ${COLORS.gray200}`, overflow: 'hidden' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 90px 110px', padding: '10px 20px', borderBottom: `1px solid ${COLORS.gray100}`, background: COLORS.gray50 }}>
+                    {['Medicine', 'Category', 'Qty', 'Status'].map(h => (
+                      <div key={h} style={{ fontSize: 10, fontWeight: 700, color: COLORS.gray400, letterSpacing: 0.5, textTransform: 'uppercase' }}>{h}</div>
                     ))}
                   </div>
-                  {filteredInventory.slice(0, 200).map((item, idx) => (
-                    <div
-                      key={item.id}
-                      className="inv-row"
-                      style={{
-                        display: 'grid', gridTemplateColumns: '1fr 120px 100px 110px',
-                        padding: '11px 20px', borderBottom: idx < filteredInventory.length - 1 ? '1px solid #f9fafb' : 'none',
-                        transition: 'background 0.1s', alignItems: 'center'
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: '#111827', letterSpacing: -0.1 }}>{item.med_name}</div>
-                        <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 1 }}>{item.pack_size ? `Pack: ${item.pack_size}` : ''}</div>
+                  {filtered.slice(0, 200).map((item, i) => {
+                    const tc = item.trend === 'Stable' ? COLORS.green : item.trend === 'Low Stock' ? COLORS.amber : COLORS.red;
+                    const tbg = item.trend === 'Stable' ? COLORS.greenLight : item.trend === 'Low Stock' ? COLORS.amberLight : COLORS.redLight;
+                    return (
+                      <div key={item.id} className="row-hover"
+                        style={{ display: 'grid', gridTemplateColumns: '1fr 110px 90px 110px', padding: '10px 20px', borderBottom: i < filtered.length - 1 ? `1px solid ${COLORS.gray100}` : 'none', alignItems: 'center', transition: 'background 0.1s' }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.gray900 }}>{item.med_name}</div>
+                          {item.pack_size && <div style={{ fontSize: 10, color: COLORS.gray400 }}>Pack: {item.pack_size}</div>}
+                        </div>
+                        <div style={{ fontSize: 11, color: COLORS.gray600 }}>{item.category}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: item.quantity === 0 ? COLORS.red : COLORS.gray900 }}>{item.quantity}</div>
+                        <div>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: tbg, color: tc }}>
+                            <div style={{ width: 5, height: 5, borderRadius: '50%', background: tc, flexShrink: 0 }} />
+                            {item.trend === 'Depleting Fast' ? 'Critical' : item.trend}
+                          </span>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 11, color: '#6b7280' }}>{item.category}</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: item.quantity === 0 ? '#dc2626' : '#111827' }}>{item.quantity}</div>
-                      <div>
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px',
-                          borderRadius: 20, fontSize: 11, fontWeight: 600,
-                          background: trendBg(item.trend), color: trendColor(item.trend)
-                        }}>
-                          <div style={{ width: 5, height: 5, borderRadius: '50%', background: trendDot(item.trend), flexShrink: 0 }} />
-                          {item.trend === 'Depleting Fast' ? 'Critical' : item.trend}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  {filteredInventory.length > 200 && (
-                    <div style={{ padding: '14px 20px', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>
-                      Showing 200 of {filteredInventory.length} — use search to narrow results
+                    );
+                  })}
+                  {filtered.length > 200 && (
+                    <div style={{ padding: '14px 20px', textAlign: 'center', color: COLORS.gray400, fontSize: 12, borderTop: `1px solid ${COLORS.gray100}` }}>
+                      Showing 200 of {filtered.length} — use search to narrow results
                     </div>
                   )}
                 </div>
@@ -635,41 +485,31 @@ export default function PulseBranchDashboard() {
             </>
           )}
 
-          {/* ── UPLOAD VIEW ── */}
+          {/* ── UPLOAD ── */}
           {activeView === 'upload' && selectedBranch && (
-            <div style={{ maxWidth: 640, margin: '0 auto' }}>
-              <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                <div style={{ padding: '24px 28px', borderBottom: '1px solid #f0f0f0' }}>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#111827', letterSpacing: -0.5, marginBottom: 4 }}>
-                    Upload Stock for {selectedBranch.clinic_name.replace('Pulse Pharmacy ', '')}
+            <div style={{ maxWidth: 600, margin: '0 auto' }}>
+              <div style={{ background: COLORS.white, borderRadius: 16, border: `1px solid ${COLORS.gray200}`, overflow: 'hidden' }}>
+                <div style={{ padding: '22px 26px', borderBottom: `1px solid ${COLORS.gray100}` }}>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: COLORS.gray900, letterSpacing: -0.3, marginBottom: 3 }}>
+                    Upload Stock — {selectedBranch.clinic_name.replace('Pulse Pharmacy ', '')}
                   </div>
-                  <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>
-                    Drop your daily stocktake Excel or CSV file. Stock numbers update instantly across the platform.
+                  <div style={{ fontSize: 13, color: COLORS.gray600 }}>
+                    Drop the daily Stocktotals Excel file. Stock updates instantly across WhatsApp and web.
                   </div>
                 </div>
-
-                <div style={{ padding: '24px 28px' }}>
-                  {/* Upload mode toggle */}
+                <div style={{ padding: '22px 26px' }}>
+                  {/* Upload mode — solid color toggle */}
                   <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', letterSpacing: 0.3, textTransform: 'uppercase', marginBottom: 10 }}>Upload Mode</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.gray600, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>Upload Mode</div>
+                    <div style={{ display: 'flex', background: COLORS.gray100, borderRadius: 10, padding: 3, gap: 3 }}>
                       {([
-                        { mode: 'replace', title: 'Replace Stock', desc: 'Clear old data, insert fresh numbers. Best for daily uploads.', icon: '🔄' },
-                        { mode: 'merge', title: 'Merge / Add', desc: 'Keep existing items, only add new ones from the file.', icon: '➕' },
-                      ] as const).map(({ mode, title, desc, icon }) => (
-                        <button
-                          key={mode}
-                          onClick={() => setUploadMode(mode)}
-                          style={{
-                            padding: '14px 16px', borderRadius: 12, border: '2px solid',
-                            borderColor: uploadMode === mode ? '#0066cc' : '#e5e7eb',
-                            background: uploadMode === mode ? '#eff6ff' : '#fafafa',
-                            cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s'
-                          }}
-                        >
-                          <div style={{ fontSize: 16, marginBottom: 4 }}>{icon}</div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: uploadMode === mode ? '#0066cc' : '#111827', letterSpacing: -0.2 }}>{title}</div>
-                          <div style={{ fontSize: 11, color: '#6b7280', marginTop: 3, lineHeight: 1.4 }}>{desc}</div>
+                        { mode: 'replace', label: 'Replace Stock', sub: 'Clear old, insert fresh — best for daily uploads' },
+                        { mode: 'merge', label: 'Merge / Add', sub: 'Keep existing, add new items only' },
+                      ] as const).map(({ mode, label, sub }) => (
+                        <button key={mode} onClick={() => setUploadMode(mode)}
+                          style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', textAlign: 'left', background: uploadMode === mode ? COLORS.white : 'transparent', boxShadow: uploadMode === mode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: uploadMode === mode ? COLORS.gray900 : COLORS.gray600, marginBottom: 2 }}>{label}</div>
+                          <div style={{ fontSize: 11, color: COLORS.gray400, lineHeight: 1.4 }}>{sub}</div>
                         </button>
                       ))}
                     </div>
@@ -677,83 +517,74 @@ export default function PulseBranchDashboard() {
 
                   {/* Drop zone */}
                   <div
-                    onDrop={handleDrop}
+                    onDrop={e => { e.preventDefault(); setDragOver(false); e.dataTransfer.files[0] && handleFile(e.dataTransfer.files[0]); }}
                     onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                     onDragLeave={() => setDragOver(false)}
                     onClick={() => fileRef.current?.click()}
-                    style={{
-                      border: `2px dashed ${dragOver ? '#0066cc' : '#d1d5db'}`,
-                      borderRadius: 14, padding: '40px 24px', textAlign: 'center', cursor: 'pointer',
-                      background: dragOver ? '#eff6ff' : '#fafafa',
-                      transition: 'all 0.2s', marginBottom: 16
-                    }}
-                  >
-                    <div style={{ width: 48, height: 48, borderRadius: 14, background: '#eff6ff', margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <CloudUpload size={22} color="#0066cc" />
+                    style={{ border: `2px dashed ${dragOver ? COLORS.blue : COLORS.gray200}`, borderRadius: 12, padding: '36px 20px', textAlign: 'center', cursor: 'pointer', background: dragOver ? COLORS.blueLight : COLORS.gray50, transition: 'all 0.2s', marginBottom: 16 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: COLORS.blueLight, margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Upload size={20} color={COLORS.blue} />
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 4 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.gray900, marginBottom: 4 }}>
                       {dragOver ? 'Release to upload' : 'Drop your file here'}
                     </div>
-                    <div style={{ fontSize: 12, color: '#9ca3af' }}>or click to browse · .xlsx, .xls, .csv</div>
+                    <div style={{ fontSize: 12, color: COLORS.gray400 }}>or click to browse · .xlsx .xls .csv</div>
                     <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
                   </div>
 
-                  {/* Progress & status */}
+                  {/* Progress */}
                   {isUploading && (
-                    <div style={{ marginBottom: 16 }}>
+                    <div style={{ marginBottom: 14 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <span style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>Uploading...</span>
-                        <span style={{ fontSize: 12, color: '#0066cc', fontWeight: 700 }}>{uploadProgress}%</span>
+                        <span style={{ fontSize: 12, color: COLORS.gray900, fontWeight: 600 }}>Uploading...</span>
+                        <span style={{ fontSize: 12, color: COLORS.blue, fontWeight: 700 }}>{uploadProgress}%</span>
                       </div>
-                      <div style={{ height: 6, background: '#f3f4f6', borderRadius: 6, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', background: 'linear-gradient(90deg, #0066cc, #0050a0)', borderRadius: 6, width: `${uploadProgress}%`, transition: 'width 0.3s ease' }} />
+                      <div style={{ height: 5, background: COLORS.gray100, borderRadius: 5, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', background: COLORS.blue, borderRadius: 5, width: `${uploadProgress}%`, transition: 'width 0.3s ease' }} />
                       </div>
                     </div>
                   )}
 
+                  {/* Status */}
                   {uploadStatus && !isUploading && (
                     <div style={{
-                      padding: '14px 16px', borderRadius: 12, fontSize: 13, fontWeight: 500,
-                      background: uploadStatus.startsWith('✅') ? '#f0fdf4' : uploadStatus.startsWith('❌') ? '#fef2f2' : '#eff6ff',
-                      color: uploadStatus.startsWith('✅') ? '#16a34a' : uploadStatus.startsWith('❌') ? '#dc2626' : '#0066cc',
-                      border: `1px solid ${uploadStatus.startsWith('✅') ? '#bbf7d0' : uploadStatus.startsWith('❌') ? '#fecaca' : '#bfdbfe'}`
+                      padding: '12px 16px', borderRadius: 10, fontSize: 13, fontWeight: 500,
+                      background: uploadStatus.type === 'success' ? COLORS.greenLight : uploadStatus.type === 'error' ? COLORS.redLight : COLORS.blueLight,
+                      color: uploadStatus.type === 'success' ? COLORS.green : uploadStatus.type === 'error' ? COLORS.red : COLORS.blue,
+                      border: `1px solid ${uploadStatus.type === 'success' ? '#a3e6b0' : uploadStatus.type === 'error' ? '#ffb3ae' : '#b3d1f7'}`
                     }}>
-                      {uploadStatus}
+                      {uploadStatus.type === 'success' ? '✓ ' : uploadStatus.type === 'error' ? '✕ ' : ''}{uploadStatus.msg}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Daily upload guide */}
-              <div style={{ marginTop: 20, background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                <div style={{ padding: '18px 24px', borderBottom: '1px solid #f0f0f0' }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', letterSpacing: -0.3 }}>📅 Daily Stock Update Workflow</div>
+              {/* Daily guide */}
+              <div style={{ marginTop: 16, background: COLORS.white, borderRadius: 16, border: `1px solid ${COLORS.gray200}`, overflow: 'hidden' }}>
+                <div style={{ padding: '16px 22px', borderBottom: `1px solid ${COLORS.gray100}` }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.gray900 }}>Daily Upload Workflow</div>
                 </div>
-                <div style={{ padding: '20px 24px' }}>
-                  <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.8, fontWeight: 500 }}>
-                    <strong>Recommended:</strong> Each morning, after your POS system runs end-of-day reports:
-                  </div>
+                <div style={{ padding: '18px 22px' }}>
                   {[
-                    { step: '1', title: 'Export from your POS', desc: 'Run the Stocktotals or Stock On Hand report from your pharmacy system (Nexus, Medinol, etc.) and save as Excel.' },
-                    { step: '2', title: 'Open ChekaMeds portal', desc: 'Log in here, select your branch from the sidebar, and tap Upload.' },
-                    { step: '3', title: 'Drop the file', desc: 'Use Replace Stock mode. The system deletes old numbers and inserts the fresh file — takes under 30 seconds.' },
-                    { step: '4', title: 'Done — customers see live stock', desc: 'WhatsApp searches, web searches, and the patient-facing app immediately show the updated quantities.' },
-                  ].map(({ step, title, desc }) => (
-                    <div key={step} style={{ display: 'flex', gap: 14, marginTop: 16 }}>
-                      <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-                        <span style={{ fontSize: 11, fontWeight: 800, color: '#0066cc' }}>{step}</span>
+                    { n: '1', t: 'Export from POS', d: 'Run Stocktotals / Stock On Hand from your pharmacy system (Nexus, Medinol, etc.) and save as Excel.' },
+                    { n: '2', t: 'Select your branch', d: 'Log in to ChekaMeds portal, click your branch in the sidebar, tap Upload.' },
+                    { n: '3', t: 'Drop the file', d: 'Use Replace Stock mode. Old numbers clear, fresh file inserts — done in under 30 seconds.' },
+                    { n: '4', t: 'Live immediately', d: 'WhatsApp searches and web results update instantly with the new quantities.' },
+                  ].map(({ n, t, d }) => (
+                    <div key={n} style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
+                      <div style={{ width: 26, height: 26, borderRadius: '50%', background: COLORS.blueLight, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: COLORS.blue }}>{n}</span>
                       </div>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', letterSpacing: -0.2, marginBottom: 3 }}>{title}</div>
-                        <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.5 }}>{desc}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.gray900, marginBottom: 3 }}>{t}</div>
+                        <div style={{ fontSize: 12, color: COLORS.gray600, lineHeight: 1.5 }}>{d}</div>
                       </div>
                     </div>
                   ))}
-
-                  <div style={{ marginTop: 20, padding: '14px 16px', background: '#fffbeb', borderRadius: 12, border: '1px solid #fde68a' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 4 }}>💡 Pro tip: Automate it</div>
+                  <div style={{ padding: '13px 16px', background: '#fffbeb', borderRadius: 10, border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 3 }}>Pro tip — automate it</div>
                     <div style={{ fontSize: 12, color: '#78350f', lineHeight: 1.5 }}>
-                      Your POS system may support scheduled export via FTP or email. Ask your IT provider to auto-send the stock file each morning. We can then build an auto-import endpoint so you never need to manually upload.
+                      Ask your IT team to schedule the POS export at 7am daily. We can build an auto-import endpoint so stock updates itself every morning with zero manual action.
                     </div>
                   </div>
                 </div>
