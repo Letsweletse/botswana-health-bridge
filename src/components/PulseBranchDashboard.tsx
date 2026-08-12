@@ -14,6 +14,7 @@ import {
 type Branch = {
   id: string; clinic_name: string; location: string; address: string;
   contact: string; weekday_hours: string; weekend_hours: string; status: string;
+  last_upload_at: string | null;
 };
 type InventoryItem = {
   id: string; med_name: string; category: string; quantity: number;
@@ -58,7 +59,7 @@ export default function PulseBranchDashboard() {
   const load = async () => {
     setLoading(true);
     const [branchRes] = await Promise.all([
-      supabase.from('pharmacies').select('id,clinic_name,location,address,contact,weekday_hours,weekend_hours,status').eq('parent_email','ho@pulse.co.bw').order('clinic_name'),
+      supabase.from('pharmacies').select('id,clinic_name,location,address,contact,weekday_hours,weekend_hours,status,last_upload_at').eq('parent_email','ho@pulse.co.bw').order('clinic_name'),
       loadStats(),
     ]);
     if (branchRes.data) setBranches(branchRes.data as Branch[]);
@@ -146,7 +147,18 @@ export default function PulseBranchDashboard() {
         setProgress(35 + Math.floor(((i+400)/rows.length)*60));
       }
       setProgress(100);
-      setUploadStatus({ type:'success', msg:`${rows.length.toLocaleString()} items uploaded successfully for ${selected.clinic_name}.` });
+      setUploadStatus({ type:'success', msg:`${rows.length.toLocaleString()} items uploaded for ${selected.clinic_name}.` });
+      // Log upload to history
+      await supabase.from('upload_logs').insert({
+        clinic_name: selected.clinic_name,
+        uploaded_by: 'Pulse HQ',
+        mode: uploadMode,
+        items_inserted: rows.length,
+        items_deleted: uploadMode === 'replace' ? rows.length : 0,
+        file_name: file.name,
+      });
+      // Stamp last_upload_at on pharmacy record
+      await supabase.from('pharmacies').update({ last_upload_at: new Date().toISOString() }).eq('clinic_name', selected.clinic_name);
       await selectBranch(selected);
       await loadStats();
     } catch (e: any) { setUploadStatus({ type:'error', msg: e.message }); }
@@ -156,6 +168,17 @@ export default function PulseBranchDashboard() {
   const net = branches.reduce((a,b) => { const s=allStats[b.clinic_name]; if(s){a.total+=s.total;a.stable+=s.stable;a.low+=s.low;a.depleting+=s.depleting;} return a; }, {total:0,stable:0,low:0,depleting:0});
   const filtered = inventory.filter(i => i.med_name.toLowerCase().includes(search.toLowerCase()) && (trendFilter==='all'||i.trend===trendFilter));
   const shortName = (n: string) => n.replace('Pulse Pharmacy ','');
+  const lastUpload = (b: Branch) => {
+    if (!b.last_upload_at) return null;
+    const d = new Date(b.last_upload_at);
+    const now = new Date();
+    const diffH = Math.floor((now.getTime() - d.getTime()) / 3600000);
+    if (diffH < 1) return 'Just now';
+    if (diffH < 24) return `${diffH}h ago`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD === 1) return 'Yesterday';
+    return `${diffD} days ago`;
+  };
   const healthPct = (s?: BranchStats) => s?.total ? Math.round((s.stable/s.total)*100) : 0;
   const statusColor = (s?: BranchStats) => s?.depleting ? '#e74c3c' : s?.low ? '#f39c12' : '#27ae60';
 
@@ -254,7 +277,7 @@ export default function PulseBranchDashboard() {
                 {sidebarOpen && (
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:11,fontWeight:isActive?700:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{shortName(b.clinic_name)}</div>
-                    {s?.total ? <div style={{fontSize:9,color:'rgba(255,255,255,0.5)'}}>{s.total.toLocaleString()} items</div> : <div style={{fontSize:9,color:'rgba(255,255,255,0.3)'}}>No data</div>}
+                    {s?.total ? <div style={{fontSize:9,color:'rgba(255,255,255,0.5)'}}>{s.total.toLocaleString()} items{lastUpload(b)?' · '+lastUpload(b):''}</div> : <div style={{fontSize:9,color:'rgba(255,255,255,0.3)'}}>No data — upload needed</div>}
                   </div>
                 )}
               </button>
@@ -343,7 +366,7 @@ export default function PulseBranchDashboard() {
                   <table style={{width:'100%',borderCollapse:'collapse'}}>
                     <thead>
                       <tr style={{background:'#f8fafc'}}>
-                        {['Branch','Location','SKUs','Status','Health'].map(h=>(
+                        {['Branch','Location','SKUs','Last Upload','Status','Health'].map(h=>(
                           <th key={h} style={{padding:'9px 14px',textAlign:'left',fontSize:10,fontWeight:700,color:GRAY,letterSpacing:0.5,textTransform:'uppercase',borderBottom:`1px solid ${LGRAY}`}}>{h}</th>
                         ))}
                       </tr>
@@ -361,6 +384,11 @@ export default function PulseBranchDashboard() {
                             </td>
                             <td style={{padding:'10px 14px',fontSize:11,color:GRAY}}>{b.location||'Botswana'}</td>
                             <td style={{padding:'10px 14px',fontSize:12,fontWeight:700,color:DARK}}>{s?.total?.toLocaleString()||<span style={{color:LGRAY}}>—</span>}</td>
+                            <td style={{padding:'10px 14px'}}>
+                              {lastUpload(b) ? (
+                                <span style={{fontSize:11,color:lastUpload(b)==='Just now'?'#27ae60':GRAY,fontWeight:lastUpload(b)==='Just now'?700:400}}>{lastUpload(b)}</span>
+                              ) : <span style={{fontSize:11,color:'#e74c3c',fontWeight:600}}>Never</span>}
+                            </td>
                             <td style={{padding:'10px 14px'}}>
                               <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 9px',borderRadius:20,fontSize:10,fontWeight:700,background:`${sc}15`,color:sc}}>
                                 <div style={{width:5,height:5,borderRadius:'50%',background:sc}} />
