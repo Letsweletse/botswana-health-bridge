@@ -24,10 +24,10 @@ type BranchStats = { total: number; stable: number; low: number; depleting: numb
 const T = '#00b4b4';
 const P = '#e91e8c';
 const W = '#ffffff';
-const BG = '#f0f4f8';
-const DARK = '#2c3e50';
-const GRAY = '#8492a6';
-const LGRAY = '#e8edf2';
+const BG = '#eef1f6';
+const DARK = '#1a2535';
+const GRAY = '#7a8a9e';
+const LGRAY = '#dde3ec';
 
 const Icon = ({ icon: Ic, size = 16, color = GRAY }: { icon: any; size?: number; color?: string }) => (
   <Ic size={size} color={color} strokeWidth={1.8} />
@@ -154,13 +154,16 @@ export default function PulseBranchDashboard() {
         @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
         *{box-sizing:border-box}
         ::-webkit-scrollbar{width:5px;height:5px}
-        ::-webkit-scrollbar-thumb{background:#c0cdd8;border-radius:4px}
+        ::-webkit-scrollbar-track{background:#eef1f6}
+        ::-webkit-scrollbar-thumb{background:#b0bec8;border-radius:0}
         .nav-item:hover{background:rgba(255,255,255,0.12)!important}
-        .nav-active{background:rgba(255,255,255,0.2)!important}
-        .branch-row:hover{background:#f0f5fa!important;cursor:pointer}
-        .inv-row:hover{background:#f7fafc!important}
-        .kpi-card{transition:box-shadow 0.15s,transform 0.15s}
-        .kpi-card:hover{box-shadow:0 6px 20px rgba(0,0,0,0.12)!important;transform:translateY(-1px)}
+        .nav-active{background:rgba(255,255,255,0.22)!important;border-left:3px solid ${W}!important}
+        .branch-row:hover{background:#e8f7f7!important;border-left:3px solid ${T}!important;cursor:pointer}
+        .branch-row{border-left:3px solid transparent;transition:background 0.12s,border-color 0.12s}
+        .inv-row:hover{background:#e8f7f7!important;border-left:3px solid ${T}!important}
+        .inv-row{border-left:3px solid transparent;transition:background 0.12s,border-color 0.12s}
+        .kpi-card{transition:box-shadow 0.15s,transform 0.12s}
+        .kpi-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.13)!important;transform:translateY(-2px)}
       `}</style>
 
       {/* ── SIDEBAR ── */}
@@ -202,7 +205,7 @@ export default function PulseBranchDashboard() {
             </div>
           )}
           <button onClick={()=>setSidebarOpen(!sidebarOpen)}
-            style={{background:'rgba(255,255,255,0.12)',border:'none',cursor:'pointer',borderRadius:6,width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center',color:W,flexShrink:0}}>
+            style={{background:'rgba(255,255,255,0.12)',border:'none',cursor:'pointer',borderRadius:0,width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center',color:W,flexShrink:0}}>
             {sidebarOpen ? <X size={14} color={W} /> : <Menu size={14} color={W} />}
           </button>
         </div>
@@ -211,7 +214,7 @@ export default function PulseBranchDashboard() {
         <div style={{flex:1,overflowY:'auto',padding:'8px 8px'}}>
           {sidebarOpen && <div style={{padding:'8px 10px 4px',fontSize:9,fontWeight:700,color:'rgba(255,255,255,0.4)',letterSpacing:1.2,textTransform:'uppercase'}}>Overview</div>}
           <button className={`nav-item${!selected?' nav-active':''}`} onClick={()=>{setSelected(null);setView('overview');}}
-            style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:7,border:'none',cursor:'pointer',background:'transparent',color:W,marginBottom:2}}>
+            style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:0,border:'none',cursor:'pointer',background:'transparent',color:W,marginBottom:2}}>
             <LayoutGrid size={16} color={W} strokeWidth={1.8} style={{flexShrink:0}} />
             {sidebarOpen && <span style={{fontSize:12,fontWeight:500}}>All Branches</span>}
           </button>
@@ -224,7 +227,7 @@ export default function PulseBranchDashboard() {
             const sc = statusColor(s);
             return (
               <button key={b.id} className={`nav-item${isActive?' nav-active':''}`} onClick={()=>selectBranch(b)}
-                style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:7,border:'none',cursor:'pointer',background:'transparent',color:W,marginBottom:1,textAlign:'left'}}>
+                style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:0,border:'none',cursor:'pointer',background:'transparent',color:W,marginBottom:1,textAlign:'left'}}>
                 <div style={{width:7,height:7,borderRadius:'50%',background:sc,flexShrink:0,boxShadow:`0 0 0 2px rgba(255,255,255,0.2)`}} />
                 {sidebarOpen && (
                   <div style={{flex:1,minWidth:0}}>
@@ -240,7 +243,7 @@ export default function PulseBranchDashboard() {
         {/* Bottom */}
         <div style={{padding:'8px',borderTop:'1px solid rgba(255,255,255,0.1)',flexShrink:0}}>
           <button className="nav-item" onClick={signOut}
-            style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:7,border:'none',cursor:'pointer',background:'transparent',color:'rgba(255,255,255,0.6)'}}>
+            style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'8px 10px',borderRadius:0,border:'none',cursor:'pointer',background:'transparent',color:'rgba(255,255,255,0.6)'}}>
             <LogOut size={14} color="rgba(255,255,255,0.6)" strokeWidth={1.8} style={{flexShrink:0}} />
             {sidebarOpen && <span style={{fontSize:11}}>Sign out</span>}
           </button>
@@ -251,7 +254,7 @@ export default function PulseBranchDashboard() {
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
 
         {/* Top bar */}
-        <header style={{height:58,background:W,borderBottom:`1px solid ${LGRAY}`,display:'flex',alignItems:'center',padding:'0 24px',gap:16,flexShrink:0,boxShadow:'0 1px 6px rgba(0,0,0,0.06)'}}>
+        <header style={{height:58,background:W,borderBottom:`1px solid ${LGRAY}`,borderTop:`3px solid ${T}`,display:'flex',alignItems:'center',padding:'0 24px',gap:16,flexShrink:0,boxShadow:'0 1px 6px rgba(0,0,0,0.06)'}}>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:10,color:GRAY,letterSpacing:0.2}}>Home &rsaquo; {selected ? shortName(selected.clinic_name) : 'Dashboard'}</div>
             <div style={{fontSize:15,fontWeight:700,color:DARK,letterSpacing:-0.2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
@@ -260,10 +263,10 @@ export default function PulseBranchDashboard() {
           </div>
 
           {selected && (
-            <div style={{display:'flex',background:LGRAY,borderRadius:8,padding:3,gap:2}}>
+            <div style={{display:'flex',background:LGRAY,borderRadius:0,padding:3,gap:2}}>
               {(['inventory','upload'] as const).map(v => (
                 <button key={v} onClick={()=>setView(v)}
-                  style={{display:'flex',alignItems:'center',gap:6,padding:'6px 16px',borderRadius:6,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:view===v?W:'transparent',color:view===v?T:GRAY,boxShadow:view===v?'0 1px 4px rgba(0,0,0,0.1)':'none',transition:'all 0.15s'}}>
+                  style={{display:'flex',alignItems:'center',gap:6,padding:'6px 16px',borderRadius:0,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:view===v?W:'transparent',color:view===v?T:GRAY,boxShadow:view===v?'0 1px 4px rgba(0,0,0,0.1)':'none',transition:'all 0.15s'}}>
                   {v==='inventory' ? <Package size={13} color={view===v?T:GRAY} strokeWidth={2} /> : <Upload size={13} color={view===v?T:GRAY} strokeWidth={2} />}
                   {v==='inventory'?'Inventory':'Upload'}
                 </button>
@@ -271,7 +274,7 @@ export default function PulseBranchDashboard() {
             </div>
           )}
 
-          <button onClick={load} style={{width:34,height:34,borderRadius:7,border:`1px solid ${LGRAY}`,background:W,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <button onClick={load} style={{width:34,height:34,borderRadius:0,border:`1px solid ${LGRAY}`,background:W,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
             <RefreshCw size={14} color={GRAY} strokeWidth={1.8} />
           </button>
           <div style={{width:34,height:34,borderRadius:'50%',background:`linear-gradient(135deg,${T},${P})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:W}}>HQ</div>
@@ -286,18 +289,18 @@ export default function PulseBranchDashboard() {
               {/* KPI Cards */}
               <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:22}}>
                 {[
-                  {label:'Branches',value:branches.length,Icon:Building2,color:T,bg:'#e0f7f7'},
-                  {label:'Total SKUs',value:net.total.toLocaleString(),Icon:Package,color:'#8e44ad',bg:'#f3e5f5'},
-                  {label:'Low Stock',value:net.low,Icon:AlertTriangle,color:'#e67e22',bg:'#fef5e7'},
-                  {label:'Critical Items',value:net.depleting,Icon:TrendingDown,color:'#e74c3c',bg:'#fce4e4'},
-                ].map(({label,value,Icon:Ic,color,bg})=>(
-                  <div key={label} className="kpi-card" style={{background:W,borderRadius:10,padding:'16px 18px',boxShadow:'0 2px 8px rgba(0,0,0,0.07)',display:'flex',alignItems:'center',gap:14}}>
-                    <div style={{width:48,height:48,borderRadius:10,background:bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                      <Ic size={22} color={color} strokeWidth={1.8} />
+                  {label:'Branches',value:branches.length,Icon:Building2,color:T,bg:`${T}14`,accent:T},
+                  {label:'Total SKUs',value:net.total.toLocaleString(),Icon:Package,color:'#8e44ad',bg:'#f3e5f5',accent:'#8e44ad'},
+                  {label:'Low Stock',value:net.low,Icon:AlertTriangle,color:'#e67e22',bg:'#fef5e7',accent:'#e67e22'},
+                  {label:'Critical',value:net.depleting,Icon:TrendingDown,color:'#e74c3c',bg:'#fce4e4',accent:'#e74c3c'},
+                ].map(({label,value,Icon:Ic,color,bg,accent})=>(
+                  <div key={label} className="kpi-card" style={{background:W,borderTop:`3px solid ${accent}`,padding:'16px 18px',boxShadow:'0 1px 4px rgba(0,0,0,0.08)',display:'flex',alignItems:'center',gap:14}}>
+                    <div style={{width:46,height:46,background:bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                      <Ic size={21} color={color} strokeWidth={1.8} />
                     </div>
                     <div>
-                      <div style={{fontSize:26,fontWeight:800,color:DARK,letterSpacing:-0.5,lineHeight:1}}>{value}</div>
-                      <div style={{fontSize:10,fontWeight:600,color:GRAY,letterSpacing:0.5,textTransform:'uppercase',marginTop:3}}>{label}</div>
+                      <div style={{fontSize:28,fontWeight:800,color:DARK,letterSpacing:-0.8,lineHeight:1}}>{value}</div>
+                      <div style={{fontSize:10,fontWeight:700,color:GRAY,letterSpacing:0.6,textTransform:'uppercase',marginTop:4}}>{label}</div>
                     </div>
                   </div>
                 ))}
@@ -307,13 +310,13 @@ export default function PulseBranchDashboard() {
               <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16}}>
 
                 {/* Branch table */}
-                <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',overflow:'hidden'}}>
-                  <div style={{padding:'14px 18px',borderBottom:`1px solid ${LGRAY}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <div style={{background:W,borderLeft:`4px solid ${T}`,boxShadow:'0 1px 4px rgba(0,0,0,0.08)',overflow:'hidden'}}>
+                  <div style={{padding:'14px 18px',borderBottom:`2px solid ${LGRAY}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                     <div>
-                      <div style={{fontSize:13,fontWeight:700,color:DARK}}>Branch Overview</div>
+                      <div style={{fontSize:13,fontWeight:700,color:DARK,letterSpacing:-0.1}}>Branch Overview</div>
                       <div style={{fontSize:11,color:GRAY}}>Select a branch to view or manage inventory</div>
                     </div>
-                    <span style={{fontSize:11,background:`${T}15`,color:T,padding:'3px 10px',borderRadius:20,fontWeight:600}}>{branches.length} active</span>
+                    <span style={{fontSize:11,background:`${T}15`,color:T,padding:'3px 10px',borderRadius:20,fontWeight:700}}>{branches.length} active</span>
                   </div>
                   <table style={{width:'100%',borderCollapse:'collapse'}}>
                     <thead>
@@ -361,12 +364,12 @@ export default function PulseBranchDashboard() {
 
                 {/* Right panel */}
                 <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                  <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',padding:'16px 18px'}}>
+                  <div style={{background:W,borderLeft:`4px solid ${P}`,boxShadow:'0 1px 4px rgba(0,0,0,0.08)',padding:'16px 18px'}}>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
-                      <BarChart3 size={15} color={T} strokeWidth={1.8} />
-                      <div style={{fontSize:13,fontWeight:700,color:DARK}}>Network Health</div>
+                      <BarChart3 size={15} color={P} strokeWidth={1.8} />
+                      <div style={{fontSize:13,fontWeight:700,color:DARK,letterSpacing:-0.1}}>Network Health</div>
                     </div>
-                    <div style={{height:8,borderRadius:5,background:LGRAY,overflow:'hidden',display:'flex',marginBottom:12}}>
+                    <div style={{height:8,borderRadius:0,background:LGRAY,overflow:'hidden',display:'flex',marginBottom:12}}>
                       <div style={{width:`${net.total?(net.stable/net.total)*100:0}%`,background:'#27ae60',transition:'width 0.4s'}} />
                       <div style={{width:`${net.total?(net.low/net.total)*100:0}%`,background:'#f39c12'}} />
                       <div style={{width:`${net.total?(net.depleting/net.total)*100:0}%`,background:'#e74c3c'}} />
@@ -376,7 +379,7 @@ export default function PulseBranchDashboard() {
                       {l:'Low Stock',v:net.low,c:'#f39c12',bg:'#fef9e7',Icon:AlertTriangle},
                       {l:'Critical',v:net.depleting,c:'#e74c3c',bg:'#fce4e4',Icon:TrendingDown},
                     ].map(({l,v,c,bg,Icon:Ic})=>(
-                      <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 10px',borderRadius:7,background:bg,marginBottom:6}}>
+                      <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 10px',borderRadius:0,background:bg,marginBottom:6}}>
                         <div style={{display:'flex',alignItems:'center',gap:7}}>
                           <Ic size={13} color={c} strokeWidth={2} />
                           <span style={{fontSize:12,color:DARK,fontWeight:500}}>{l}</span>
@@ -386,16 +389,16 @@ export default function PulseBranchDashboard() {
                     ))}
                   </div>
 
-                  <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',padding:'16px 18px'}}>
+                  <div style={{background:W,borderLeft:`4px solid ${T}`,boxShadow:'0 1px 4px rgba(0,0,0,0.08)',padding:'16px 18px'}}>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
-                      <CloudUpload size={15} color={P} strokeWidth={1.8} />
-                      <div style={{fontSize:13,fontWeight:700,color:DARK}}>Needs Upload</div>
+                      <CloudUpload size={15} color={T} strokeWidth={1.8} />
+                      <div style={{fontSize:13,fontWeight:700,color:DARK,letterSpacing:-0.1}}>Needs Upload</div>
                     </div>
                     {branches.filter(b=>!allStats[b.clinic_name]?.total).slice(0,6).map(b=>(
                       <div key={b.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:`1px solid ${LGRAY}`}}>
                         <span style={{fontSize:11,color:DARK,fontWeight:500}}>{shortName(b.clinic_name)}</span>
                         <button onClick={()=>{selectBranch(b);setView('upload');}}
-                          style={{fontSize:10,background:P,color:W,border:'none',borderRadius:5,padding:'4px 10px',cursor:'pointer',fontWeight:600,display:'flex',alignItems:'center',gap:4}}>
+                          style={{fontSize:10,background:P,color:W,border:'none',borderRadius:0,padding:'4px 10px',cursor:'pointer',fontWeight:600,display:'flex',alignItems:'center',gap:4}}>
                           <Upload size={10} color={W} strokeWidth={2} /> Upload
                         </button>
                       </div>
@@ -414,9 +417,9 @@ export default function PulseBranchDashboard() {
           {/* ── INVENTORY ── */}
           {view==='inventory' && selected && (
             <>
-              <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',padding:'13px 18px',marginBottom:14,display:'flex',gap:20,alignItems:'center',flexWrap:'wrap'}}>
+              <div style={{background:W,borderLeft:`4px solid ${T}`,boxShadow:'0 1px 4px rgba(0,0,0,0.08)',padding:'13px 18px',marginBottom:14,display:'flex',gap:20,alignItems:'center',flexWrap:'wrap'}}>
                 <div style={{display:'flex',alignItems:'center',gap:10}}>
-                  <div style={{width:38,height:38,borderRadius:8,background:`linear-gradient(135deg,${T},${P})`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <div style={{width:38,height:38,borderRadius:0,background:`linear-gradient(135deg,${T},${P})`,display:'flex',alignItems:'center',justifyContent:'center'}}>
                     <Building2 size={18} color={W} strokeWidth={1.8} />
                   </div>
                   <div>
@@ -447,14 +450,14 @@ export default function PulseBranchDashboard() {
               {stats && (
                 <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:14}}>
                   {[
-                    {l:'Total Items',v:stats.total,Ic:Package,c:T,bg:'#e0f7f7'},
+                    {l:'Total Items',v:stats.total,Ic:Package,c:T,bg:`${T}14`},
                     {l:'Stable',v:stats.stable,Ic:CheckCircle,c:'#27ae60',bg:'#eafaf1'},
                     {l:'Low Stock',v:stats.low,Ic:AlertTriangle,c:'#f39c12',bg:'#fef9e7'},
                     {l:'Critical',v:stats.depleting,Ic:TrendingDown,c:'#e74c3c',bg:'#fce4e4'},
                   ].map(({l,v,Ic,c,bg})=>(
-                    <div key={l} className="kpi-card" style={{background:W,borderRadius:8,padding:'13px 15px',boxShadow:'0 2px 6px rgba(0,0,0,0.06)',display:'flex',alignItems:'center',gap:11}}>
-                      <div style={{width:36,height:36,borderRadius:8,background:bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                        <Ic size={17} color={c} strokeWidth={1.8} />
+                    <div key={l} className="kpi-card" style={{background:W,borderTop:`3px solid ${c}`,padding:'13px 15px',boxShadow:'0 1px 4px rgba(0,0,0,0.08)',display:'flex',alignItems:'center',gap:11}}>
+                      <div style={{width:34,height:34,background:bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                        <Ic size={16} color={c} strokeWidth={1.8} />
                       </div>
                       <div>
                         <div style={{fontSize:20,fontWeight:800,color:DARK,letterSpacing:-0.3,lineHeight:1}}>{v.toLocaleString()}</div>
@@ -465,19 +468,19 @@ export default function PulseBranchDashboard() {
                 </div>
               )}
 
-              <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',overflow:'hidden'}}>
-                <div style={{padding:'11px 14px',borderBottom:`1px solid ${LGRAY}`,display:'flex',gap:10,alignItems:'center'}}>
+              <div style={{background:W,borderLeft:`4px solid ${T}`,boxShadow:'0 1px 4px rgba(0,0,0,0.08)',overflow:'hidden'}}>
+                <div style={{padding:'11px 14px',borderBottom:`2px solid ${LGRAY}`,display:'flex',gap:10,alignItems:'center'}}>
                   <div style={{position:'relative',flex:1}}>
                     <Search size={13} color={GRAY} strokeWidth={1.8} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)'}} />
                     <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search medicines..."
-                      style={{width:'100%',padding:'7px 10px 7px 32px',borderRadius:6,border:`1px solid ${LGRAY}`,fontSize:12,outline:'none',color:DARK,background:'#fafbfc'}} />
+                      style={{width:'100%',padding:'7px 10px 7px 32px',borderRadius:0,border:`1px solid ${LGRAY}`,fontSize:12,outline:'none',color:DARK,background:'#fafbfc'}} />
                   </div>
                   {['all','Stable','Low Stock','Depleting Fast'].map(f=>{
                     const ac=f==='all'?T:f==='Stable'?'#27ae60':f==='Low Stock'?'#f39c12':'#e74c3c';
                     const active=trendFilter===f;
                     return (
                       <button key={f} onClick={()=>setTrendFilter(f)}
-                        style={{padding:'6px 13px',borderRadius:6,border:`1px solid ${active?'transparent':LGRAY}`,cursor:'pointer',fontSize:11,fontWeight:600,background:active?ac:W,color:active?W:GRAY,transition:'all 0.15s',whiteSpace:'nowrap'}}>
+                        style={{padding:'6px 13px',borderRadius:0,border:`1px solid ${active?'transparent':LGRAY}`,cursor:'pointer',fontSize:11,fontWeight:600,background:active?ac:W,color:active?W:GRAY,transition:'all 0.15s',whiteSpace:'nowrap'}}>
                         {f==='all'?'All':f==='Depleting Fast'?'Critical':f}
                       </button>
                     );
@@ -510,7 +513,7 @@ export default function PulseBranchDashboard() {
                           <div style={{fontSize:11,color:GRAY}}>{item.category}</div>
                           <div style={{fontSize:13,fontWeight:700,color:item.quantity===0?'#e74c3c':DARK}}>{item.quantity.toLocaleString()}</div>
                           <div>
-                            <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 9px',borderRadius:12,fontSize:10,fontWeight:700,background:tbg,color:tc}}>
+                            <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 9px',borderRadius:0,fontSize:10,fontWeight:700,background:tbg,color:tc}}>
                               <div style={{width:4,height:4,borderRadius:'50%',background:tc}} />
                               {item.trend==='Depleting Fast'?'Critical':item.trend}
                             </span>
@@ -533,7 +536,7 @@ export default function PulseBranchDashboard() {
           {view==='upload' && selected && (
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,maxWidth:900}}>
               {/* Upload card */}
-              <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',overflow:'hidden'}}>
+              <div style={{background:W,borderRadius:0,borderLeft:`4px solid ${T}`,boxShadow:'0 1px 4px rgba(0,0,0,0.08)',overflow:'hidden'}}>
                 <div style={{background:`linear-gradient(135deg,${T},${P})`,padding:'16px 20px',display:'flex',alignItems:'center',gap:12}}>
                   <CloudUpload size={22} color={W} strokeWidth={1.8} />
                   <div>
@@ -544,10 +547,10 @@ export default function PulseBranchDashboard() {
                 <div style={{padding:'18px'}}>
                   <div style={{marginBottom:14}}>
                     <div style={{fontSize:10,fontWeight:700,color:GRAY,letterSpacing:0.5,textTransform:'uppercase',marginBottom:8}}>Upload Mode</div>
-                    <div style={{display:'flex',background:LGRAY,borderRadius:7,padding:3,gap:2}}>
+                    <div style={{display:'flex',background:LGRAY,borderRadius:0,padding:3,gap:2}}>
                       {([{m:'replace',l:'Replace Stock'},{m:'merge',l:'Merge / Add'}] as const).map(({m,l})=>(
                         <button key={m} onClick={()=>setUploadMode(m as 'replace'|'merge')}
-                          style={{flex:1,padding:'7px 0',borderRadius:5,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:uploadMode===m?W:'transparent',color:uploadMode===m?T:GRAY,boxShadow:uploadMode===m?'0 1px 4px rgba(0,0,0,0.1)':'none',transition:'all 0.15s'}}>
+                          style={{flex:1,padding:'7px 0',borderRadius:0,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:uploadMode===m?W:'transparent',color:uploadMode===m?T:GRAY,boxShadow:uploadMode===m?'0 1px 4px rgba(0,0,0,0.1)':'none',transition:'all 0.15s'}}>
                           {l}
                         </button>
                       ))}
@@ -561,9 +564,9 @@ export default function PulseBranchDashboard() {
                     onDragOver={e=>{e.preventDefault();setDragOver(true);}}
                     onDragLeave={()=>setDragOver(false)}
                     onClick={()=>fileRef.current?.click()}
-                    style={{border:`2px dashed ${dragOver?T:'#c8d6e5'}`,borderRadius:8,padding:'28px 20px',textAlign:'center',cursor:'pointer',background:dragOver?`${T}08`:'#fafbfc',transition:'all 0.2s',marginBottom:12}}>
+                    style={{border:`2px dashed ${dragOver?T:'#c8d6e5'}`,borderRadius:0,padding:'28px 20px',textAlign:'center',cursor:'pointer',background:dragOver?`${T}08`:'#fafbfc',transition:'all 0.2s',marginBottom:12}}>
                     <div style={{display:'flex',justifyContent:'center',marginBottom:10}}>
-                      <div style={{width:46,height:46,borderRadius:10,background:dragOver?`${T}15`:LGRAY,display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.2s'}}>
+                      <div style={{width:46,height:46,borderRadius:0,background:dragOver?`${T}15`:LGRAY,display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.2s'}}>
                         <Upload size={20} color={dragOver?T:GRAY} strokeWidth={1.8} />
                       </div>
                     </div>
@@ -585,7 +588,7 @@ export default function PulseBranchDashboard() {
                   )}
 
                   {uploadStatus && !uploading && (
-                    <div style={{padding:'10px 14px',borderRadius:8,fontSize:12,fontWeight:500,display:'flex',alignItems:'center',gap:8,
+                    <div style={{padding:'10px 14px',borderRadius:0,fontSize:12,fontWeight:500,display:'flex',alignItems:'center',gap:8,
                       background:uploadStatus.type==='success'?'#eafaf1':uploadStatus.type==='error'?'#fce4e4':'#e0f7f7',
                       color:uploadStatus.type==='success'?'#27ae60':uploadStatus.type==='error'?'#e74c3c':T,
                       border:`1px solid ${uploadStatus.type==='success'?'#a9dfbf':uploadStatus.type==='error'?'#f1948a':'#76d7c4'}`}}>
@@ -598,7 +601,7 @@ export default function PulseBranchDashboard() {
 
               {/* Workflow guide */}
               <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',padding:'16px 18px'}}>
+                <div style={{background:W,borderRadius:0,borderLeft:`4px solid ${P}`,boxShadow:'0 1px 4px rgba(0,0,0,0.08)',padding:'16px 18px'}}>
                   <div style={{fontSize:13,fontWeight:700,color:DARK,marginBottom:2}}>Daily Workflow</div>
                   <div style={{fontSize:11,color:GRAY,marginBottom:14}}>How to update stock every morning</div>
                   {[
@@ -607,8 +610,8 @@ export default function PulseBranchDashboard() {
                     {n:'3',t:'Drop the file',d:'Use Replace Stock mode. Old data clears, new data loads in under 30 seconds.',Ic:CloudUpload},
                     {n:'4',t:'Live immediately',d:'WhatsApp searches and the public website update with the new stock instantly.',Ic:Zap},
                   ].map(({n,t,d,Ic})=>(
-                    <div key={n} style={{display:'flex',gap:12,marginBottom:10,padding:'10px 12px',background:'#fafbfc',borderRadius:7,border:`1px solid ${LGRAY}`}}>
-                      <div style={{width:30,height:30,borderRadius:6,background:`linear-gradient(135deg,${T},${P})`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    <div key={n} style={{display:'flex',gap:12,marginBottom:10,padding:'10px 12px',background:'#fafbfc',borderRadius:0,border:`1px solid ${LGRAY}`}}>
+                      <div style={{width:30,height:30,borderRadius:0,background:`linear-gradient(135deg,${T},${P})`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                         <Ic size={14} color={W} strokeWidth={2} />
                       </div>
                       <div>
@@ -620,9 +623,9 @@ export default function PulseBranchDashboard() {
                 </div>
 
                 {/* Auto-import explainer */}
-                <div style={{background:W,borderRadius:10,boxShadow:'0 2px 8px rgba(0,0,0,0.07)',padding:'16px 18px',border:`1.5px solid ${T}30`}}>
+                <div style={{background:W,borderLeft:`4px solid ${T}`,boxShadow:'0 1px 4px rgba(0,0,0,0.08)',padding:'16px 18px'}}>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-                    <div style={{width:28,height:28,borderRadius:7,background:`${T}15`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <div style={{width:28,height:28,borderRadius:0,background:`${T}15`,display:'flex',alignItems:'center',justifyContent:'center'}}>
                       <Settings size={14} color={T} strokeWidth={1.8} />
                     </div>
                     <div style={{fontSize:13,fontWeight:700,color:DARK}}>Auto-Import — How It Works</div>
@@ -637,7 +640,7 @@ export default function PulseBranchDashboard() {
                     {Ic:CheckCircle,t:'Result: always fresh stock',d:'By the time your pharmacy opens, the WhatsApp bot and website already show today\'s correct quantities. No staff time needed.'},
                   ].map(({Ic,t,d},idx)=>(
                     <div key={idx} style={{display:'flex',gap:10,marginBottom:10,paddingBottom:10,borderBottom:idx<3?`1px solid ${LGRAY}`:'none'}}>
-                      <div style={{width:24,height:24,borderRadius:5,background:`${T}12`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>
+                      <div style={{width:24,height:24,borderRadius:0,background:`${T}12`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>
                         <Ic size={12} color={T} strokeWidth={2} />
                       </div>
                       <div>
@@ -646,7 +649,7 @@ export default function PulseBranchDashboard() {
                       </div>
                     </div>
                   ))}
-                  <div style={{padding:'10px 12px',background:`${T}08`,borderRadius:7,border:`1px solid ${T}25`}}>
+                  <div style={{padding:'10px 12px',background:`${T}08`,borderRadius:0,border:`1px solid ${T}25`}}>
                     <div style={{fontSize:11,fontWeight:700,color:T,marginBottom:2}}>What to tell your IT team</div>
                     <div style={{fontSize:11,color:DARK,lineHeight:1.6}}>"Schedule the Stocktotals export daily at 06:45 and send the Excel file to the ChekaMeds auto-import endpoint. The ChekaMeds team will provide the delivery address and confirm the file format."</div>
                   </div>
