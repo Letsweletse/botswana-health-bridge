@@ -971,6 +971,78 @@ const AnalyticsTab = () => {
   const [emailTo, setEmailTo] = useState<string>('');
   const [sending, setSending] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [demandPeriod, setDemandPeriod] = useState<7|30|90>(30);
+
+  // Demand intelligence — search_logs + failed_searches
+  const { data: demandData, isLoading: demandLoading } = useQuery({
+    queryKey: ['demand-intelligence', demandPeriod],
+    queryFn: async () => {
+      const since = new Date(Date.now() - demandPeriod * 24 * 60 * 60 * 1000).toISOString();
+      const [searchRes, failedRes, reserveRes] = await Promise.all([
+        (supabase as any).from('search_logs').select('normalized_query,results_count,user_phone,location,reserved,created_at').gte('created_at', since),
+        (supabase as any).from('failed_searches').select('query,user_phone,created_at').gte('created_at', since),
+        (supabase as any).from('order_requests').select('medicine,pharmacy,created_at').gte('created_at', since),
+      ]);
+      const searches: any[] = searchRes.data || [];
+      const failed: any[] = failedRes.data || [];
+      const reserves: any[] = reserveRes.data || [];
+
+      // Top searched medicines
+      const medCount: Record<string,number> = {};
+      searches.forEach(s => {
+        const q = (s.normalized_query||'').trim().toLowerCase();
+        if (q && q.length >= 3) medCount[q] = (medCount[q]||0) + 1;
+      });
+      const topSearched = Object.entries(medCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+      // Failed searches — what patients want that nobody stocks
+      const failCount: Record<string,number> = {};
+      failed.forEach(f => {
+        const q = (f.query||'').trim().toLowerCase();
+        if (q && q.length >= 3) failCount[q] = (failCount[q]||0) + 1;
+      });
+      const topFailed = Object.entries(failCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+      // Top reserved medicines
+      const resCount: Record<string,number> = {};
+      reserves.forEach(r => {
+        const m = (r.medicine||'').trim().toLowerCase();
+        if (m) resCount[m] = (resCount[m]||0) + 1;
+      });
+      const topReserved = Object.entries(resCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+      // Location breakdown
+      const locCount: Record<string,number> = {};
+      searches.forEach(s => {
+        const l = (s.location||'').trim().toLowerCase()||'unknown';
+        locCount[l] = (locCount[l]||0) + 1;
+      });
+      const topLocations = Object.entries(locCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+      // Demographic inference from medicine categories
+      const categories = {
+        'Chronic / Elderly': ['amlodipine','metformin','atorvastatin','warfarin','enalapril','losartan','bisoprolol','furosemide','digoxin','aspirin'],
+        'Paediatric': ['calpol','amoxicillin','syrup','paediatric','junior','children','empaped'],
+        'Reproductive Health': ['contraceptive','diane','depo','ovral','progynova','folic acid','prenatal'],
+        'Acute / General': ['paracetamol','ibuprofen','amoxicillin','azithromycin','ciprofloxacin','allergex','cetirizine'],
+      };
+      const catCounts: Record<string,number> = {};
+      searches.forEach(s => {
+        const q = (s.normalized_query||'').toLowerCase();
+        for (const [cat, keywords] of Object.entries(categories)) {
+          if (keywords.some(k => q.includes(k))) {
+            catCounts[cat] = (catCounts[cat]||0) + 1;
+          }
+        }
+      });
+
+      // Unique patients
+      const uniqueSearchers = new Set(searches.map(s=>s.user_phone).filter(Boolean)).size;
+      const conversionRate = searches.length > 0 ? Math.round((searches.filter(s=>s.reserved).length / searches.length) * 100) : 0;
+
+      return { topSearched, topFailed, topReserved, topLocations, catCounts, totalSearches: searches.length, uniqueSearchers, conversionRate, totalFailed: failed.length };
+    },
+  });
 
   const { data: facilities } = useQuery({
     queryKey: ['facilities-for-report'],
@@ -1279,6 +1351,146 @@ const AnalyticsTab = () => {
           <AnalyticsWeeklyLine labels={stats?.weeklyLabels || []} values={stats?.weeklyValues || []} />
         </div>
       </div>
+
+      {/* ── DEMAND INTELLIGENCE ──────────────────────────────────── */}
+      <div className="mb-4 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-base font-bold text-foreground">Demand Intelligence</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">What patients are searching for — and what they can't find</p>
+          </div>
+          <div className="flex items-center gap-1 bg-muted rounded-xl p-1">
+            {([7,30,90] as const).map(d => (
+              <button key={d} onClick={()=>setDemandPeriod(d)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${demandPeriod===d?'bg-card shadow text-foreground':'text-muted-foreground hover:text-foreground'}`}>
+                {d === 7 ? '7 days' : d === 30 ? '30 days' : '90 days'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* KPIs */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          {[
+            { label: 'Total searches', value: demandData?.totalSearches || 0, sub: 'via WhatsApp', color: 'text-primary', bg: 'bg-primary/10' },
+            { label: 'Unique searchers', value: demandData?.uniqueSearchers || 0, sub: 'distinct patients', color: 'text-success', bg: 'bg-success/10' },
+            { label: 'Unmet demand', value: demandData?.totalFailed || 0, sub: 'searches with no results', color: 'text-destructive', bg: 'bg-destructive/10' },
+            { label: 'Reserve rate', value: `${demandData?.conversionRate || 0}%`, sub: 'searches → reservations', color: 'text-warning', bg: 'bg-warning/10' },
+          ].map(k => (
+            <div key={k.label} className="bg-card border border-border rounded-2xl p-4">
+              <div className={`text-2xl font-bold ${k.color} mb-0.5`}>{String(k.value)}</div>
+              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{k.label}</div>
+              <div className="text-[10px] text-muted-foreground">{k.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+          {/* Top searched */}
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <p className="text-sm font-semibold text-foreground mb-1">Most searched medicines</p>
+            <p className="text-xs text-muted-foreground mb-4">What patients are actively looking for</p>
+            {demandLoading ? <div className="space-y-2">{[1,2,3,4,5].map(i=><div key={i} className="h-7 bg-muted animate-pulse rounded-lg"/>)}</div> : (
+              <div className="space-y-2.5">
+                {(demandData?.topSearched || []).map(([med, count]: [string, unknown], i: number) => (
+                  <div key={String(med)}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium capitalize truncate max-w-[140px]">{String(med)}</span>
+                      <span className="text-xs font-bold text-primary">{String(count)}</span>
+                    </div>
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full" style={{width:`${Math.round((Number(count)/Math.max(Number((demandData?.topSearched?.[0]?.[1])||1),1))*100)}%`,opacity:1-i*0.07}}/>
+                    </div>
+                  </div>
+                ))}
+                {(demandData?.topSearched||[]).length === 0 && <p className="text-xs text-muted-foreground italic">No data yet — searches will appear here as patients use the bot.</p>}
+              </div>
+            )}
+          </div>
+
+          {/* Unmet demand — the gold mine */}
+          <div className="bg-card border border-destructive/20 rounded-2xl p-5">
+            <p className="text-sm font-semibold text-foreground mb-1">Unmet demand 🔴</p>
+            <p className="text-xs text-muted-foreground mb-4">Medicines patients want that nobody stocks — reorder opportunities</p>
+            {demandLoading ? <div className="space-y-2">{[1,2,3,4,5].map(i=><div key={i} className="h-7 bg-muted animate-pulse rounded-lg"/>)}</div> : (
+              <div className="space-y-2">
+                {(demandData?.topFailed || []).map(([med, count]: [string, unknown], i: number) => (
+                  <div key={String(med)} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                    <span className="text-xs font-medium capitalize text-foreground">{String(med)}</span>
+                    <span className="text-xs font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">{String(count)} searches</span>
+                  </div>
+                ))}
+                {(demandData?.topFailed||[]).length === 0 && <p className="text-xs text-muted-foreground italic">No failed searches yet — great sign that stock is covering demand.</p>}
+              </div>
+            )}
+          </div>
+
+          {/* Location breakdown */}
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <p className="text-sm font-semibold text-foreground mb-1">Search locations</p>
+            <p className="text-xs text-muted-foreground mb-4">Where patients are searching from</p>
+            {demandLoading ? <div className="space-y-2">{[1,2,3,4].map(i=><div key={i} className="h-7 bg-muted animate-pulse rounded-lg"/>)}</div> : (
+              <div className="space-y-2">
+                {(demandData?.topLocations || []).map(([loc, count]: [string, unknown], i: number) => (
+                  <div key={String(loc)} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                    <span className="text-xs font-medium capitalize text-foreground">{String(loc) === 'unknown' ? 'Area not specified' : String(loc)}</span>
+                    <span className="text-xs font-semibold text-muted-foreground">{String(count)}</span>
+                  </div>
+                ))}
+                {(demandData?.topLocations||[]).length === 0 && <p className="text-xs text-muted-foreground italic">Location data will appear here as patients use area-specific searches.</p>}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Demographic inference + Top reserved */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+          {/* Demographic signals */}
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <p className="text-sm font-semibold text-foreground mb-1">Patient demographic signals</p>
+            <p className="text-xs text-muted-foreground mb-4">Inferred from medicine category patterns — no personal data collected</p>
+            {demandLoading ? <div className="space-y-3">{[1,2,3,4].map(i=><div key={i} className="h-8 bg-muted animate-pulse rounded-lg"/>)}</div> : (
+              <div className="space-y-3">
+                {Object.entries(demandData?.catCounts || {}).sort((a,b)=>b[1]-a[1]).map(([cat, count]) => {
+                  const total = Object.values(demandData?.catCounts || {}).reduce((a,b)=>a+b,0)||1;
+                  const pct = Math.round((count/total)*100);
+                  const colors: Record<string,string> = { 'Chronic / Elderly':'bg-blue-500','Paediatric':'bg-pink-400','Reproductive Health':'bg-purple-400','Acute / General':'bg-green-500' };
+                  return (
+                    <div key={cat}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-foreground">{cat}</span>
+                        <span className="text-xs font-bold text-muted-foreground">{pct}% · {count} searches</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${colors[cat]||'bg-primary'}`} style={{width:`${pct}%`}}/>
+                      </div>
+                    </div>
+                  );
+                })}
+                {Object.keys(demandData?.catCounts || {}).length === 0 && <p className="text-xs text-muted-foreground italic">Demographic signals will appear as search volume grows.</p>}
+              </div>
+            )}
+          </div>
+
+          {/* Top reserved */}
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <p className="text-sm font-semibold text-foreground mb-1">Most reserved medicines</p>
+            <p className="text-xs text-muted-foreground mb-4">Confirmed purchase intent — patients who reserved then paid</p>
+            {demandLoading ? <div className="space-y-2">{[1,2,3,4,5].map(i=><div key={i} className="h-7 bg-muted animate-pulse rounded-lg"/>)}</div> : (
+              <div className="space-y-2">
+                {(demandData?.topReserved || []).map(([med, count]: [string, unknown], i: number) => (
+                  <div key={String(med)} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                    <span className="text-xs font-medium capitalize text-foreground">{String(med)}</span>
+                    <span className="text-xs font-bold text-success bg-success/10 px-2 py-0.5 rounded-full">{String(count)} reserved</span>
+                  </div>
+                ))}
+                {(demandData?.topReserved||[]).length === 0 && <p className="text-xs text-muted-foreground italic">Reservation data will appear here once patients complete reservations.</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      {/* ── END DEMAND INTELLIGENCE ───────────────────────────────── */}
 
       {/* Insights + Email */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
