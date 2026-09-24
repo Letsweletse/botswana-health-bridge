@@ -1105,24 +1105,20 @@ const AnalyticsTab = () => {
     },
   });
 
-  const { data: facilities } = useQuery({
-    queryKey: ['facilities-for-report'],
+  // FIX: this used to be two separate pharmacy lists — chekameds_facilities (facility_name)
+  // for the email report panel, and pharmacies (clinic_name) for the Weekly Digest — with no
+  // guarantee the same real pharmacy had matching names in both. One list, one table, used
+  // everywhere on this tab.
+  const { data: pharmacyList } = useQuery({
+    queryKey: ['pharmacies-for-analytics'],
     queryFn: async () => {
-      const { data } = await (supabase as any).from('chekameds_facilities').select('id, facility_name, email').order('facility_name');
-      return data || [];
+      const { data } = await (supabase as any).from('pharmacies').select('id, clinic_name, email').order('clinic_name');
+      return (data || []) as { id: string; clinic_name: string; email: string | null }[];
     },
   });
 
   // ── WEEKLY DIGEST — per-pharmacy, this week vs last week, all numbers computed live ──
   const [digestPharmacy, setDigestPharmacy] = useState<string>('');
-
-  const { data: pharmacyList } = useQuery({
-    queryKey: ['pharmacies-for-digest'],
-    queryFn: async () => {
-      const { data } = await (supabase as any).from('pharmacies').select('id, clinic_name').order('clinic_name');
-      return (data || []) as { id: string; clinic_name: string }[];
-    },
-  });
 
   const startOfWeek = (d: Date) => {
     const date = new Date(d);
@@ -1230,7 +1226,10 @@ const AnalyticsTab = () => {
       const since90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
       const [waLogs, orders] = await Promise.all([
         (supabase as any).from('whatsapp_webhook_logs').select('created_at, from_number, message_body').gte('created_at', since90),
-        (supabase as any).from('chekameds_orders').select('created_at, status').gte('created_at', since90),
+        // FIX: chekameds_orders has been dead since Jul 30 — the bot's real reservation flow
+        // writes to order_requests (see doReserve() in ultramsg-webhook). This KPI was silently
+        // frozen at whatever chekameds_orders last had.
+        (supabase as any).from('order_requests').select('created_at, status').eq('status', 'reserved').gte('created_at', since90),
       ]);
       const logs = waLogs.data || [];
 
@@ -1290,9 +1289,12 @@ const AnalyticsTab = () => {
 
   const generatePDF = async () => {
     setPdfLoading(true);
-    const pharmacy = facilities?.find((f: any) => f.id === selectedPharmacy);
-    const pharmacyName = pharmacy?.facility_name || 'All Pharmacy Partners';
-    const reportDate = new Date().toLocaleDateString('en-BW', { day: 'numeric', month: 'long', year: 'numeric' });
+    const pharmacy = pharmacyList?.find((f) => f.id === selectedPharmacy);
+    const pharmacyName = pharmacy?.clinic_name || 'All Pharmacy Partners';
+    const now = new Date();
+    const periodStart = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const periodLabel = `${periodStart.toLocaleDateString('en-BW', { month: 'short', year: 'numeric' })} – ${now.toLocaleDateString('en-BW', { month: 'short', year: 'numeric' })}`;
+    const reportDate = now.toLocaleDateString('en-BW', { day: 'numeric', month: 'long', year: 'numeric' });
     const monthRows = (stats?.monthlyData || []).map((m: any) => `<tr><td style="padding:10px 16px;border-bottom:1px solid #f1f5f9">${m.month}</td><td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;text-align:center">${m.interactions}</td><td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;text-align:center">${m.users}</td></tr>`).join('');
     const medRows = (stats?.topMeds || []).map(([m, c]: [string, unknown]) => `<tr><td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;text-transform:capitalize">${m}</td><td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;color:#059669">${String(c)}</td></tr>`).join('');
 
@@ -1341,7 +1343,7 @@ const AnalyticsTab = () => {
     <div>Prepared for: <strong style="display:inline;font-size:12px">${pharmacyName}</strong></div>
     <div>Report date: ${reportDate}</div>
     <div>Period: Last 90 days</div>
-    <span class="period-badge">May – August 2026</span>
+    <span class="period-badge">${periodLabel}</span>
   </div>
 </div>
 
@@ -1376,7 +1378,7 @@ const AnalyticsTab = () => {
     <li>Month-on-month: <strong>${(stats?.monthlyData || []).map((m: any) => `${m.month.split(' ')[0]} ${m.interactions}`).join(' → ') || 'not enough months of data yet'}</strong>${stats?.growth != null ? ` — ${stats.growth >= 0 ? 'up' : 'down'} ${Math.abs(stats.growth)}% vs ${stats.growthVsLabel}.` : '.'}</li>
     <li><strong>${stats?.totalOrders || 0} confirmed reservations</strong> represent verified patient intent to purchase from a ChekaMeds pharmacy.</li>
     <li>${stats?.topMeds?.[0] ? `<strong>${String(stats.topMeds[0][0]).replace(/\b\w/g, (c: string) => c.toUpperCase())}</strong> is the most-searched item this period` : 'Top-searched medicine will appear here once search volume grows'} — ensuring pharmacies stock high-demand items remains critical to patient satisfaction.</li>
-    <li>Pharmacy-specific exposure tracking is being rolled out — you will soon see exactly how many patients found your pharmacy through ChekaMeds.</li>
+    <li>Per-pharmacy exposure tracking is now live — see the Weekly Digest above for how many patients your pharmacy specifically reached this week.</li>
   </ul>
 </div>
 
@@ -1398,8 +1400,8 @@ const AnalyticsTab = () => {
   const sendEmail = async () => {
     if (!emailTo) { toast({ title: 'Enter an email address', variant: 'destructive' }); return; }
     setSending(true);
-    const pharmacy = facilities?.find((f: any) => f.id === selectedPharmacy);
-    const pharmacyName = pharmacy?.facility_name || 'Pharmacy Partner';
+    const pharmacy = pharmacyList?.find((f) => f.id === selectedPharmacy);
+    const pharmacyName = pharmacy?.clinic_name || 'Pharmacy Partner';
     try {
       const { error } = await (supabase as any).functions.invoke('send-analytics-email', {
         body: { to: emailTo, pharmacyName, stats: { totalMessages: stats?.totalMessages, uniquePatients: stats?.uniquePatients, totalOrders: stats?.totalOrders, avgPerWeek, topMeds: stats?.topMeds?.slice(0, 8), monthlyData: stats?.monthlyData } },
@@ -1418,7 +1420,7 @@ const AnalyticsTab = () => {
       <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
         <div>
           <h2 className="text-2xl font-bold text-foreground tracking-tight">Platform Analytics</h2>
-          <p className="text-sm text-muted-foreground mt-1">Real-time demand intelligence · May – August 2026</p>
+          <p className="text-sm text-muted-foreground mt-1">Real-time demand intelligence · Last 90 days</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-success bg-success/10 border border-success/20 px-3 py-1.5 rounded-full flex items-center gap-1.5">
@@ -1751,7 +1753,7 @@ const AnalyticsTab = () => {
               { icon: TrendingUp, color: stats?.growth != null && stats.growth < 0 ? 'text-destructive' : 'text-success', bg: stats?.growth != null && stats.growth < 0 ? 'bg-destructive/10' : 'bg-success/10', title: stats?.growth != null ? (stats.growth >= 0 ? 'Month-on-month growth' : 'Month-on-month decline') : 'Month-on-month trend', text: `${(stats?.monthlyData || []).map((m: any) => `${m.month.split(' ')[0]} ${m.interactions}`).join(' → ') || 'Not enough months of data yet'}.${stats?.growth != null ? ` ${stats.growth >= 0 ? 'Up' : 'Down'} ${Math.abs(stats.growth)}% vs ${stats.growthVsLabel}.` : ''}` },
               { icon: Users, color: 'text-primary', bg: 'bg-primary/10', title: `${stats?.uniquePatients || 0} real patients`, text: `Each averaging ${stats ? Math.round(stats.totalMessages / Math.max(stats.uniquePatients, 1)) : 0} interactions — showing patients keep coming back.` },
               { icon: ClipboardList, color: 'text-warning', bg: 'bg-warning/10', title: `${stats?.totalOrders || 0} confirmed reservations`, text: 'Patients who reserve have clear purchase intent — they want your medicine specifically.' },
-              { icon: MessageCircle, color: 'text-primary', bg: 'bg-primary/10', title: 'Pharmacy exposure tracking coming', text: 'Each pharmacy will soon see exactly how many patients found them through ChekaMeds.' },
+              { icon: MessageCircle, color: 'text-primary', bg: 'bg-primary/10', title: 'Per-pharmacy exposure tracking', text: 'Use the Weekly Digest above to see exactly how many patients found a specific pharmacy through ChekaMeds this week.' },
             ].map((ins, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div className={`w-8 h-8 rounded-xl ${ins.bg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
@@ -1774,10 +1776,10 @@ const AnalyticsTab = () => {
             <div>
               <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest block mb-1.5">Select pharmacy</label>
               <select value={selectedPharmacy}
-                onChange={(e) => { setSelectedPharmacy(e.target.value); const f = facilities?.find((f: any) => f.id === e.target.value); if (f?.email) setEmailTo(f.email); }}
+                onChange={(e) => { setSelectedPharmacy(e.target.value); const f = pharmacyList?.find((f) => f.id === e.target.value); if (f?.email) setEmailTo(f.email); }}
                 className="w-full text-sm bg-background border border-border rounded-xl px-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30">
                 <option value="">Choose a pharmacy…</option>
-                {(facilities || []).map((f: any) => <option key={f.id} value={f.id}>{f.facility_name}</option>)}
+                {(pharmacyList || []).map((f) => <option key={f.id} value={f.id}>{f.clinic_name}</option>)}
               </select>
             </div>
             <div>
