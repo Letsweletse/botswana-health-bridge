@@ -13,7 +13,7 @@ const OPTOUT=/^(stop|unsubscribe|opt out|optout|no messages|remove me)$/;
 const NOTIFY_ME=/^(notify|notify me|alert me|tell me|watch|remind me|yes notify)$/;
 
 const ULTRAMSG_INSTANCE = Deno.env.get("ULTRAMSG_INSTANCE") || "instance114633";
-const ULTRAMSG_TOKEN_VAL = Deno.env.get("ULTRAMSG_TOKEN") || "zpivrjhut12tefx6";
+const ULTRAMSG_TOKEN_VAL = Deno.env.get("ULTRAMSG_TOKEN") || "";
 
 const ROW_LIMIT = 100000;
 const MAX_TERMS = 16;
