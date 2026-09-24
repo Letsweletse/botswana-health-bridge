@@ -175,6 +175,62 @@ const AdminPanel = () => {
     enabled: isAdmin === true,
   });
 
+  // Real monthly WhatsApp interaction trend + top medicines for the Overview tab — no hardcoded figures.
+  const { data: monthlyTrend } = useQuery({
+    queryKey: ['overview-monthly-trend'],
+    queryFn: async () => {
+      const since = new Date();
+      since.setMonth(since.getMonth() - 3);
+      since.setDate(1);
+      since.setHours(0, 0, 0, 0);
+      const { data } = await supabase
+        .from('whatsapp_webhook_logs')
+        .select('created_at, message_body')
+        .gte('created_at', since.toISOString());
+      const rows = data || [];
+      const months: Record<string, { key: string; label: string; interactions: number }> = {};
+      rows.forEach((r: any) => {
+        const d = new Date(r.created_at);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (!months[key]) months[key] = { key, label: d.toLocaleDateString('en-BW', { month: 'short', year: 'numeric' }), interactions: 0 };
+        months[key].interactions++;
+      });
+      const chart = Object.values(months).sort((a, b) => a.key.localeCompare(b.key));
+      const last = chart[chart.length - 1];
+      const prev = chart[chart.length - 2];
+      const growthPct = prev && prev.interactions > 0
+        ? Math.round(((last.interactions - prev.interactions) / prev.interactions) * 100)
+        : null;
+
+      const skipWords = ['hello', 'hi ', 'good', 'thank', 'http', 'p150', 'cpay', 'pay', 'store', 'menu', 'gaborone', 'help', 'staff', 'open', 'follow', 'change', 'video', 'consult', 'reserve', 'pick', 'jwaneng', '50 ', 'each', 'flue', 'headache', 'town', 'ulcer', 'morning'];
+      const medCounts: Record<string, number> = {};
+      rows.forEach((r: any) => {
+        const body = (r.message_body || '').trim().toLowerCase();
+        if (body.length < 4 || body.length > 40) return;
+        if (skipWords.some((w) => body.includes(w))) return;
+        medCounts[body] = (medCounts[body] || 0) + 1;
+      });
+      const topMeds: [string, number][] = Object.entries(medCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+      return { chart: chart.map(({ label, interactions }) => ({ month: label, interactions })), growthPct, topMeds };
+    },
+    enabled: isAdmin === true,
+  });
+
+  // Real pharmacy subscription breakdown for the directory status bar.
+  const { data: pharmacyStatus } = useQuery({
+    queryKey: ['overview-pharmacy-status'],
+    queryFn: async () => {
+      const { data } = await supabase.from('pharmacies').select('subscription_status');
+      const rows = (data || []) as { subscription_status: string | null }[];
+      const trial = rows.filter(r => r.subscription_status === 'trial').length;
+      const cancelled = rows.filter(r => r.subscription_status === 'cancelled').length;
+      const active = rows.length - trial - cancelled;
+      return { active, trial, cancelled };
+    },
+    enabled: isAdmin === true,
+  });
+
   const approveMutation = useMutation({
     mutationFn: async ({ userId, approved }: { userId: string; approved: boolean }) => {
       const { error } = await supabase.from('profiles').update({ approved }).eq('id', userId);
@@ -394,23 +450,27 @@ const AdminPanel = () => {
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>WhatsApp interactions</div>
                     <div style={{ fontSize: 11, color: '#475569' }}>Monthly trend · last 90 days</div>
                   </div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,.1)', padding: '3px 8px', borderRadius: 6 }}>+163% growth</div>
+                  {monthlyTrend?.growthPct != null && (
+                    <div style={{ fontSize: 11, fontWeight: 700, color: monthlyTrend.growthPct >= 0 ? '#10b981' : '#f87171', background: monthlyTrend.growthPct >= 0 ? 'rgba(16,185,129,.1)' : 'rgba(248,113,113,.1)', padding: '3px 8px', borderRadius: 6 }}>
+                      {monthlyTrend.growthPct >= 0 ? '+' : ''}{monthlyTrend.growthPct}% vs last month
+                    </div>
+                  )}
                 </div>
                 <div style={{ position: 'relative', height: 160 }}>
-                  <MonthlyLineChart data={[{month:'May 2026',interactions:182},{month:'Jun 2026',interactions:368},{month:'Jul 2026',interactions:478},{month:'Aug 2026',interactions:11}]} />
+                  <MonthlyLineChart data={monthlyTrend?.chart || []} />
                 </div>
               </div>
 
               {/* Reservation status donut */}
               <div style={{ background: '#0d1117', border: '1px solid #1e2d3d', borderRadius: 14, padding: 20 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>Reservation status</div>
-                <div style={{ fontSize: 11, color: '#475569', marginBottom: 12 }}>All time breakdown</div>
+                <div style={{ fontSize: 11, color: '#475569', marginBottom: 12 }}>Last 100 orders</div>
                 <div style={{ position: 'relative', height: 120 }}>
                   <ReservationDonut
-                    reserved={orders.filter((o:any) => o.status === 'reserved').length || 8}
-                    collected={orders.filter((o:any) => o.status === 'collected').length || 6}
-                    cancelled={orders.filter((o:any) => o.status === 'cancelled').length || 4}
-                    pending={orders.filter((o:any) => !o.status || o.status === 'pending').length || 3}
+                    reserved={orders.filter((o:any) => o.status === 'reserved').length}
+                    collected={orders.filter((o:any) => o.status === 'collected').length}
+                    cancelled={orders.filter((o:any) => o.status === 'cancelled').length}
+                    pending={orders.filter((o:any) => !o.status || o.status === 'pending').length}
                   />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
@@ -465,7 +525,7 @@ const AdminPanel = () => {
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>Top medicines searched</div>
                 <div style={{ fontSize: 11, color: '#475569', marginBottom: 12 }}>WhatsApp demand · last 90 days</div>
                 <div style={{ position: 'relative', height: 150 }}>
-                  <MedicinePieChart meds={[['Panado',73],['Paracetamol',32],['Allegex',9],['Ibuprofen',7],['Cetirizine',5],['Slow Mag',4],['Glibenclamide',3],['Brufen Paed',2]]} />
+                  <MedicinePieChart meds={monthlyTrend?.topMeds || []} />
                 </div>
               </div>
 
@@ -474,7 +534,7 @@ const AdminPanel = () => {
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>Pharmacy directory</div>
                 <div style={{ fontSize: 11, color: '#475569', marginBottom: 12 }}>Status breakdown</div>
                 <div style={{ position: 'relative', height: 150 }}>
-                  <PharmacyStatusBar active={facilities.filter((f:any) => f.listing_status === 'approved').length || 28} trial={10} pending={pendingProfiles.length || 4} inactive={2} />
+                  <PharmacyStatusBar active={pharmacyStatus?.active || 0} trial={pharmacyStatus?.trial || 0} pending={pendingProfiles.length} inactive={pharmacyStatus?.cancelled || 0} />
                 </div>
               </div>
             </div>
@@ -1203,14 +1263,18 @@ const AnalyticsTab = () => {
       const monthlyArr = Object.keys(months).sort().map(k => ({ month: months[k].label, interactions: months[k].interactions, users: months[k].users.size }));
       const sortedWeekKeys = Object.keys(weeks).sort();
       const total = logs.length;
-      const prevTotal = 368;
-      const growth = prevTotal > 0 ? Math.round(((total - prevTotal) / prevTotal) * 100) : 0;
+      const lastMonth = monthlyArr[monthlyArr.length - 1];
+      const prevMonth = monthlyArr[monthlyArr.length - 2];
+      const growth = prevMonth && prevMonth.interactions > 0
+        ? Math.round(((lastMonth.interactions - prevMonth.interactions) / prevMonth.interactions) * 100)
+        : null;
 
       return {
         totalMessages: total,
         uniquePatients: new Set(logs.map((r: any) => r.from_number).filter(Boolean)).size,
         totalOrders: orders.data?.length || 0,
         growth,
+        growthVsLabel: prevMonth?.month || null,
         weeklyLabels: sortedWeekKeys.map(k => weekLabels[k]),
         weeklyValues: sortedWeekKeys.map(k => weeks[k]) as number[],
         monthlyData: monthlyArr,
@@ -1309,9 +1373,9 @@ const AnalyticsTab = () => {
   <h3>Platform summary</h3>
   <ul>
     <li>ChekaMeds processed <strong>${(stats?.totalMessages || 0).toLocaleString()} patient interactions</strong> from <strong>${stats?.uniquePatients || 0} unique patients</strong> over the last 90 days.</li>
-    <li>Month-on-month growth: <strong>May 182 → Jun 368 → Jul 478 interactions</strong> — the platform is growing every month.</li>
+    <li>Month-on-month: <strong>${(stats?.monthlyData || []).map((m: any) => `${m.month.split(' ')[0]} ${m.interactions}`).join(' → ') || 'not enough months of data yet'}</strong>${stats?.growth != null ? ` — ${stats.growth >= 0 ? 'up' : 'down'} ${Math.abs(stats.growth)}% vs ${stats.growthVsLabel}.` : '.'}</li>
     <li><strong>${stats?.totalOrders || 0} confirmed reservations</strong> represent verified patient intent to purchase from a ChekaMeds pharmacy.</li>
-    <li>Panado and Paracetamol dominate searches — ensuring pharmacies stock these remains critical to patient satisfaction.</li>
+    <li>${stats?.topMeds?.[0] ? `<strong>${String(stats.topMeds[0][0]).replace(/\b\w/g, (c: string) => c.toUpperCase())}</strong> is the most-searched item this period` : 'Top-searched medicine will appear here once search volume grows'} — ensuring pharmacies stock high-demand items remains critical to patient satisfaction.</li>
     <li>Pharmacy-specific exposure tracking is being rolled out — you will soon see exactly how many patients found your pharmacy through ChekaMeds.</li>
   </ul>
 </div>
@@ -1450,9 +1514,9 @@ const AnalyticsTab = () => {
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Total interactions', value: (stats?.totalMessages || 0).toLocaleString(), sub: 'WhatsApp messages', icon: MessageCircle, color: 'text-primary', bg: 'bg-primary/10', trend: '+163% vs May' },
-            { label: 'Unique patients', value: String(stats?.uniquePatients || 0), sub: 'Distinct phone numbers', icon: Users, color: 'text-success', bg: 'bg-success/10', trend: 'Growing monthly' },
-            { label: 'Reservations', value: String(stats?.totalOrders || 0), sub: 'Confirmed orders', icon: ClipboardList, color: 'text-warning', bg: 'bg-warning/10', trend: 'Purchase intent' },
+            { label: 'Total interactions', value: (stats?.totalMessages || 0).toLocaleString(), sub: 'WhatsApp messages', icon: MessageCircle, color: 'text-primary', bg: 'bg-primary/10', trend: stats?.growth != null ? `${stats.growth >= 0 ? '+' : ''}${stats.growth}% vs ${stats.growthVsLabel}` : 'No prior month yet' },
+            { label: 'Unique patients', value: String(stats?.uniquePatients || 0), sub: 'Distinct phone numbers', icon: Users, color: 'text-success', bg: 'bg-success/10', trend: '' },
+            { label: 'Reservations', value: String(stats?.totalOrders || 0), sub: 'Confirmed orders', icon: ClipboardList, color: 'text-warning', bg: 'bg-warning/10', trend: '' },
             { label: 'Avg per week', value: String(avgPerWeek), sub: 'Interactions / week', icon: TrendingUp, color: 'text-primary', bg: 'bg-primary/10', trend: `Peak: ${stats?.peakCount || 0}` },
           ].map((k) => (
             <div key={k.label} className="bg-card border border-border rounded-2xl p-5 relative overflow-hidden group hover:border-primary/30 transition-colors">
@@ -1461,7 +1525,7 @@ const AnalyticsTab = () => {
                 <div className={`w-9 h-9 rounded-xl ${k.bg} flex items-center justify-center flex-shrink-0`}>
                   <k.icon className={`h-4 w-4 ${k.color}`} />
                 </div>
-                <span className="text-[10px] font-semibold text-success bg-success/10 px-2 py-0.5 rounded-full">{k.trend}</span>
+                {k.trend && <span className="text-[10px] font-semibold text-success bg-success/10 px-2 py-0.5 rounded-full">{k.trend}</span>}
               </div>
               <div className="text-3xl font-bold text-foreground tracking-tight mb-0.5">{k.value}</div>
               <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{k.label}</div>
@@ -1684,7 +1748,7 @@ const AnalyticsTab = () => {
           <p className="text-sm font-semibold text-foreground mb-4">Platform insights</p>
           <div className="space-y-4">
             {[
-              { icon: TrendingUp, color: 'text-success', bg: 'bg-success/10', title: 'Strong month-on-month growth', text: 'May 182 → Jun 368 → Jul 478 interactions. The platform is growing every single month.' },
+              { icon: TrendingUp, color: stats?.growth != null && stats.growth < 0 ? 'text-destructive' : 'text-success', bg: stats?.growth != null && stats.growth < 0 ? 'bg-destructive/10' : 'bg-success/10', title: stats?.growth != null ? (stats.growth >= 0 ? 'Month-on-month growth' : 'Month-on-month decline') : 'Month-on-month trend', text: `${(stats?.monthlyData || []).map((m: any) => `${m.month.split(' ')[0]} ${m.interactions}`).join(' → ') || 'Not enough months of data yet'}.${stats?.growth != null ? ` ${stats.growth >= 0 ? 'Up' : 'Down'} ${Math.abs(stats.growth)}% vs ${stats.growthVsLabel}.` : ''}` },
               { icon: Users, color: 'text-primary', bg: 'bg-primary/10', title: `${stats?.uniquePatients || 0} real patients`, text: `Each averaging ${stats ? Math.round(stats.totalMessages / Math.max(stats.uniquePatients, 1)) : 0} interactions — showing patients keep coming back.` },
               { icon: ClipboardList, color: 'text-warning', bg: 'bg-warning/10', title: `${stats?.totalOrders || 0} confirmed reservations`, text: 'Patients who reserve have clear purchase intent — they want your medicine specifically.' },
               { icon: MessageCircle, color: 'text-primary', bg: 'bg-primary/10', title: 'Pharmacy exposure tracking coming', text: 'Each pharmacy will soon see exactly how many patients found them through ChekaMeds.' },
