@@ -7,6 +7,7 @@ import {
   CheckCircle2, XCircle, Building2, Clock, ArrowLeft, Loader2, Users, ShieldCheck, Mail,
   LayoutDashboard, Store, Phone, PhoneOff, Search, Plus, Save, MessageCircle, Truck,
   ClipboardList, Stethoscope, Eye, EyeOff, BellRing, BellOff, ExternalLink, AlertTriangle, TrendingUp,
+  Copy, Calendar,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
@@ -1052,6 +1053,117 @@ const AnalyticsTab = () => {
     },
   });
 
+  // ── WEEKLY DIGEST — per-pharmacy, this week vs last week, all numbers computed live ──
+  const [digestPharmacy, setDigestPharmacy] = useState<string>('');
+
+  const { data: pharmacyList } = useQuery({
+    queryKey: ['pharmacies-for-digest'],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from('pharmacies').select('id, clinic_name').order('clinic_name');
+      return (data || []) as { id: string; clinic_name: string }[];
+    },
+  });
+
+  const startOfWeek = (d: Date) => {
+    const date = new Date(d);
+    const day = date.getDay(); // 0=Sun..6=Sat
+    const diff = day === 0 ? 6 : day - 1; // days since Monday
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - diff);
+    return date;
+  };
+
+  const { data: digest, isLoading: digestLoading } = useQuery({
+    queryKey: ['weekly-digest', digestPharmacy],
+    queryFn: async () => {
+      const now = new Date();
+      const thisWeekStart = startOfWeek(now);
+      const lastWeekStart = new Date(thisWeekStart);
+      lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+      const since = lastWeekStart.toISOString();
+
+      let impQuery = (supabase as any).from('search_impressions')
+        .select('pharmacy_name,medicine,user_phone,selected,reserved,created_at')
+        .gte('created_at', since);
+      if (digestPharmacy) impQuery = impQuery.eq('pharmacy_name', digestPharmacy);
+      const [impRes, failedRes] = await Promise.all([
+        impQuery,
+        (supabase as any).from('failed_searches').select('normalized_query,query,created_at').gte('created_at', thisWeekStart.toISOString()),
+      ]);
+      const impressions: any[] = impRes.data || [];
+      const failed: any[] = failedRes.data || [];
+
+      const bucket = (rows: any[], from: Date, to: Date) => rows.filter(r => {
+        const t = new Date(r.created_at).getTime();
+        return t >= from.getTime() && t < to.getTime();
+      });
+      const thisWeekRows = bucket(impressions, thisWeekStart, now);
+      const lastWeekRows = bucket(impressions, lastWeekStart, thisWeekStart);
+
+      const summarize = (rows: any[]) => ({
+        impressions: rows.length,
+        uniqueCustomers: new Set(rows.map(r => r.user_phone).filter(Boolean)).size,
+        opens: rows.filter(r => r.selected).length,
+        reservations: rows.filter(r => r.reserved).length,
+      });
+      const thisWeek = summarize(thisWeekRows);
+      const lastWeek = summarize(lastWeekRows);
+
+      const pctChange = (curr: number, prev: number): string => {
+        if (prev === 0) return curr > 0 ? 'new' : '—';
+        return `${curr >= prev ? '+' : ''}${Math.round(((curr - prev) / prev) * 100)}%`;
+      };
+
+      const medCount: Record<string, number> = {};
+      thisWeekRows.forEach(r => {
+        const m = (r.medicine || '').trim().toLowerCase();
+        if (m) medCount[m] = (medCount[m] || 0) + 1;
+      });
+      const topMedicines = Object.entries(medCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+      const missCount: Record<string, number> = {};
+      failed.forEach(f => {
+        const q = (f.normalized_query || f.query || '').trim().toLowerCase();
+        if (q && q.length >= 3) missCount[q] = (missCount[q] || 0) + 1;
+      });
+      const topMisses = Object.entries(missCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+      return {
+        weekLabel: `${thisWeekStart.toLocaleDateString('en-BW', { day: 'numeric', month: 'short' })} – ${now.toLocaleDateString('en-BW', { day: 'numeric', month: 'short' })}`,
+        thisWeek, lastWeek,
+        deltas: {
+          impressions: pctChange(thisWeek.impressions, lastWeek.impressions),
+          uniqueCustomers: pctChange(thisWeek.uniqueCustomers, lastWeek.uniqueCustomers),
+          opens: pctChange(thisWeek.opens, lastWeek.opens),
+          reservations: pctChange(thisWeek.reservations, lastWeek.reservations),
+        },
+        topMedicines, topMisses,
+      };
+    },
+  });
+
+  const copyDigest = () => {
+    if (!digest) return;
+    const name = digestPharmacy || 'ChekaMeds Platform (all pharmacies)';
+    const lines = [
+      `📊 ChekaMeds Weekly Digest — ${name}`,
+      `Week: ${digest.weekLabel}`,
+      ``,
+      `Search impressions: ${digest.thisWeek.impressions} (${digest.deltas.impressions} vs last week)`,
+      `Unique customers: ${digest.thisWeek.uniqueCustomers} (${digest.deltas.uniqueCustomers} vs last week)`,
+      `Listings opened: ${digest.thisWeek.opens} (${digest.deltas.opens} vs last week)`,
+      `Reservations: ${digest.thisWeek.reservations} (${digest.deltas.reservations} vs last week)`,
+      ``,
+      `Top searched this week:`,
+      ...(digest.topMedicines.length ? digest.topMedicines.map(([m, c]) => `  • ${m} — ${c}`) : ['  (no searches yet this week)']),
+      ``,
+      `Platform-wide unmet demand this week:`,
+      ...(digest.topMisses.length ? digest.topMisses.map(([m, c]) => `  • ${m} — ${c} searches, no stock found`) : ['  (none recorded)']),
+    ];
+    navigator.clipboard.writeText(lines.join('\n'));
+    toast({ title: 'Digest copied', description: 'Paste it into WhatsApp or email.' });
+  };
+
   const { data: stats, isLoading } = useQuery({
     queryKey: ['analytics-stats-v3'],
     queryFn: async () => {
@@ -1255,6 +1367,79 @@ const AnalyticsTab = () => {
             {pdfLoading ? 'Generating…' : 'Export PDF'}
           </button>
         </div>
+      </div>
+
+      {/* ── WEEKLY DIGEST ─────────────────────────────────────────── */}
+      <div className="bg-card border border-border rounded-2xl p-5 mb-6">
+        <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-primary" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">Weekly Digest</p>
+              <p className="text-xs text-muted-foreground">{digest?.weekLabel || 'This week'} · vs the 7 days before</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <select value={digestPharmacy} onChange={e => setDigestPharmacy(e.target.value)}
+              className="text-xs font-medium bg-muted border border-border rounded-lg px-3 py-1.5 text-foreground">
+              <option value="">All pharmacies (platform)</option>
+              {(pharmacyList || []).map(p => <option key={p.id} value={p.clinic_name}>{p.clinic_name}</option>)}
+            </select>
+            <button onClick={copyDigest} disabled={!digest}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg text-xs font-semibold text-primary hover:bg-primary/15 transition-all disabled:opacity-50">
+              <Copy className="h-3 w-3" /> Copy digest
+            </button>
+          </div>
+        </div>
+
+        {digestLoading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[1,2,3,4].map(i=><div key={i} className="h-16 bg-muted animate-pulse rounded-xl"/>)}</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+              {[
+                { label: 'Search impressions', value: digest?.thisWeek.impressions ?? 0, delta: digest?.deltas.impressions },
+                { label: 'Unique customers', value: digest?.thisWeek.uniqueCustomers ?? 0, delta: digest?.deltas.uniqueCustomers },
+                { label: 'Listings opened', value: digest?.thisWeek.opens ?? 0, delta: digest?.deltas.opens },
+                { label: 'Reservations', value: digest?.thisWeek.reservations ?? 0, delta: digest?.deltas.reservations },
+              ].map(k => (
+                <div key={k.label} className="bg-muted/50 rounded-xl p-3">
+                  <div className="text-xl font-bold text-foreground">{k.value}</div>
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{k.label}</div>
+                  <div className={`text-[10px] font-semibold mt-0.5 ${k.delta?.startsWith('+') ? 'text-success' : k.delta?.startsWith('-') ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    {k.delta || '—'} vs last week
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs font-semibold text-foreground mb-2">Top searched this week{digestPharmacy ? ` · ${digestPharmacy}` : ''}</p>
+                <div className="space-y-1.5">
+                  {(digest?.topMedicines || []).map(([m, c]) => (
+                    <div key={m} className="flex items-center justify-between text-xs">
+                      <span className="capitalize text-foreground">{m}</span>
+                      <span className="font-bold text-primary">{c}</span>
+                    </div>
+                  ))}
+                  {(digest?.topMedicines || []).length === 0 && <p className="text-xs text-muted-foreground italic">No searches recorded this week yet.</p>}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-foreground mb-2">Unmet demand this week (platform-wide)</p>
+                <div className="space-y-1.5">
+                  {(digest?.topMisses || []).map(([m, c]) => (
+                    <div key={m} className="flex items-center justify-between text-xs">
+                      <span className="capitalize text-foreground">{m}</span>
+                      <span className="font-bold text-destructive">{c}</span>
+                    </div>
+                  ))}
+                  {(digest?.topMisses || []).length === 0 && <p className="text-xs text-muted-foreground italic">No unmet demand recorded this week.</p>}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* KPI strip */}
