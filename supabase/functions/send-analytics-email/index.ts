@@ -27,6 +27,16 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // DIAGNOSTIC: log which env var *names* actually exist (never values) so we can see
+    // whether the Resend key is configured under a different name than expected.
+    try {
+      const allKeys = Object.keys(Deno.env.toObject());
+      console.log('ENV_KEYS_ALL:', allKeys.join(','));
+      console.log('ENV_KEYS_MAIL_LIKE:', allKeys.filter(k => /resend|mail|smtp|sendgrid|postmark/i.test(k)).join(',') || '(none)');
+    } catch (diagErr) {
+      console.error('ENV_DIAG_FAILED:', String(diagErr));
+    }
+
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
 
