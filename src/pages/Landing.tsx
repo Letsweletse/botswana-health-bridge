@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import SiteHeader from '@/components/SiteHeader';
-import heroBg from '@/assets/hero-bg.png';
+import heroPerson from '@/assets/hero-person.webp';
 import { consultantVideoImage } from '@/assets/consultantVideoImage';
 import { medicineSearchImg, homeConsultationImg, clinicSupportImg, support247Img } from '@/assets/serviceCardImages';
 
@@ -38,7 +38,44 @@ const serviceCards = [
   },
 ];
 
-const partners = ['South West Pharma', 'J-Mecca Pharmacy', 'Partner Clinics', 'ChekaMeds Admin', 'South West Pharma', 'J-Mecca Pharmacy', 'Partner Clinics', 'ChekaMeds Admin'];
+const partnerNames = ['Pulse Pharmacy Group', 'South West Pharma', 'J-Mecca Pharmacy', 'Partner clinics'];
+// Repeated once so the marquee loops seamlessly (animation moves by -50%).
+const partners = [...partnerNames, ...partnerNames];
+
+const pharmacySteps = [
+  { n: '1', title: 'List your pharmacy', desc: 'Register once. We review and approve your listing.' },
+  { n: '2', title: 'Keep stock up to date', desc: 'Upload a spreadsheet or use the barcode scanner.' },
+  { n: '3', title: 'Get found', desc: 'Patients see your stock, location and directions on the web and WhatsApp.' },
+];
+
+const heroOverrides = `
+  .cm-page .hero-visual{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);min-height:620px;background:var(--ink)}
+  .cm-page .hero-text{position:relative;top:auto;transform:none;max-width:none;grid-column:1;grid-row:1;display:flex;flex-direction:column;justify-content:center;padding:7rem 2rem 4rem 4.5rem}
+  .cm-page .hero-title{font-size:clamp(2.6rem,4.3vw,4rem)}
+  .cm-page .hero-media{position:relative;grid-column:2;grid-row:1;overflow:hidden}
+  .cm-page .hero-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:100% top;animation:imgIn 1s ease forwards}
+  .cm-page .hero-actions .btn-primary,.cm-page .hero-actions .btn-secondary{display:inline-flex;align-items:center;gap:.55rem;white-space:nowrap}
+  .cm-page .hero-media::before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,var(--ink) 0%,rgba(13,27,42,.55) 18%,transparent 45%)}
+  .cm-page .ph-section{display:grid;grid-template-columns:1.05fr .95fr;gap:4rem;align-items:center;padding:5.5rem 4.5rem;background:radial-gradient(circle at 90% 10%,rgba(23,255,154,.10),transparent 38%),#07130f;border-top:1px solid rgba(255,255,255,.08)}
+  .cm-page .ph-section .section-title{margin-top:.9rem}
+  .cm-page .ph-steps{display:grid;gap:1rem}
+  .cm-page .ph-step{display:flex;gap:1.1rem;align-items:flex-start;padding:1.3rem 1.4rem;border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(255,255,255,.04)}
+  .cm-page .ph-num{flex:0 0 2.4rem;height:2.4rem;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:#fff;font-weight:700}
+  .cm-page .ph-step-title{font-weight:700;font-size:1.02rem;margin-bottom:.25rem}
+  .cm-page .ph-step-desc{font-size:.88rem;line-height:1.6;color:rgba(255,255,255,.62)}
+  .cm-page .btn-p:focus-visible,.cm-page .btn-s:focus-visible,.cm-page .btn-primary:focus-visible,.cm-page .btn-secondary:focus-visible,.cm-page .s-card:focus-visible{outline:2px solid #17ff9a;outline-offset:3px}
+  @media(max-width:980px){
+    .cm-page .hero-visual{grid-template-columns:1fr;min-height:0}
+    .cm-page .hero-text{grid-column:1;grid-row:1;padding:6.5rem 1.25rem 2rem}
+    .cm-page .hero-title{font-size:2.6rem}
+    .cm-page .hero-media{grid-column:1;grid-row:2;aspect-ratio:1060/672}
+    .cm-page .hero-media::before{background:linear-gradient(180deg,var(--ink) 0%,transparent 30%)}
+    .cm-page .ph-section{grid-template-columns:1fr;gap:2.2rem;padding:3.5rem 1.25rem}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .cm-page *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  }
+`;
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -84,7 +121,6 @@ const Landing = () => {
   return (
     <div className="cm-page">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;700&display=swap');
         .cm-page{--ink:#0d1b2a;--soft:#6b7c93;--faint:#a8b8c8;--accent:#1a6b4a;--accent2:#2d9768;--light:#f6f8fa;--rule:rgba(255,255,255,.10);font-family:'DM Sans',system-ui,sans-serif;background:#050807;color:#fff;overflow-x:hidden}.cm-page *{box-sizing:border-box}#progress{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,#17ff9a,#ff4fd8,#ff3b3b);z-index:999;width:0}.cm-nav{position:fixed;top:0;left:0;right:0;height:68px;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 4rem;background:rgba(255,255,255,.96);backdrop-filter:blur(18px);border-bottom:1px solid var(--rule)}.logo{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--ink);text-decoration:none}.logo em{font-style:normal;color:var(--accent)}.nav-links{display:flex;gap:2.2rem;list-style:none;margin:0;padding:0}.nav-links a{font-size:.84rem;color:var(--soft);text-decoration:none}.nav-links a:hover{color:var(--ink)}.nav-actions{display:flex;gap:.8rem}.btn-ghost,.btn-cta,.btn-primary,.btn-secondary,.btn-p,.btn-s{border-radius:4px;cursor:pointer;text-decoration:none;border:none;font-weight:600}.btn-ghost{padding:.55rem 1rem;color:var(--ink);background:transparent}.btn-cta{padding:.65rem 1.2rem;background:var(--ink);color:#fff}.btn-cta:hover,.btn-primary:hover,.btn-p:hover{background:var(--accent)}
         .hero{padding-top:80px}.hero-visual{position:relative;background:var(--ink);overflow:hidden}.hero-visual img{width:100%;display:block;animation:imgIn 1s ease forwards}.hero-overlay{position:absolute;inset:0;background:linear-gradient(105deg,rgba(13,27,42,.78),rgba(13,27,42,.52) 43%,rgba(13,27,42,.08) 72%,transparent)}.hero-text{position:absolute;top:50%;left:0;transform:translateY(-50%);z-index:2;max-width:720px;padding:0 4.5rem;color:#fff}.eyebrow{display:flex;align-items:center;gap:.7rem;margin-bottom:1.4rem;color:var(--accent2);font-size:.72rem;letter-spacing:2px;text-transform:uppercase;font-weight:700;animation:fadeUp .7s .3s both}.eyebrow-line{width:28px;height:1px;background:var(--accent2)}.hero-title{font-family:'DM Serif Display',serif;font-size:4.35rem;line-height:1.05;margin:0 0 1.4rem;animation:fadeUp .75s .45s both}.hero-title em{font-style:italic;color:var(--accent2);display:inline-block;min-width:210px}.word-rotate-wrap{display:inline-block;overflow:hidden;vertical-align:bottom}.word-rotate.slide-out{animation:slideOut .32s ease both}.word-rotate.slide-in{animation:slideIn .4s ease both}.hero-body{max-width:500px;font-size:1.06rem;line-height:1.8;color:rgba(255,255,255,.78);font-weight:300;margin-bottom:2rem;animation:fadeUp .8s .58s both}.hero-actions{display:flex;gap:.9rem;animation:fadeUp .8s .72s both}.btn-primary{padding:.9rem 1.9rem;background:var(--accent);color:#fff;box-shadow:0 12px 30px rgba(26,107,74,.25)}.btn-secondary{padding:.9rem 1.6rem;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25)}.hero-stats{display:grid;grid-template-columns:repeat(4,1fr);background:var(--ink);padding:1.8rem 4.5rem;color:#fff}.stat-item{border-right:1px solid rgba(255,255,255,.08);padding:0 2rem}.stat-item:first-child{padding-left:0}.stat-item:last-child{border-right:0}.stat-num{font-family:'DM Serif Display',serif;font-size:2rem}.stat-num sup{font-family:'DM Sans';font-size:1rem;color:var(--accent2)}.stat-label{font-size:.74rem;color:rgba(255,255,255,.42)}
         .features-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding:2.3rem 4.5rem;border-bottom:1px solid var(--rule);background:#050807;color:#fff}.feat-item{display:flex;gap:1rem;padding-right:2rem;border-right:1px solid var(--rule);opacity:0;transform:translateY(14px);transition:.6s}.feat-item.visible{opacity:1;transform:translateY(0)}.feat-item:last-child{border-right:0}.feat-icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:rgba(151,214,88,.14);color:#97d658;font-weight:800}.feat-title{font-size:.88rem;font-weight:800}.feat-desc{margin-top:.25rem;font-size:.78rem;color:rgba(255,255,255,.58);line-height:1.55}
@@ -92,29 +128,38 @@ const Landing = () => {
         .services{padding:5.2rem 4.5rem;background:radial-gradient(circle at 8% 0%,rgba(23,255,154,.13),transparent 32%),radial-gradient(circle at 52% 5%,rgba(255,79,216,.10),transparent 30%),radial-gradient(circle at 95% 20%,rgba(255,59,59,.10),transparent 28%),#050807;border-top:1px solid rgba(255,255,255,.08)}.services-header .section-title{opacity:1;transform:none;margin:0 0 2.4rem;color:#fff;text-shadow:0 0 28px rgba(23,255,154,.22)}.services-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.35rem}.s-card{position:relative;display:flex;flex-direction:column;min-height:420px;background:rgba(255,255,255,.035);border:1px solid rgba(23,255,154,.72);border-radius:20px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.04) inset,0 0 28px rgba(23,255,154,.18);opacity:0;transform:translateY(18px);transition:opacity .55s,transform .55s,box-shadow .35s,border-color .35s,filter .35s;color:#fff;text-align:left}.s-card:nth-child(2){border-color:rgba(255,79,216,.75);box-shadow:0 0 0 1px rgba(255,255,255,.04) inset,0 0 30px rgba(255,79,216,.18)}.s-card:nth-child(3){border-color:rgba(255,59,59,.75);box-shadow:0 0 0 1px rgba(255,255,255,.04) inset,0 0 30px rgba(255,59,59,.18)}.s-card:nth-child(4){border-color:rgba(23,255,154,.68);box-shadow:0 0 0 1px rgba(255,255,255,.04) inset,0 0 30px rgba(23,255,154,.16)}.s-card::before{content:'';position:absolute;inset:0;border-radius:20px;background:linear-gradient(135deg,rgba(23,255,154,.12),transparent 35%,rgba(255,79,216,.08) 70%,rgba(255,59,59,.08));opacity:.72;pointer-events:none}.s-card.visible{opacity:1;transform:translateY(0)}.s-card:hover{transform:translateY(-8px) scale(1.01);filter:saturate(1.07);box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 0 42px rgba(23,255,154,.38),0 24px 70px rgba(0,0,0,.32)}.s-card:nth-child(2):hover{box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 0 46px rgba(255,79,216,.42),0 24px 70px rgba(0,0,0,.32)}.s-card:nth-child(3):hover{box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 0 46px rgba(255,59,59,.42),0 24px 70px rgba(0,0,0,.32)}.s-img-wrap,.s-body{position:relative;z-index:1}.s-img-wrap{height:190px;overflow:hidden;background:#08120e}.s-img-photo{width:100%;height:100%;object-fit:cover;display:block;transition:transform .45s,filter .45s;filter:saturate(.98) contrast(1.02)}.s-card:hover .s-img-photo{transform:scale(1.06);filter:saturate(1.18) contrast(1.08)}.s-body{display:flex;flex-direction:column;flex:1;padding:1.25rem}.s-tag{font-size:.66rem;letter-spacing:1.7px;color:#17ff9a;font-weight:900;margin-bottom:.65rem}.s-card:nth-child(2) .s-tag{color:#ff4fd8}.s-card:nth-child(3) .s-tag{color:#ff3b3b}.s-name{font-size:1.08rem;font-weight:900;color:#fff;margin-bottom:.45rem}.s-desc{font-size:.83rem;line-height:1.68;color:rgba(255,255,255,.64);margin-bottom:0}.s-card-action{margin-top:auto;padding-top:1rem;color:rgba(255,255,255,.82);font-size:.76rem;font-weight:900;letter-spacing:.8px;text-transform:uppercase;display:flex;align-items:center;gap:.4rem}.s-card:hover .s-tag,.s-card:hover .s-name,.s-card:hover .s-desc,.s-card:hover .s-card-action{animation:textDissolve .72s ease both}.s-card-action span{transition:transform .2s}.s-card:hover .s-card-action span{transform:translateX(4px)}.partners{padding:2rem 0;display:grid;grid-template-columns:auto 1fr;gap:2rem;align-items:center;overflow:hidden;background:#050807;border-top:1px solid rgba(255,255,255,.08)}.p-label{font-size:.75rem;color:rgba(255,255,255,.38);padding-left:4.5rem;white-space:nowrap}.p-carousel{position:relative;overflow:hidden}.p-carousel::before,.p-carousel::after{content:'';position:absolute;top:0;bottom:0;width:80px;z-index:2;pointer-events:none}.p-carousel::before{left:0;background:linear-gradient(to right,#050807,transparent)}.p-carousel::after{right:0;background:linear-gradient(to left,#050807,transparent)}.p-track{display:flex;width:max-content;gap:4rem;animation:partnerSlide 20s linear infinite;will-change:transform}.p-carousel:hover .p-track{animation-play-state:paused}.p-name{display:inline-flex;align-items:center;min-width:max-content;color:rgba(255,255,255,.82);font-family:'DM Serif Display',serif;font-size:1.2rem;letter-spacing:.4px;text-shadow:0 0 18px rgba(23,255,154,.20);white-space:nowrap}.p-name::after{content:'•';margin-left:4rem;color:#17ff9a;text-shadow:0 0 12px rgba(23,255,154,.65)}.cm-footer{display:flex;justify-content:space-between;align-items:center;background:var(--ink);color:#fff;padding:2rem 4.5rem}.f-logo{font-family:'DM Serif Display',serif;font-size:1.25rem}.f-logo em{font-style:normal;color:var(--accent2)}.f-links{display:flex;gap:1.5rem;list-style:none;margin:0;padding:0}.f-links a{color:rgba(255,255,255,.45);text-decoration:none;font-size:.8rem}.f-copy{color:rgba(255,255,255,.28);font-size:.75rem}@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}@keyframes imgIn{from{opacity:0;transform:scale(1.03)}to{opacity:1;transform:scale(1)}}@keyframes slideOut{to{opacity:0;transform:translateY(-100%)}}@keyframes slideIn{from{opacity:0;transform:translateY(100%)}to{opacity:1;transform:translateY(0)}}@keyframes partnerSlide{from{transform:translateX(0)}to{transform:translateX(-50%)}}@keyframes textDissolve{0%{opacity:.38;filter:blur(5px);letter-spacing:.08em;transform:translateY(4px)}55%{opacity:1;filter:blur(0);letter-spacing:.02em}100%{opacity:1;filter:blur(0);letter-spacing:inherit;transform:translateY(0)}}@media(max-width:980px){.cm-nav{padding:0 1.25rem}.nav-links{display:none}.hero-text{position:relative;transform:none;padding:2rem 1.25rem;background:var(--ink);max-width:none}.hero-overlay{display:none}.hero-title{font-size:2.8rem}.hero-title em{min-width:150px}.hero-actions,.consult-actions{grid-template-columns:1fr;flex-direction:column}.hero-stats,.features-strip,.services,.cm-footer{padding-left:1.25rem;padding-right:1.25rem}.hero-stats,.features-strip,.services-grid{grid-template-columns:1fr}.feat-item{border-right:0;border-bottom:1px solid var(--rule);padding:0 0 1rem}.consult{grid-template-columns:1fr}.consult-img-col{min-height:320px}.consult-content{padding:3rem 1.25rem}.partners{display:block;padding:1.5rem 0}.p-label{padding:0 1.25rem 1rem}.p-track{gap:2.6rem}.p-name{font-size:1rem}.p-name::after{margin-left:2.6rem}.f-links{margin:1rem 0;flex-wrap:wrap}.cm-footer{display:block}.s-card{min-height:auto}}
       `}</style>
 
+      <style>{heroOverrides}</style>
       <div id="progress" />
 
       <SiteHeader ctaLabel="Get started" ctaTo="/search" />
 
       <section className="hero" id="how">
         <div className="hero-visual">
-          <img src={heroBg} alt="ChekaMeds medicine availability platform" />
-          <div className="hero-overlay" />
           <div className="hero-text">
             <div className="eyebrow"><span className="eyebrow-line" /> Medicine availability platform</div>
             <h1 className="hero-title">Find medicines <span className="word-rotate-wrap"><em className={`word-rotate ${wordClass}`}>{words[wordIndex]}</em></span></h1>
-            <p className="hero-body">Search medicine availability across partner pharmacies and clinics. Start on WhatsApp or use direct search — no app required.</p>
+            <p className="hero-body">See which pharmacy has your medicine before you leave home. Search on the web or WhatsApp, no app required.</p>
             <div className="hero-actions">
               <button className="btn-primary" onClick={() => navigate('/search')}>Search medicine <ArrowSvg /></button>
-              <button className="btn-secondary" onClick={() => navigate('/consultant')}>Request virtual care</button>
+              <a className="btn-secondary" href="https://wa.me/26771424486" style={{ display: 'inline-flex', alignItems: 'center' }}>Ask on WhatsApp</a>
             </div>
+          </div>
+          <div className="hero-media">
+            <img
+              src={heroPerson}
+              width={1060}
+              height={672}
+              alt="A woman checking medicine availability on WhatsApp with ChekaMeds, with the Gaborone skyline behind her"
+              fetchPriority="high"
+              decoding="async"
+            />
           </div>
         </div>
         <div className="hero-stats">
+          <div className="stat-item"><div className="stat-num">40<sup>+</sup></div><div className="stat-label">Partner pharmacies listed</div></div>
+          <div className="stat-item"><div className="stat-num">1,600<sup>+</sup></div><div className="stat-label">Medicine searches a month</div></div>
           <div className="stat-item"><div className="stat-num">24<sup>/7</sup></div><div className="stat-label">WhatsApp access</div></div>
           <div className="stat-item"><div className="stat-num">0<sup>app</sup></div><div className="stat-label">No download required</div></div>
-          <div className="stat-item"><div className="stat-num">2<sup>ways</sup></div><div className="stat-label">Home or facility support</div></div>
-          <div className="stat-item"><div className="stat-num">BW</div><div className="stat-label">Built for Botswana</div></div>
         </div>
       </section>
 
@@ -127,7 +172,7 @@ const Landing = () => {
 
       <section className="consult" id="consultants">
         <div className="consult-img-col">
-          <img src={consultantVideoImage} alt="Older patient doing a video consultation in a rural village" />
+          <img src={consultantVideoImage}alt="Older patient doing a video consultation in a rural village" loading="lazy" decoding="async" />
           <div className="consult-img-gradient" />
         </div>
         <div className="consult-content">
@@ -148,7 +193,7 @@ const Landing = () => {
           {serviceCards.map((card) => (
             <button key={card.name} className="s-card" onClick={() => navigate(card.to)} type="button">
               <div className="s-img-wrap">
-                <img src={card.image} alt={card.name} className="s-img-photo" />
+                <img src={card.image} alt="" className="s-img-photo" loading="lazy" decoding="async" width={900} height={600} />
               </div>
               <div className="s-body">
                 <div className="s-tag">{card.tag}</div>
@@ -159,6 +204,29 @@ const Landing = () => {
             </button>
           ))}
         </div>
+      </section>
+
+      <section className="ph-section" id="pharmacies" aria-labelledby="pharmacies-title">
+        <div>
+          <div className="section-kicker">For pharmacies</div>
+          <h2 className="section-title" id="pharmacies-title">Be found when patients <em>need you</em></h2>
+          <p className="section-body">When someone needs a medicine, ChekaMeds shows them which pharmacy has it, with your location, contact and directions. It is not another place to advertise. It is how people reach what is already on your shelf.</p>
+          <div className="consult-actions">
+            <button className="btn-p" onClick={() => navigate('/register')}>List your pharmacy</button>
+            <a className="btn-s" href="https://wa.me/26771424486">Talk to us on WhatsApp</a>
+          </div>
+        </div>
+        <ol className="ph-steps" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+          {pharmacySteps.map((step) => (
+            <li key={step.n} className="ph-step">
+              <div className="ph-num" aria-hidden="true">{step.n}</div>
+              <div>
+                <div className="ph-step-title">{step.title}</div>
+                <div className="ph-step-desc">{step.desc}</div>
+              </div>
+            </li>
+          ))}
+        </ol>
       </section>
 
       <div className="partners reveal">
@@ -177,6 +245,7 @@ const Landing = () => {
         <ul className="f-links">
           <li><Link to="/search">Find Medicine</Link></li>
           <li><Link to="/consultant">Consultant</Link></li>
+          <li><Link to="/register">List your pharmacy</Link></li>
           <li><Link to="/dashboard">Staff Portal</Link></li>
           <li><a href="https://wa.me/26771424486">Contact</a></li>
         </ul>

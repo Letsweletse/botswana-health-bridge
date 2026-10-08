@@ -4,23 +4,23 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import Landing from "./pages/Landing";
-import Index from "./pages/Index";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Search from "./pages/Search";
-import Facilities from "./pages/Facilities";
-import Consultant from "./pages/Consultant";
-import Delivery from "./pages/Delivery";
-import DeliveryAdmin from "./pages/DeliveryAdmin";
-import ConsultantAdmin from "./pages/ConsultantAdmin";
-import ResetPassword from "./pages/ResetPassword";
-import AdminPanel from "./pages/AdminPanel";
-import CampaignAdmin from "./pages/CampaignAdmin";
-import WhatsAppWebhookAdmin from "./pages/WhatsAppWebhookAdmin";
-import NotFound from "./pages/NotFound";
-import Scanner from "./pages/Scanner";
+const Index = lazy(() => import("./pages/Index"));
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const Search = lazy(() => import("./pages/Search"));
+const Facilities = lazy(() => import("./pages/Facilities"));
+const Consultant = lazy(() => import("./pages/Consultant"));
+const Delivery = lazy(() => import("./pages/Delivery"));
+const DeliveryAdmin = lazy(() => import("./pages/DeliveryAdmin"));
+const ConsultantAdmin = lazy(() => import("./pages/ConsultantAdmin"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const AdminPanel = lazy(() => import("./pages/AdminPanel"));
+const CampaignAdmin = lazy(() => import("./pages/CampaignAdmin"));
+const WhatsAppWebhookAdmin = lazy(() => import("./pages/WhatsAppWebhookAdmin"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Scanner = lazy(() => import("./pages/Scanner"));
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import SiteFooter from "./components/SiteFooter";
@@ -44,6 +44,7 @@ const AnimatedRoutes = () => {
         exit={{ opacity: 0 }}
         transition={{ duration: 0.1 }}
       >
+        <Suspense fallback={<div role="status" aria-label="Loading" style={{ minHeight: "60vh", background: "#050807" }} />}>
         <Routes location={location}>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
@@ -62,6 +63,7 @@ const AnimatedRoutes = () => {
           <Route path="/scanner" element={<Scanner />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </motion.main>
     </AnimatePresence>
   );
