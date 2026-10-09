@@ -92,6 +92,10 @@ export default function Landing() {
         .cm-eyebrow{display:inline-flex;align-items:center;gap:9px;border:1px solid rgba(41,242,154,.25);background:rgba(41,242,154,.055);padding:8px 12px;border-radius:999px;color:#b8ffda;text-transform:uppercase;letter-spacing:.13em;font-size:.68rem;font-weight:700}
         .cm-live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 13px var(--green);animation:cmPulse 2s infinite}
         .cm-hero h1{font:700 clamp(3rem,5.7vw,5.4rem)/.99 Manrope,sans-serif;letter-spacing:-.075em;margin:26px 0 23px;max-width:720px}
+        .cm-hero h1 .cm-word{display:inline-block;margin-right:.26em;will-change:transform,opacity}
+        .cm-hero h1 .cm-shine{display:inline-block;padding-bottom:.08em;color:transparent;background:linear-gradient(100deg,#20db86 0%,#29f29a 30%,#e6fff3 46%,#29f29a 58%,#20db86 100%);background-size:260% 100%;background-position:100% 0;-webkit-background-clip:text;background-clip:text;text-shadow:none;filter:drop-shadow(0 0 28px rgba(41,242,154,.22));animation:cmShine 5.5s ease-in-out 1.9s infinite}
+        @keyframes cmShine{0%{background-position:100% 0}45%,100%{background-position:0% 0}}
+        @media(prefers-reduced-motion:reduce){.cm-hero h1 .cm-shine{animation:none;background-position:50% 0}}
         .cm-hero h1 .cm-highlight{color:var(--green);text-shadow:0 0 45px rgba(41,242,154,.16)}
         .cm-hero-lead{max-width:570px;color:#b2c2ba;font-size:1.08rem;line-height:1.8;margin:0 0 28px}
         .cm-hero-actions{display:flex;flex-wrap:wrap;gap:11px}
@@ -236,7 +240,13 @@ export default function Landing() {
             </div>
             <motion.div className="cm-hero-copy" initial={reduceMotion ? false : 'hidden'} animate="visible" variants={reveal}>
               <div className="cm-eyebrow"><span className="cm-live-dot" /> Built in Botswana. Designed for better access.</div>
-              <h1>Medicine access.<br /><span className="cm-highlight">Reimagined.</span></h1>
+              <h1 aria-label="Medicine access. Reimagined.">
+                {['Medicine', 'access.'].map((w, i) => (
+                  <motion.span key={w} aria-hidden="true" className="cm-word" initial={reduceMotion ? false : { opacity: 0, y: 34, filter: 'blur(12px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: .75, delay: .1 + i * .16, ease: [.2, .7, .2, 1] }}>{w}</motion.span>
+                ))}
+                <br />
+                <motion.span aria-hidden="true" className="cm-highlight cm-shine" initial={reduceMotion ? false : { clipPath: 'inset(0 100% 0 0)', opacity: 0 }} animate={{ clipPath: 'inset(0 0% 0 0)', opacity: 1 }} transition={{ duration: 1.1, delay: .55, ease: [.65, 0, .35, 1] }}>Reimagined.</motion.span>
+              </h1>
               <p className="cm-hero-lead">Find medicines faster with ChekaMeds. Search online or on WhatsApp to discover participating pharmacies reporting availability — without calling or travelling from place to place first.</p>
               <div className="cm-hero-actions">
                 <Link to="/search" className="cm-btn cm-btn-primary"><Search size={17} /> Search for medicine <ArrowUpRight size={16} /></Link>
