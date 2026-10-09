@@ -135,7 +135,7 @@ export default function WhatsAppDemo() {
   return (
     <section className="cm-demo" id="whatsapp-demo" ref={ref} aria-label="Example ChekaMeds search on the website and on WhatsApp">
       <style>{`
-        .cm-demo{position:relative;padding:110px 24px 120px;overflow:hidden;isolation:isolate}
+        .cm-demo{position:relative;padding:110px 0 120px;overflow:hidden;isolation:isolate}
         .cm-demo:before{content:"";position:absolute;inset:0;z-index:-2;background:
           radial-gradient(60% 50% at 72% 36%,rgba(41,242,154,.22),transparent 70%),
           radial-gradient(50% 45% at 14% 72%,rgba(24,130,92,.28),transparent 70%),
@@ -149,14 +149,15 @@ export default function WhatsAppDemo() {
           repeating-linear-gradient(90deg,rgba(41,242,154,.08) 0 1px,transparent 1px 64px),
           repeating-linear-gradient(0deg,rgba(41,242,154,.06) 0 1px,transparent 1px 48px);
           transform:perspective(500px) rotateX(58deg);transform-origin:50% 100%;-webkit-mask-image:linear-gradient(180deg,transparent,#000 60%);mask-image:linear-gradient(180deg,transparent,#000 60%)}
-        .cm-demo-head{max-width:760px;margin:0 auto;text-align:center}
+        .cm-demo-head{width:min(1180px,calc(100% - 48px));margin-left:auto;margin-right:auto}
+        .cm-demo-head h2,.cm-demo-lead{max-width:760px}
         .cm-demo-head h2{font-family:Manrope,system-ui,sans-serif;font-size:clamp(2rem,4.6vw,3.6rem);line-height:1.04;letter-spacing:-.03em;margin:14px 0 16px}
-        .cm-demo-lead{color:var(--muted);font-size:1.08rem;line-height:1.65;margin:0 auto;max-width:600px}
+        .cm-demo-lead{color:var(--muted);font-size:1.08rem;line-height:1.65;margin:0}
         .cm-person{margin:26px auto 0;display:inline-flex;align-items:center;gap:12px;color:var(--muted);font-size:.9rem;padding:8px 16px 8px 8px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);backdrop-filter:blur(8px)}
         .cm-person-av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#27503e,#0d2219);color:var(--green);box-shadow:0 0 0 2px rgba(41,242,154,.25)}
         .cm-person b{color:var(--white);font-weight:600}
 
-        .cm-stage{position:relative;max-width:1120px;margin:56px auto 0;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);column-gap:96px;align-items:center;perspective:1800px;perspective-origin:50% 40%}
+        .cm-stage{position:relative;width:min(1180px,calc(100% - 48px));margin-left:auto;margin-right:auto;margin-top:56px;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);column-gap:96px;align-items:center;perspective:1800px;perspective-origin:50% 40%}
         .cm-link{position:absolute;left:50%;top:50%;width:0;height:0;z-index:0;pointer-events:none}
         .cm-pulse{position:absolute;left:-90px;top:-1px;width:180px;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);filter:drop-shadow(0 0 8px var(--green));animation:cmpulse 2.4s linear infinite;opacity:.0}
         .cm-pulse.on{opacity:.9}
@@ -236,12 +237,12 @@ export default function WhatsAppDemo() {
         .cm-inputbar{display:flex;align-items:center;gap:8px;padding:8px 10px 18px;background:#0f1c17;color:#7fa595}
         .cm-inputbar .field{flex:1;background:#1b2a24;border-radius:20px;padding:8px 14px;font-size:.8rem;color:#6f857a}
         .cm-inputbar .mic{width:34px;height:34px;border-radius:50%;background:var(--green);display:grid;place-items:center;color:#03150d}
-        .cm-tag{position:absolute;top:-16px;left:50%;transform:translateX(-50%);z-index:7;white-space:nowrap;background:#0b1511;border:1px solid var(--line);color:var(--muted);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;padding:6px 12px;border-radius:999px}
+        .cm-tag{position:absolute;top:-16px;left:50%;transform:translateX(-50%);z-index:7;white-space:nowrap;background:#0b1511;border:1px solid var(--line);color:var(--muted);font-size:.7rem;letter-spacing:.01em;padding:6px 13px;border-radius:999px}
         .cm-demo-cta-row{display:flex;justify-content:center;margin-top:64px}
         .cm-demo-cta{display:inline-flex;align-items:center;gap:10px;background:var(--green);color:#03150d!important;font-weight:700;padding:14px 24px;border-radius:999px;transition:transform .2s,box-shadow .2s}
         .cm-demo-cta:hover{transform:translateY(-2px);box-shadow:0 12px 36px rgba(41,242,154,.35)}
         @media(max-width:900px){
-          .cm-demo{padding:64px 16px 72px}
+          .cm-demo{padding:64px 0 72px}.cm-demo-head,.cm-stage{width:calc(100% - 34px)}
           .cm-stage{display:flex;flex-direction:column;gap:40px;margin-top:36px;perspective:none}
           .cm-browser3d,.cm-phone-wrap{transform:none!important;animation:none!important;width:100%}
           .cm-browser3d .cm-browser{transform:none;box-shadow:0 20px 40px -20px rgba(0,0,0,.7)}
@@ -255,13 +256,13 @@ export default function WhatsAppDemo() {
           .cm-person{backdrop-filter:none}
           .cm-demo-cta-row{margin-top:40px}
         }
+        @media(max-width:980px){.cm-demo-head,.cm-stage{width:min(100% - 36px,760px)}}
         @media (prefers-reduced-motion:reduce){.cm-phone,.cm-beam,.cm-sheen,.cm-pulse{animation:none}}
       `}</style>
       <div className="cm-beam" aria-hidden="true" />
       <div className="cm-floor" aria-hidden="true" />
 
       <div className="cm-demo-head">
-        <div className="cm-kicker">One search. Two ways to ask.</div>
         <h2>Search on the website.<br />Or just ask on WhatsApp.</h2>
         <p className="cm-demo-lead">
           Type a medicine and your town. You get the same answer on the website and in WhatsApp: participating pharmacies on ChekaMeds, ready to contact.

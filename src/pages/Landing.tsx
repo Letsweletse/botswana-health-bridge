@@ -43,7 +43,7 @@ const services = [
   {
     number: '01',
     icon: Search,
-    tag: 'FOR PATIENTS & CAREGIVERS',
+    tag: 'For patients and caregivers',
     title: 'Find medicines with less running around.',
     body: 'Search online or through WhatsApp to discover pharmacies reporting availability before you travel.',
     link: '/search',
@@ -53,7 +53,7 @@ const services = [
   {
     number: '02',
     icon: Network,
-    tag: 'FOR PHARMACIES',
+    tag: 'For pharmacies',
     title: 'Make your availability easier to find.',
     body: 'Connect your pharmacy to a wider network and help customers discover listed medicines and reach your team.',
     link: '/facilities',
@@ -63,7 +63,7 @@ const services = [
   {
     number: '03',
     icon: Activity,
-    tag: 'FOR HEALTHCARE PARTNERS',
+    tag: 'For healthcare partners',
     title: 'Turn demand signals into insight.',
     body: 'Build better visibility into what people are searching for and where availability gaps may need attention.',
     link: '/facilities',
@@ -109,7 +109,7 @@ export default function Landing() {
         .cm-menu-toggle{display:none;background:transparent;border:1px solid var(--line);color:var(--white);border-radius:12px;width:44px;height:44px;align-items:center;justify-content:center}
         .cm-hero{min-height:660px;display:grid;grid-template-columns:1.03fr .97fr;align-items:center;gap:28px;padding:76px 0 66px;position:relative}
         .cm-hero-copy{position:relative;z-index:2;padding:14px 0}
-        .cm-eyebrow{display:inline-flex;align-items:center;gap:9px;border:1px solid rgba(41,242,154,.25);background:rgba(41,242,154,.055);padding:8px 12px;border-radius:999px;color:#b8ffda;text-transform:uppercase;letter-spacing:.13em;font-size:.68rem;font-weight:700}
+        .cm-eyebrow{display:inline-flex;align-items:center;gap:9px;border:1px solid rgba(41,242,154,.25);background:rgba(41,242,154,.055);padding:8px 12px;border-radius:999px;color:#b8ffda;letter-spacing:.005em;font-size:.76rem;font-weight:600}
         .cm-live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 13px var(--green);animation:cmPulse 2s infinite}
         .cm-hero h1{font:700 clamp(3rem,5.7vw,5.4rem)/.99 Manrope,sans-serif;letter-spacing:-.075em;margin:26px 0 23px;max-width:720px}
         .cm-hero h1 .cm-word{display:inline-block;margin-right:.26em;will-change:transform,opacity}
@@ -166,37 +166,36 @@ export default function Landing() {
         .cm-node small{display:block;color:#8fa69a;font-size:.68rem;margin-top:3px}
         .cm-node-a{top:12%;left:0}.cm-node-b{top:26%;right:-2%;animation-delay:-1.5s}.cm-node-c{bottom:18%;left:2%;animation-delay:-3s}.cm-node-d{bottom:9%;right:0;animation-delay:-4s}
         .cm-node .cm-status{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:5px}
-        .cm-scroll-cue{position:absolute;bottom:24px;left:0;display:flex;align-items:center;gap:9px;color:#73897e;font-size:.68rem;text-transform:uppercase;letter-spacing:.16em}
+        .cm-scroll-cue{position:absolute;bottom:24px;left:0;display:flex;align-items:center;gap:9px;color:#73897e;font-size:.72rem;letter-spacing:.02em}
         .cm-scroll-cue svg{color:var(--green)}
-        .cm-stats{position:relative;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(255,65,85,.06),rgba(255,65,85,.016) 58%,transparent)}
-        .cm-stats::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,65,85,.5),transparent)}
+        .cm-stats{position:relative;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(41,242,154,.045),rgba(41,242,154,.012) 58%,transparent)}
+        .cm-stats::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(41,242,154,.45),transparent)}
         .cm-stats-inner{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
         .cm-stat{padding:30px 34px;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;position:relative}
         .cm-stat:first-child{padding-left:0}.cm-stat:last-child{border-right:0}
         .cm-stat-head{display:flex;align-items:center;gap:10px;margin-bottom:13px}
-        .cm-stat-idx{font:700 .6rem/1 var(--mono);letter-spacing:.18em;color:rgba(255,124,134,.7);border:1px solid rgba(255,65,85,.2);border-radius:5px;padding:4px 6px}
-        .cm-stat-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#ff6b78;background:rgba(255,65,85,.08);border:1px solid rgba(255,65,85,.16);flex-shrink:0}
-        .cm-stat-num{display:block;font:700 2.45rem/1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.03em;color:#ff4155;text-shadow:0 0 26px rgba(255,65,85,.34)}
-        .cm-stat-num i{font-style:normal;font-size:.6em;color:rgba(255,65,85,.72);margin-left:2px}
+        .cm-stat-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(41,242,154,.14)}
+        .cm-stat-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:var(--green);background:rgba(41,242,154,.075);border:1px solid rgba(41,242,154,.14);flex-shrink:0}
+        .cm-stat-num{display:block;font:700 2.45rem/1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.03em;color:var(--white);text-shadow:0 0 30px rgba(41,242,154,.16)}
+        .cm-stat-num i{font-style:normal;font-size:.6em;color:var(--green);margin-left:3px}
         .cm-stat-label{font-size:.77rem;color:#8fa69a;margin-top:10px}
-        .cm-stat-bar{display:block;width:100%;max-width:148px;height:2px;margin-top:15px;background:rgba(255,65,85,.13);border-radius:2px;overflow:hidden}
-        .cm-stat-bar i{display:block;height:100%;background:linear-gradient(90deg,#ff4155,rgba(255,65,85,0));transform-origin:left;animation:cmBar 1.5s cubic-bezier(.2,.7,.2,1) both}
+        .cm-stat-bar{display:block;width:100%;max-width:148px;height:2px;margin-top:15px;background:rgba(41,242,154,.12);border-radius:2px;overflow:hidden}
+        .cm-stat-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--green),rgba(41,242,154,0));transform-origin:left;animation:cmBar 1.5s cubic-bezier(.2,.7,.2,1) both}
         @keyframes cmBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
         .cm-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
         @media(prefers-reduced-motion:reduce){.cm-stat-bar i{animation:none}}
-        .cm-section{padding:112px 0}
+        .cm-section{padding:104px 0}
         .cm-section-head{max-width:700px;margin-bottom:48px}
-        .cm-kicker{color:var(--green);font-size:.72rem;font-weight:800;letter-spacing:.17em;text-transform:uppercase;margin-bottom:17px}
         .cm-section h2{font:700 clamp(2.25rem,4vw,3.65rem)/1.06 Manrope,sans-serif;letter-spacing:-.07em;margin:0 0 18px}
         .cm-section-intro{color:#9eb2a7;line-height:1.8;font-size:1rem;max-width:620px;margin:0}
         .cm-services{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-        .cm-service{min-height:360px;border:1px solid var(--line);border-radius:25px;padding:28px;background:linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.012));position:relative;overflow:hidden;transition:transform .3s,border-color .3s,background .3s}
+        .cm-service{min-height:360px;border:1px solid var(--line);border-radius:18px;padding:28px;background:linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.012));position:relative;overflow:hidden;transition:transform .3s,border-color .3s,background .3s}
         .cm-service:hover{transform:translateY(-5px);border-color:rgba(41,242,154,.34);background:linear-gradient(145deg,rgba(41,242,154,.07),rgba(255,255,255,.015))}
         .cm-service:after{content:'';position:absolute;width:190px;height:190px;right:-100px;bottom:-100px;border-radius:50%;background:rgba(41,242,154,.09);filter:blur(25px);pointer-events:none}
         .cm-service-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:42px}
         .cm-service-icon{width:51px;height:51px;border-radius:16px;background:rgba(41,242,154,.09);border:1px solid rgba(41,242,154,.15);color:var(--green);display:grid;place-items:center}
         .cm-service-number{font:700 .72rem var(--mono);font-variant-numeric:tabular-nums;letter-spacing:.14em;color:#60766a}
-        .cm-service-tag{color:#81cda5;font-size:.64rem;letter-spacing:.11em;font-weight:800}
+        .cm-service-tag{color:#81cda5;font-size:.73rem;letter-spacing:.005em;font-weight:600}
         .cm-service h3{font:700 1.45rem/1.2 Manrope,sans-serif;letter-spacing:-.045em;margin:12px 0}
         .cm-service p{font-size:.88rem;line-height:1.75;color:#94a99e;margin:0 0 22px}
         .cm-text-link{display:inline-flex;align-items:center;gap:8px;color:var(--green)!important;font-size:.84rem;font-weight:700}
@@ -209,7 +208,7 @@ export default function Landing() {
         .cm-step h3{font:700 1.12rem Manrope,sans-serif;margin:0 0 7px;letter-spacing:-.035em}
         .cm-step p{font-size:.86rem;line-height:1.7;color:#93a89c;margin:0;max-width:500px}
         .cm-step>svg{color:#5d7868;margin-top:3px}
-        .cm-intelligence{position:relative;overflow:hidden;border:1px solid rgba(41,242,154,.2);border-radius:30px;padding:52px;background:radial-gradient(circle at 100% 0%,rgba(41,242,154,.13),transparent 40%),linear-gradient(140deg,#0d1b14,#07100b 70%)}
+        .cm-intelligence{position:relative;overflow:hidden;border:1px solid rgba(41,242,154,.2);border-radius:24px;padding:52px;background:radial-gradient(circle at 100% 0%,rgba(41,242,154,.13),transparent 40%),linear-gradient(140deg,#0d1b14,#07100b 70%)}
         .cm-intel-grid{display:grid;grid-template-columns:1fr .8fr;gap:36px;align-items:center}
         .cm-intelligence h2{font-size:clamp(2.1rem,3.6vw,3.1rem)}
         .cm-intelligence p{color:#a1b7aa;line-height:1.8;font-size:.94rem;max-width:560px}
@@ -223,7 +222,7 @@ export default function Landing() {
         .cm-data-pill{position:absolute;background:#0a1710;border:1px solid rgba(41,242,154,.2);border-radius:13px;padding:10px 12px;color:#b8f8d4;font-size:.72rem;box-shadow:0 12px 25px rgba(0,0,0,.2)}
         .cm-data-pill-a{top:8%;right:0}.cm-data-pill-b{bottom:9%;left:0}.cm-data-pill-c{bottom:6%;right:2%}
         .cm-cta{padding:30px 0 100px}
-        .cm-cta-panel{border:1px solid rgba(41,242,154,.24);border-radius:30px;padding:58px;display:flex;align-items:center;justify-content:space-between;gap:30px;background:radial-gradient(ellipse at 0% 100%,rgba(41,242,154,.12),transparent 48%),linear-gradient(125deg,#0c1a12,#07100b)}
+        .cm-cta-panel{border:1px solid rgba(41,242,154,.24);border-radius:24px;padding:58px;display:flex;align-items:center;justify-content:space-between;gap:30px;background:radial-gradient(ellipse at 0% 100%,rgba(41,242,154,.12),transparent 48%),linear-gradient(125deg,#0c1a12,#07100b)}
         .cm-cta-panel h2{font:700 clamp(2rem,3.5vw,3.3rem)/1.05 Manrope,sans-serif;letter-spacing:-.065em;margin:0 0 13px;max-width:650px}
         .cm-cta-panel p{color:#9eb2a7;line-height:1.7;margin:0;max-width:600px}
         .cm-cta-actions{display:flex;flex-direction:column;gap:10px;flex-shrink:0}
@@ -234,7 +233,7 @@ export default function Landing() {
         @keyframes cmFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
         @media(prefers-reduced-motion:reduce){.cm-launch *, .cm-launch *:before, .cm-launch *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
         @media(max-width:980px){.cm-wrap{width:min(100% - 36px,760px)}.cm-nav{gap:18px}.cm-hero{grid-template-columns:1fr;padding:64px 0 72px;gap:0}.cm-hero-copy{max-width:760px}.cm-visual{min-height:450px;max-width:650px;width:100%;margin:0 auto}.cm-scroll-cue{display:none}.cm-services{grid-template-columns:1fr 1fr}.cm-service:last-child{grid-column:1/-1;min-height:300px}.cm-process-grid{grid-template-columns:1fr;gap:36px}.cm-intelligence{padding:38px}.cm-intel-grid{grid-template-columns:1fr .75fr;gap:18px}.cm-cta-panel{padding:40px}}
-        @media(max-width:700px){.cm-wrap{width:calc(100% - 34px)}.cm-header{height:72px}.cm-nav{display:none;position:absolute;top:71px;left:0;right:0;background:#07100b;border-bottom:1px solid var(--line);padding:20px 22px 24px;align-items:stretch;flex-direction:column;gap:20px}.cm-nav.cm-nav-open{display:flex}.cm-header-actions .cm-btn{display:none}.cm-menu-toggle{display:flex}.cm-hero{padding:50px 0 40px;min-height:unset}.cm-hero h1{font-size:clamp(2.75rem,13vw,4.4rem);margin-top:22px}.cm-hero-lead{font-size:.98rem}.cm-hero-actions{flex-direction:column;align-items:stretch}.cm-hero-actions .cm-btn{width:100%}.cm-visual{min-height:360px;margin-top:18px}.cm-orbit{width:86%}.cm-core{width:135px;border-radius:34px}.cm-core svg{width:65px;height:65px}.cm-node{padding:9px 10px;gap:7px;border-radius:12px}.cm-node-icon{width:28px;height:28px}.cm-node strong{font-size:.66rem}.cm-node small{font-size:.59rem}.cm-node-a{top:8%;left:-2%}.cm-node-b{top:20%;right:-2%}.cm-node-c{bottom:17%;left:-2%}.cm-node-d{bottom:7%;right:-1%}.cm-stats-inner{grid-template-columns:1fr}.cm-stat,.cm-stat:first-child{padding:21px 0;border-right:0;border-bottom:1px solid var(--line)}.cm-stat:last-child{border-bottom:0}.cm-stat-num{font-size:2.1rem}.cm-stat-bar{max-width:100%}.cm-section{padding:76px 0}.cm-section-head{margin-bottom:30px}.cm-services{grid-template-columns:1fr}.cm-service,.cm-service:last-child{grid-column:auto;min-height:unset;padding:24px}.cm-service-top{margin-bottom:28px}.cm-intelligence{padding:28px 22px;border-radius:24px}.cm-intel-grid{grid-template-columns:1fr}.cm-data-visual{min-height:250px}.cm-data-ring{width:190px}.cm-cta{padding:0 0 68px}.cm-cta-panel{padding:30px 24px;flex-direction:column;align-items:stretch;border-radius:24px}.cm-cta-actions{width:100%}.cm-cta-actions .cm-btn{width:100%}.cm-disclaimer{font-size:.68rem}}
+        @media(max-width:700px){.cm-wrap{width:calc(100% - 34px)}.cm-header{height:72px}.cm-nav{display:none;position:absolute;top:71px;left:0;right:0;background:#07100b;border-bottom:1px solid var(--line);padding:20px 22px 24px;align-items:stretch;flex-direction:column;gap:20px}.cm-nav.cm-nav-open{display:flex}.cm-header-actions .cm-btn{display:none}.cm-menu-toggle{display:flex}.cm-hero{padding:50px 0 40px;min-height:unset}.cm-hero h1{font-size:clamp(2.75rem,13vw,4.4rem);margin-top:22px}.cm-hero-lead{font-size:.98rem}.cm-hero-actions{flex-direction:column;align-items:stretch}.cm-hero-actions .cm-btn{width:100%}.cm-visual{min-height:360px;margin-top:18px}.cm-orbit{width:86%}.cm-core{width:135px;border-radius:34px}.cm-core svg{width:65px;height:65px}.cm-node{padding:9px 10px;gap:7px;border-radius:12px}.cm-node-icon{width:28px;height:28px}.cm-node strong{font-size:.66rem}.cm-node small{font-size:.59rem}.cm-node-a{top:8%;left:-2%}.cm-node-b{top:20%;right:-2%}.cm-node-c{bottom:17%;left:-2%}.cm-node-d{bottom:7%;right:-1%}.cm-stats-inner{grid-template-columns:1fr}.cm-stat,.cm-stat:first-child{padding:21px 0;border-right:0;border-bottom:1px solid var(--line)}.cm-stat:last-child{border-bottom:0}.cm-stat-num{font-size:2.1rem}.cm-stat-bar{max-width:100%}.cm-section{padding:68px 0}.cm-section-head{margin-bottom:30px}.cm-services{grid-template-columns:1fr}.cm-service,.cm-service:last-child{grid-column:auto;min-height:unset;padding:24px}.cm-service-top{margin-bottom:28px}.cm-intelligence{padding:28px 22px;border-radius:18px}.cm-intel-grid{grid-template-columns:1fr}.cm-data-visual{min-height:250px}.cm-data-ring{width:190px}.cm-cta{padding:0 0 68px}.cm-cta-panel{padding:30px 24px;flex-direction:column;align-items:stretch;border-radius:18px}.cm-cta-actions{width:100%}.cm-cta-actions .cm-btn{width:100%}.cm-disclaimer{font-size:.68rem}}
       `}</style>
 
       <div className="cm-wrap">
@@ -298,7 +297,7 @@ export default function Landing() {
         <div className="cm-wrap cm-stats-inner">
           {stats.map(({ value, to, suffix, label, icon: Icon }, index) => (
             <motion.div key={label} className="cm-stat" initial={reduceMotion ? false : { opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: .4 }} transition={{ duration: .5, delay: index * .1 }}>
-              <span className="cm-stat-head"><span className="cm-stat-idx">{String(index + 1).padStart(2, '0')}</span><span className="cm-stat-icon"><Icon size={16} /></span></span>
+              <span className="cm-stat-head"><span className="cm-stat-icon"><Icon size={16} /></span><span className="cm-stat-dot" aria-hidden="true" /></span>
               <Counter to={to} suffix={suffix} />
               <span className="cm-sr">{value}</span>
               <span className="cm-stat-label">{label}</span>
@@ -313,14 +312,13 @@ export default function Landing() {
       <div className="cm-wrap">
         <section className="cm-section" id="for-everyone">
           <motion.div className="cm-section-head" variants={reveal} initial="hidden" whileInView="visible" viewport={{ once: true, amount: .3 }}>
-            <div className="cm-kicker">One platform. A better-connected system.</div>
-            <h2>Less searching.<br />More useful connections.</h2>
+                        <h2>Less searching.<br />More useful connections.</h2>
             <p className="cm-section-intro">Medicine availability can be hard to navigate. ChekaMeds brings patients, pharmacies and healthcare partners into a more connected digital experience.</p>
           </motion.div>
           <div className="cm-services">
             {services.map(({ number, icon: Icon, tag, title, body, link, linkText }, index) => (
               <motion.article key={number} className="cm-service" initial={reduceMotion ? false : { opacity: 0, y: 22 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: .2 }} transition={{ duration: .55, delay: index * .09 }}>
-                <div className="cm-service-top"><span className="cm-service-icon"><Icon size={23} /></span><span className="cm-service-number">{number}</span></div>
+                <div className="cm-service-top"><span className="cm-service-icon"><Icon size={23} /></span></div>
                 <div className="cm-service-tag">{tag}</div>
                 <h3>{title}</h3>
                 <p>{body}</p>
@@ -333,8 +331,7 @@ export default function Landing() {
         <section className="cm-section cm-process" id="how-it-works">
           <div className="cm-process-grid">
             <motion.div variants={reveal} initial="hidden" whileInView="visible" viewport={{ once: true, amount: .3 }}>
-              <div className="cm-kicker">Simple by design</div>
-              <h2>Find your next step in three moves.</h2>
+                            <h2>Find your next step in three moves.</h2>
               <p className="cm-section-intro">Start with the medicine you need. Use the availability information to decide where to go next.</p>
               <div style={{ marginTop: 28 }}><Link to="/search" className="cm-btn cm-btn-primary">Start a search <ArrowUpRight size={16} /></Link></div>
             </motion.div>
@@ -354,8 +351,7 @@ export default function Landing() {
           <motion.div className="cm-intelligence" initial={reduceMotion ? false : { opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: .25 }} transition={{ duration: .65 }}>
             <div className="cm-intel-grid">
               <div>
-                <div className="cm-kicker">Beyond search</div>
-                <h2>Healthcare intelligence starts with better visibility.</h2>
+                                <h2>Healthcare intelligence starts with better visibility.</h2>
                 <p>Medication searches and availability updates can reveal useful demand signals. ChekaMeds is building towards insights that help participating pharmacies and healthcare stakeholders understand what people are looking for and where potential gaps may exist.</p>
                 <div className="cm-intel-points">
                   <div className="cm-intel-point"><Check size={17} /> Understand medicine search demand</div>
@@ -377,8 +373,7 @@ export default function Landing() {
         <section className="cm-cta">
           <div className="cm-cta-panel">
             <div>
-              <div className="cm-kicker">Let's make medicine access easier</div>
-              <h2>Looking for medicine — or ready to join the network?</h2>
+                            <h2>Looking for medicine — or ready to join the network?</h2>
               <p>Start a search today, or connect with ChekaMeds about listing your pharmacy or partnering with the platform.</p>
             </div>
             <div className="cm-cta-actions">
