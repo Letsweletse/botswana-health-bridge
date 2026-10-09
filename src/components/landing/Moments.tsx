@@ -25,7 +25,6 @@ export default function Moments() {
         .cm-moment-cap span{display:inline-block;font-size:.72rem;letter-spacing:.01em;font-weight:600;color:var(--green);margin-bottom:8px}
         .cm-moment-cap h3{font-family:Manrope,system-ui,sans-serif;font-size:1.35rem;letter-spacing:-.02em;margin:0 0 6px}
         .cm-moment-cap p{margin:0;color:#b9cbc1;font-size:.95rem;line-height:1.5;max-width:420px}
-        .cm-moments-note{margin:18px 0 0;font-size:.74rem;color:#6f857a}
         @media(max-width:900px){.cm-moments{padding:20px 0 80px}.cm-moments-grid{grid-template-columns:1fr}.cm-moment{min-height:460px}.cm-moment.wide{min-height:300px}}
       `}</style>
       <motion.div className="cm-moments-head" {...rise()}>
@@ -42,7 +41,6 @@ export default function Moments() {
           <figcaption className="cm-moment-cap"><span>Step 2</span><h3>Confirm with the pharmacy, then collect</h3><p>Contact the pharmacy to confirm stock, price and hours before you travel.</p></figcaption>
         </motion.figure>
       </div>
-      <p className="cm-moments-note">Illustrative scenes, AI-generated. Not real ChekaMeds customers or pharmacies.</p>
     </section>
   );
 }
