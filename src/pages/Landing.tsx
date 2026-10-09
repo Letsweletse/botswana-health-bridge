@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Building2, Check,
   ChevronRight, HeartPulse, Menu, MessageCircle, Network, Search, ShieldCheck,
-  Sparkles, Users, X, Zap
+  Users, X, Zap
 } from 'lucide-react';
 import SiteFooter from '@/components/SiteFooter';
 
