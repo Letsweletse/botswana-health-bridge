@@ -3,7 +3,7 @@ import {
   UserPlus, ClipboardCheck, Wifi, MessageCircle, Phone, ArrowRight,
   Building2, CheckCircle2, QrCode, Users
 } from 'lucide-react';
-import heroBg from '@/assets/hero-gaborone.jpg';
+import heroBg from '@/assets/hero-gaborone.webp';
 
 const steps = [
   {
