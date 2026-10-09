@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
@@ -7,6 +7,7 @@ import {
   Users, X, Zap
 } from 'lucide-react';
 import SiteFooter from '@/components/SiteFooter';
+const WhatsAppDemo = lazy(() => import('@/components/landing/WhatsAppDemo'));
 
 const whatsappSearch = 'https://wa.me/26771424486?text=' + encodeURIComponent('Hi ChekaMeds, I am looking for a medicine. Please help me find a pharmacy with availability.');
 
@@ -234,6 +235,8 @@ export default function Landing() {
           ))}
         </div>
       </section>
+
+      <Suspense fallback={null}><WhatsAppDemo /></Suspense>
 
       <div className="cm-wrap">
         <section className="cm-section" id="for-everyone">
