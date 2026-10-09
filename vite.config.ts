@@ -7,9 +7,14 @@ export default defineConfig(() => ({
   plugins: [
     react(),
     VitePWA({
-      registerType: "prompt",
+      registerType: "autoUpdate",
       includeAssets: ["favicon.png", "app-icon.png", "icon-192.png", "icon-512.png"],
       workbox: {
+        /* Take over as soon as a new build lands. With "prompt" and no prompt
+           UI the old worker kept serving a stale app to returning visitors. */
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         navigateFallbackDenylist: [/^\/~oauth/],
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,jpeg,woff,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
