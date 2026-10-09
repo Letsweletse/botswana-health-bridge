@@ -24,6 +24,7 @@ import Scanner from "./pages/Scanner";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import SiteFooter from "./components/SiteFooter";
+import VoteBanner from "./components/VoteBanner";
 
 const queryClient = new QueryClient();
 
@@ -168,10 +169,19 @@ const PWAInstallBanner = () => {
 };
 
 const NO_FOOTER = ["/admin", "/dashboard", "/scanner", "/login", "/register", "/reset-password"];
+const isPublicPath = (pathname: string) =>
+  !NO_FOOTER.some((p) => pathname === p || pathname.startsWith(p + "/"));
+
 const PublicFooter = () => {
   const { pathname } = useLocation();
-  if (NO_FOOTER.some((p) => pathname === p || pathname.startsWith(p + "/"))) return null;
+  if (!isPublicPath(pathname)) return null;
   return <SiteFooter />;
+};
+
+const PublicVoteBanner = () => {
+  const { pathname } = useLocation();
+  if (!isPublicPath(pathname)) return null;
+  return <VoteBanner />;
 };
 
 const App = () => (
@@ -180,6 +190,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <PublicVoteBanner />
         <AnimatedRoutes />
         <PublicFooter />
         <AnimatePresence>
