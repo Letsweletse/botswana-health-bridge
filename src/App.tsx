@@ -35,19 +35,15 @@ const AnimatedRoutes = () => {
   const location = useLocation();
   const shouldReduceMotion = useReducedMotion();
 
+  /* Jump, never glide. A smooth scroll runs while the next page is still
+     mounting, so the viewport slides over content whose height is changing -
+     that is what read as the page shaking. */
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: shouldReduceMotion ? "auto" : "smooth" });
-  }, [location.pathname, shouldReduceMotion]);
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname]);
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.main
-        key={location.pathname}
-        initial={shouldReduceMotion ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.1 }}
-      >
+    <main style={{ minHeight: "100vh" }}>
         <Suspense fallback={<RouteFallback />}>
         <Routes location={location}>
           <Route path="/" element={<Landing />} />
@@ -68,8 +64,7 @@ const AnimatedRoutes = () => {
           <Route path="*" element={<NotFound />} />
         </Routes>
         </Suspense>
-      </motion.main>
-    </AnimatePresence>
+    </main>
   );
 };
 

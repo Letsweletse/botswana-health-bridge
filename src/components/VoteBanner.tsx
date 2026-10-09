@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
 
 const VOTE_URL = 'https://foyaglobal.com/vote/1O77EDOK';
@@ -18,12 +18,12 @@ const write = (k: string, v: string) => {
 
 const VoteBanner = () => {
   const round = ROUNDS.find((r) => Date.parse(r.closes) > Date.now());
-  const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    if (!round) return;
-    if (read(`cm-vote-dismissed-${round.id}`) !== '1') setOpen(true);
-  }, [round]);
+  /* Decided during the first render, not in an effect: deciding later makes
+     the banner appear after paint and push the whole page down. */
+  const [open, setOpen] = useState(() =>
+    !!round && read(`cm-vote-dismissed-${round.id}`) !== '1'
+  );
 
   if (!round || !open) return null;
 
