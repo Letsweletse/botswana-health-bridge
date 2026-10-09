@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { motion, AnimatePresence, useInView, useReducedMotion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { motion, AnimatePresence, useInView, useReducedMotion } from 'framer-motion';
 import { MapPin, MessageCircle, CheckCheck, Search, ArrowRight, UserRound, Lock, ChevronLeft, Phone, Video, Plus, Mic, Signal, Wifi, BatteryFull } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import logoMark from '@/assets/chekameds-mark.webp';
@@ -42,20 +42,6 @@ export default function WhatsAppDemo() {
   const [userText, setUserText] = useState<string | null>(null); // set once a visitor types their own search
 
   // soft 3D parallax: pointer moves the stage, phone and browser tilt in opposite depth
-  const px = useMotionValue(0);
-  const py = useMotionValue(0);
-  const sx = useSpring(px, { stiffness: 90, damping: 18 });
-  const sy = useSpring(py, { stiffness: 90, damping: 18 });
-  const phoneRY = useTransform(sx, [-1, 1], [-36, -12]);
-  const phoneRX = useTransform(sy, [-1, 1], [10, -2]);
-  const webRY = useTransform(sx, [-1, 1], [20, 8]);
-  const webRX = useTransform(sy, [-1, 1], [6, -1]);
-  const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (reduce) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    px.set(((e.clientX - r.left) / r.width) * 2 - 1);
-    py.set(((e.clientY - r.top) / r.height) * 2 - 1);
-  };
 
   const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches);
   useEffect(() => {
@@ -153,19 +139,18 @@ export default function WhatsAppDemo() {
         .cm-demo-head h2,.cm-demo-lead{max-width:760px}
         .cm-demo-head h2{font-family:Manrope,system-ui,sans-serif;font-size:clamp(2rem,4.6vw,3.6rem);line-height:1.04;letter-spacing:-.03em;margin:14px 0 16px}
         .cm-demo-lead{color:var(--muted);font-size:1.08rem;line-height:1.65;margin:0}
-        .cm-person{margin:26px auto 0;display:inline-flex;align-items:center;gap:12px;color:var(--muted);font-size:.9rem;padding:8px 16px 8px 8px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.035);backdrop-filter:blur(8px)}
+        .cm-person{margin:26px auto 0;display:inline-flex;align-items:center;gap:12px;color:var(--muted);font-size:.9rem;padding:9px 15px 9px 9px;border-radius:7px;border:1px solid var(--line);background:rgba(255,255,255,.035)}
         .cm-person-av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#27503e,#0d2219);color:var(--green);box-shadow:0 0 0 2px rgba(41,242,154,.25)}
         .cm-person b{color:var(--white);font-weight:600}
 
-        .cm-stage{position:relative;width:min(1180px,calc(100% - 48px));margin-left:auto;margin-right:auto;margin-top:56px;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);column-gap:96px;align-items:center;perspective:1800px;perspective-origin:50% 40%}
+        .cm-stage{position:relative;width:min(1180px,calc(100% - 48px));margin-left:auto;margin-right:auto;margin-top:56px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:28px;align-items:stretch}
         .cm-link{position:absolute;left:50%;top:50%;width:0;height:0;z-index:0;pointer-events:none}
         .cm-pulse{position:absolute;left:-90px;top:-1px;width:180px;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);filter:drop-shadow(0 0 8px var(--green));animation:cmpulse 2.4s linear infinite;opacity:.0}
         .cm-pulse.on{opacity:.9}
         @keyframes cmpulse{from{transform:translateX(-60px)}to{transform:translateX(60px)}}
 
-        .cm-browser3d{position:relative;z-index:1;transform-style:preserve-3d}
-        .cm-slab{position:absolute;inset:0;border-radius:18px;background:linear-gradient(180deg,#1d3a2e,#0a1511);pointer-events:none}
-        .cm-browser3d .cm-browser{transform:translateZ(8px);border-radius:18px;background:linear-gradient(180deg,#101c16,#0a130f);border:1px solid rgba(211,255,232,.16);box-shadow:0 50px 100px -20px rgba(0,0,0,.75),0 0 0 1px rgba(0,0,0,.4),0 0 80px rgba(41,242,154,.08);;overflow:hidden}
+        .cm-browser3d{position:relative;z-index:1;display:flex}
+        .cm-browser3d .cm-browser{width:100%;border-radius:10px;background:#0a130f;border:1px solid rgba(211,255,232,.14);overflow:hidden}
         .cm-bar{display:flex;align-items:center;gap:14px;padding:12px 16px;background:linear-gradient(180deg,#16251d,#101c16);border-bottom:1px solid rgba(255,255,255,.06)}
         .cm-dotsrow{display:flex;gap:7px}.cm-dotsrow i{width:11px;height:11px;border-radius:50%;background:#ff5f57}.cm-dotsrow i:nth-child(2){background:#febc2e}.cm-dotsrow i:nth-child(3){background:#28c840}
         .cm-url{flex:1;max-width:340px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:6px;font-size:.76rem;color:#a9bdb2;background:rgba(0,0,0,.28);border-radius:8px;padding:6px 10px}
@@ -194,26 +179,13 @@ export default function WhatsAppDemo() {
         .cm-row span{font-size:.75rem;color:var(--muted)}
         .cm-hint{margin:14px 0 0;font-size:.72rem;color:#6f857a}
 
-        .cm-phone-wrap{position:relative;z-index:2;display:flex;justify-content:center;transform-style:preserve-3d}
-        .cm-phone-shadow{position:absolute;bottom:-46px;left:46%;width:90%;height:44px;transform:translateX(-50%) translateZ(-30px);background:radial-gradient(closest-side,rgba(0,0,0,.75),transparent);filter:blur(12px);opacity:.9}
-        .cm-phone-glow{position:absolute;inset:6% -10%;background:radial-gradient(closest-side,rgba(41,242,154,.3),transparent);filter:blur(40px);z-index:-1}
-        .cm-phone{position:relative;width:min(318px,100%);transform-style:preserve-3d}
-        .cm-edge{position:absolute;inset:0;border-radius:50px;background:linear-gradient(90deg,#55635c 0%,#1b2622 22%,#3b4943 52%,#1a2420 78%,#5a6861 100%);pointer-events:none}
-        .cm-back{position:absolute;inset:0;border-radius:50px;background:linear-gradient(145deg,#26322d,#0c1310 60%,#1d2823);transform:translateZ(-15px) rotateY(180deg);pointer-events:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
-        .cm-cam{position:absolute;top:22px;left:22px;width:92px;height:92px;border-radius:26px;background:linear-gradient(145deg,#2d3a34,#111915);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 2px 6px rgba(0,0,0,.6)}
-        .cm-cam i{position:absolute;width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#3d5a6e,#0a1218 60%);box-shadow:0 0 0 3px #1b2622,0 0 0 4px rgba(255,255,255,.15)}
-        .cm-cam i:nth-child(1){top:8px;left:8px}.cm-cam i:nth-child(2){bottom:8px;left:8px}.cm-cam i:nth-child(3){top:29px;right:8px}
-        .cm-phone-front{position:relative;transform:translateZ(15px);border-radius:50px;padding:11px;background:linear-gradient(145deg,#6c7a73 0%,#2a3631 22%,#0e1512 50%,#2c3833 78%,#79877f 100%);box-shadow:0 60px 110px -10px rgba(0,0,0,.8),0 0 0 1px rgba(0,0,0,.6),inset 0 0 0 1.5px rgba(255,255,255,.18),inset 0 0 8px rgba(0,0,0,.6);}
-        .cm-phone-wrap{animation:cmfloat 7s ease-in-out infinite}
+        .cm-phone-wrap{position:relative;z-index:2;display:flex}
+        .cm-phone{position:relative;width:100%;display:flex}
+        .cm-phone-front{position:relative;width:100%;height:100%;display:flex;flex-direction:column;border-radius:10px;border:1px solid rgba(211,255,232,.14);background:#0a130f;overflow:hidden}
+        
         @keyframes cmfloat{50%{margin-top:-12px}}
-        .cm-pbtn{position:absolute;width:6px;border-radius:3px;background:linear-gradient(90deg,#6b7a73,#26302c);transform:translateZ(-1px)}
-        .cm-pbtn.l1{left:-4px;top:112px;height:30px}.cm-pbtn.l2{left:-4px;top:168px;height:56px}.cm-pbtn.l3{left:-4px;top:236px;height:56px}.cm-pbtn.r1{right:-4px;top:200px;height:88px}
-        .cm-phone-screen{position:relative;border-radius:40px;overflow:hidden;background:#0b141a;height:640px;display:flex;flex-direction:column;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
-        .cm-sheen{position:absolute;inset:0;z-index:5;pointer-events:none;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.07) 45%,transparent 55%);background-size:250% 100%;animation:cmsheen 6s ease-in-out infinite}
+        .cm-phone-screen{position:relative;flex:1;min-height:430px;overflow:hidden;background:#0b141a;display:flex;flex-direction:column}
         @keyframes cmsheen{from{background-position:130% 0}to{background-position:-60% 0}}
-        .cm-island{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:92px;height:26px;border-radius:20px;background:#000;z-index:6}
-        .cm-status{display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;font-size:.78rem;font-weight:600;background:#0f1c17;color:#e9f3ee}
-        .cm-status span{display:flex;gap:5px;align-items:center}
         .cm-wa-head{display:flex;align-items:center;gap:8px;padding:8px 12px 10px;background:#0f1c17;border-bottom:1px solid rgba(255,255,255,.06)}
         .cm-wa-head>svg{color:var(--green2)}
         .cm-wa-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green),#0d8f5a);display:grid;place-items:center;color:#03150d;font-weight:800;font-size:.75rem}
@@ -237,9 +209,9 @@ export default function WhatsAppDemo() {
         .cm-inputbar{display:flex;align-items:center;gap:8px;padding:8px 10px 18px;background:#0f1c17;color:#7fa595}
         .cm-inputbar .field{flex:1;background:#1b2a24;border-radius:20px;padding:8px 14px;font-size:.8rem;color:#6f857a}
         .cm-inputbar .mic{width:34px;height:34px;border-radius:50%;background:var(--green);display:grid;place-items:center;color:#03150d}
-        .cm-tag{position:absolute;top:-16px;left:50%;transform:translateX(-50%);z-index:7;white-space:nowrap;background:#0b1511;border:1px solid var(--line);color:var(--muted);font-size:.7rem;letter-spacing:.01em;padding:6px 13px;border-radius:999px}
+        .cm-tag{position:absolute;top:-27px;left:0;z-index:7;white-space:nowrap;background:#0b1511;border:1px solid var(--line);color:var(--muted);font-size:.68rem;letter-spacing:.01em;padding:5px 10px;border-radius:5px}
         .cm-demo-cta-row{display:flex;justify-content:center;margin-top:64px}
-        .cm-demo-cta{display:inline-flex;align-items:center;gap:10px;background:var(--green);color:#03150d!important;font-weight:700;padding:14px 24px;border-radius:999px;transition:transform .2s,box-shadow .2s}
+        .cm-demo-cta{display:inline-flex;align-items:center;gap:10px;background:var(--green);color:#03150d!important;font-weight:700;padding:14px 26px;border-radius:8px;transition:transform .2s,box-shadow .2s}
         .cm-demo-cta:hover{transform:translateY(-2px);box-shadow:0 12px 36px rgba(41,242,154,.35)}
         @media(max-width:900px){
           .cm-demo{padding:64px 0 72px}.cm-demo-head,.cm-stage{width:calc(100% - 34px)}
@@ -249,10 +221,9 @@ export default function WhatsAppDemo() {
           .cm-site{padding:18px 16px;min-height:0}
           .cm-site-nav span{display:none}
           .cm-phone-wrap{margin-top:0;display:flex;justify-content:center}
-          .cm-phone{width:min(300px,88%);animation:none}
-          .cm-phone-front{transform:none;box-shadow:0 20px 40px -20px rgba(0,0,0,.8),inset 0 0 0 1.5px rgba(255,255,255,.16)}
-          .cm-phone-screen{height:610px}
-          .cm-phone-glow,.cm-phone-shadow,.cm-link,.cm-beam,.cm-floor,.cm-sheen,.cm-demo:after{display:none}
+          .cm-phone{width:100%}
+        .cm-phone-front{position:relative;width:100%;height:100%;display:flex;flex-direction:column;border-radius:10px;border:1px solid rgba(211,255,232,.14);background:#0a130f;overflow:hidden}
+          .cm-phone-screen{min-height:400px}
           .cm-person{backdrop-filter:none}
           .cm-demo-cta-row{margin-top:40px}
         }
@@ -273,11 +244,10 @@ export default function WhatsAppDemo() {
         </div>
       </div>
 
-      <div className="cm-stage" onPointerMove={onMove} onPointerLeave={() => { px.set(0); py.set(0); }}>
+      <div className="cm-stage">
         <div className="cm-link" aria-hidden="true"><div className={`cm-pulse${sent ? ' on' : ''}`} /></div>
 
-        <motion.div className="cm-browser3d" style={narrow ? undefined : { rotateY: webRY, rotateX: webRX }}>
-          {!narrow && Array.from({ length: 8 }, (_, i) => <i key={i} className="cm-slab" style={{ transform: `translateZ(${7 - i}px)` }} />)}
+        <motion.div className="cm-browser3d">
           <div className="cm-browser">
           <div className="cm-bar">
             <div className="cm-dotsrow" aria-hidden="true"><i /><i /><i /></div>
@@ -329,19 +299,11 @@ export default function WhatsAppDemo() {
           </div>
         </motion.div>
 
-        <motion.div className="cm-phone-wrap" style={narrow ? undefined : { rotateY: phoneRY, rotateX: phoneRX }}>
-          <div className="cm-phone-glow" aria-hidden="true" />
-          <div className="cm-phone-shadow" aria-hidden="true" />
+        <motion.div className="cm-phone-wrap">
           <div className="cm-phone">
-            {!narrow && <div className="cm-back" aria-hidden="true"><div className="cm-cam"><i /><i /><i /></div></div>}
-            {!narrow && Array.from({ length: 28 }, (_, i) => <i key={i} className="cm-edge" style={{ transform: `translateZ(${14 - i}px)` }} />)}
             <div className="cm-phone-front">
-            {!narrow && <><i className="cm-pbtn l1" /><i className="cm-pbtn l2" /><i className="cm-pbtn l3" /><i className="cm-pbtn r1" /></>}
             <span className="cm-tag">Example conversation</span>
             <div className="cm-phone-screen">
-              <div className="cm-island" aria-hidden="true" />
-              <div className="cm-sheen" aria-hidden="true" />
-              <div className="cm-status" aria-hidden="true"><span>09:41</span><span><Signal size={13} /><Wifi size={13} /><BatteryFull size={15} /></span></div>
               <div className="cm-wa-head">
                 <ChevronLeft size={22} />
                 <div className="cm-wa-av">CM</div>

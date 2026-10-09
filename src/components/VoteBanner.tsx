@@ -40,7 +40,7 @@ const VoteBanner = () => {
         .cm-vote-copy{flex:1;min-width:0;font-size:.85rem;color:#d6e8de;line-height:1.45}
         .cm-vote-copy b{color:#f4fff9;font-weight:600}
         .cm-vote-copy span{color:#8fa69a}
-        .cm-vote-cta{flex-shrink:0;display:inline-flex;align-items:center;gap:8px;background:#29f29a;color:#04120b;font-weight:700;font-size:.82rem;padding:9px 17px;border-radius:999px;text-decoration:none;transition:background .18s ease}
+        .cm-vote-cta{flex-shrink:0;display:inline-flex;align-items:center;gap:8px;background:#29f29a;color:#04120b;font-weight:700;font-size:.82rem;padding:9px 17px;border-radius:7px;text-decoration:none;transition:background .18s ease}
         .cm-vote-cta:hover{background:#4dffb0}
         .cm-vote-cta:focus-visible,.cm-vote-x:focus-visible{outline:2px solid #29f29a;outline-offset:3px}
         .cm-vote-x{flex-shrink:0;background:none;border:0;color:#6f8578;cursor:pointer;padding:5px;border-radius:7px;display:grid;place-items:center}
