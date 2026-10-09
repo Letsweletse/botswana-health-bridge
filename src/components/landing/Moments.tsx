@@ -1,5 +1,4 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import LazyVideo from './LazyVideo';
 
 export default function Moments() {
   const reduce = useReducedMotion();
@@ -18,7 +17,7 @@ export default function Moments() {
         .cm-moments-head p{color:var(--muted);line-height:1.65;font-size:1.05rem;margin:0}
         .cm-moments-grid{display:grid;grid-template-columns:minmax(0,.62fr) minmax(0,1fr);gap:22px;align-items:stretch}
         .cm-moment{position:relative;border-radius:26px;overflow:hidden;border:1px solid rgba(211,255,232,.14);box-shadow:0 40px 80px -30px rgba(0,0,0,.8),0 0 60px rgba(41,242,154,.06);background:#07100c;min-height:420px}
-        .cm-moment .vid{position:absolute;inset:0}
+        .cm-moment .vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
         .cm-moment:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(5,10,8,.55) 0%,transparent 20%,transparent 36%,rgba(5,10,8,.94) 100%)}
         .cm-moment-cap{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:26px}
         .cm-moment-cap span{display:inline-block;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin-bottom:8px}
@@ -34,11 +33,11 @@ export default function Moments() {
       </motion.div>
       <div className="cm-moments-grid">
         <motion.figure className="cm-moment" style={{ margin: 0 }} {...rise(0.05)}>
-          <LazyVideo className="vid" src="/media/woman-s.mp4" poster="/media/woman-poster.webp" alt="A woman smiles as she reads a message on her phone outside a pharmacy" />
+          <img className="vid" src="/media/woman-poster.webp" alt="A woman smiles as she reads a message on her phone outside a pharmacy" loading="lazy" decoding="async" />
           <figcaption className="cm-moment-cap"><span>Step 1</span><h3>Ask on WhatsApp or the website</h3><p>Type the medicine and your town. No app to install.</p></figcaption>
         </motion.figure>
         <motion.figure className="cm-moment wide" style={{ margin: 0 }} {...rise(0.15)}>
-          <LazyVideo className="vid" src="/media/pharm-s.mp4" poster="/media/pharm-poster.webp" alt="A pharmacist hands a paper bag to a customer at a pharmacy counter" />
+          <img className="vid" src="/media/pharm-poster.webp" alt="A pharmacist hands a paper bag to a customer at a pharmacy counter" loading="lazy" decoding="async" />
           <figcaption className="cm-moment-cap"><span>Step 2</span><h3>Confirm with the pharmacy, then collect</h3><p>Contact the pharmacy to confirm stock, price and hours before you travel.</p></figcaption>
         </motion.figure>
       </div>

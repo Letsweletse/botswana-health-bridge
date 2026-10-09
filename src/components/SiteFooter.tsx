@@ -1,3 +1,4 @@
+import logoMark from '@/assets/chekameds-mark.webp';
 import { Link } from 'react-router-dom';
 
 const whatsappPrimary = '26775560140';
@@ -17,7 +18,8 @@ export default function SiteFooter() {
       <div className="site-footer__inner">
         <div className="site-footer__brand">
           <Link to="/" className="site-footer__logo" aria-label="ChekaMeds home">
-            Cheka<span>Meds</span>
+            <img src={logoMark} alt="" width="32" height="32" style={{ width: 34, height: 34, borderRadius: 10 }} />
+            <span>Cheka<span>Meds</span></span>
           </Link>
           <p>
             Medicine availability search, pharmacy discovery and video consultation support for Botswana.

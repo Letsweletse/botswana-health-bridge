@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import logo from '@/assets/ChekaMeds_Logo.png';
+import logoMark from '@/assets/chekameds-mark.webp';
 
 type SiteHeaderLink = {
   label: string;
@@ -28,7 +28,7 @@ const SiteHeader = ({ links = defaultLinks, ctaLabel, ctaTo }: SiteHeaderProps) 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(52,211,153,0.16),transparent_32%),radial-gradient(circle_at_82%_0%,rgba(125,211,252,0.10),transparent_28%)]" />
       <div className="relative mx-auto flex h-20 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-12">
         <Link to="/" className="flex min-w-0 items-center" aria-label="ChekaMeds home">
-          <img src={logo} alt="ChekaMeds" className="h-11 w-auto max-w-[170px] object-contain drop-shadow-[0_8px_22px_rgba(0,0,0,0.45)] sm:h-12 sm:max-w-[220px]" />
+          <span className="flex items-center gap-2.5"><img src={logoMark} alt="" width="40" height="40" className="h-10 w-10 rounded-xl shadow-[0_0_24px_rgba(41,242,154,0.25)]" /><span className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">Cheka<span className="text-emerald-300">Meds</span></span></span>
         </Link>
         <nav className="hidden items-center gap-2 rounded-full border border-white/10 bg-black/20 p-1.5 shadow-inner md:flex" aria-label="Main navigation">
           {finalLinks.map((link) => {

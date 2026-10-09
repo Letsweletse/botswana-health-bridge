@@ -28,7 +28,7 @@
   letter-spacing: -0.04em;
 }
 
-.site-footer__logo span { color: #17ff9a; }
+.site-footer__logo span span { color: #17ff9a; }
 .site-footer__brand p,
 .site-footer__support p {
   margin: 14px 0 0;
@@ -118,3 +118,8 @@
   .site-footer__bottom { flex-direction: column; }
   .site-footer__whatsapp { width: 100%; }
 }
+
+/* Footer polish */
+.site-footer__logo{align-items:center;gap:10px;font-size:1.6rem}
+.site-footer__logo img{flex:none}
+.site-footer__column nav{background:transparent;border:0;padding:0}
