@@ -46,16 +46,25 @@ export default function WhatsAppDemo() {
   const py = useMotionValue(0);
   const sx = useSpring(px, { stiffness: 90, damping: 18 });
   const sy = useSpring(py, { stiffness: 90, damping: 18 });
-  const phoneRY = useTransform(sx, [-1, 1], [-10, 6]);
-  const phoneRX = useTransform(sy, [-1, 1], [5, -5]);
-  const webRY = useTransform(sx, [-1, 1], [6, -3]);
-  const webRX = useTransform(sy, [-1, 1], [3, -3]);
+  const phoneRY = useTransform(sx, [-1, 1], [-36, -12]);
+  const phoneRX = useTransform(sy, [-1, 1], [10, -2]);
+  const webRY = useTransform(sx, [-1, 1], [20, 8]);
+  const webRX = useTransform(sy, [-1, 1], [6, -1]);
   const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (reduce) return;
     const r = e.currentTarget.getBoundingClientRect();
     px.set(((e.clientX - r.left) / r.width) * 2 - 1);
     py.set(((e.clientY - r.top) / r.height) * 2 - 1);
   };
+
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const m = window.matchMedia('(max-width: 900px)');
+    const f = () => setNarrow(m.matches);
+    f();
+    m.addEventListener('change', f);
+    return () => m.removeEventListener('change', f);
+  }, []);
 
   const current = SEARCHES[qi];
   const demoText = `${current.med} in ${current.town}`;
@@ -147,13 +156,15 @@ export default function WhatsAppDemo() {
         .cm-person-av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#27503e,#0d2219);color:var(--green);box-shadow:0 0 0 2px rgba(41,242,154,.25)}
         .cm-person b{color:var(--white);font-weight:600}
 
-        .cm-stage{position:relative;max-width:1120px;margin:56px auto 0;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);align-items:center;perspective:1400px}
+        .cm-stage{position:relative;max-width:1120px;margin:56px auto 0;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);column-gap:96px;align-items:center;perspective:1800px;perspective-origin:50% 40%}
         .cm-link{position:absolute;left:50%;top:50%;width:0;height:0;z-index:0;pointer-events:none}
         .cm-pulse{position:absolute;left:-90px;top:-1px;width:180px;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);filter:drop-shadow(0 0 8px var(--green));animation:cmpulse 2.4s linear infinite;opacity:.0}
         .cm-pulse.on{opacity:.9}
         @keyframes cmpulse{from{transform:translateX(-60px)}to{transform:translateX(60px)}}
 
-        .cm-browser{position:relative;z-index:1;transform-style:preserve-3d;border-radius:18px;background:linear-gradient(180deg,#101c16,#0a130f);border:1px solid rgba(211,255,232,.16);box-shadow:0 50px 100px -20px rgba(0,0,0,.75),0 0 0 1px rgba(0,0,0,.4),0 0 80px rgba(41,242,154,.08);overflow:hidden;margin-right:-60px}
+        .cm-browser3d{position:relative;z-index:1;transform-style:preserve-3d}
+        .cm-slab{position:absolute;inset:0;border-radius:18px;background:linear-gradient(180deg,#1d3a2e,#0a1511);pointer-events:none}
+        .cm-browser3d .cm-browser{transform:translateZ(8px);border-radius:18px;background:linear-gradient(180deg,#101c16,#0a130f);border:1px solid rgba(211,255,232,.16);box-shadow:0 50px 100px -20px rgba(0,0,0,.75),0 0 0 1px rgba(0,0,0,.4),0 0 80px rgba(41,242,154,.08);;overflow:hidden}
         .cm-bar{display:flex;align-items:center;gap:14px;padding:12px 16px;background:linear-gradient(180deg,#16251d,#101c16);border-bottom:1px solid rgba(255,255,255,.06)}
         .cm-dotsrow{display:flex;gap:7px}.cm-dotsrow i{width:11px;height:11px;border-radius:50%;background:#ff5f57}.cm-dotsrow i:nth-child(2){background:#febc2e}.cm-dotsrow i:nth-child(3){background:#28c840}
         .cm-url{flex:1;max-width:340px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:6px;font-size:.76rem;color:#a9bdb2;background:rgba(0,0,0,.28);border-radius:8px;padding:6px 10px}
@@ -183,12 +194,19 @@ export default function WhatsAppDemo() {
         .cm-hint{margin:14px 0 0;font-size:.72rem;color:#6f857a}
 
         .cm-phone-wrap{position:relative;z-index:2;display:flex;justify-content:center;transform-style:preserve-3d}
-        .cm-phone-shadow{position:absolute;bottom:-34px;left:50%;width:70%;height:34px;transform:translateX(-50%);background:radial-gradient(closest-side,rgba(0,0,0,.7),transparent);filter:blur(10px)}
+        .cm-phone-shadow{position:absolute;bottom:-46px;left:46%;width:90%;height:44px;transform:translateX(-50%) translateZ(-30px);background:radial-gradient(closest-side,rgba(0,0,0,.75),transparent);filter:blur(12px);opacity:.9}
         .cm-phone-glow{position:absolute;inset:6% -10%;background:radial-gradient(closest-side,rgba(41,242,154,.3),transparent);filter:blur(40px);z-index:-1}
-        .cm-phone{position:relative;width:min(318px,100%);border-radius:50px;padding:11px;background:linear-gradient(145deg,#6c7a73 0%,#2a3631 22%,#0e1512 50%,#2c3833 78%,#79877f 100%);box-shadow:0 60px 110px -10px rgba(0,0,0,.8),0 0 0 1px rgba(0,0,0,.6),inset 0 0 0 1.5px rgba(255,255,255,.18),inset 0 0 8px rgba(0,0,0,.6);animation:cmfloat 7s ease-in-out infinite}
-        @keyframes cmfloat{50%{transform:translateY(-10px)}}
-        .cm-phone:before,.cm-phone:after{content:"";position:absolute;width:3px;border-radius:2px;background:linear-gradient(90deg,#46544d,#1a2420);right:-3px}
-        .cm-phone:before{top:150px;height:70px}.cm-phone:after{top:96px;height:38px}
+        .cm-phone{position:relative;width:min(318px,100%);transform-style:preserve-3d}
+        .cm-edge{position:absolute;inset:0;border-radius:50px;background:linear-gradient(90deg,#55635c 0%,#1b2622 22%,#3b4943 52%,#1a2420 78%,#5a6861 100%);pointer-events:none}
+        .cm-back{position:absolute;inset:0;border-radius:50px;background:linear-gradient(145deg,#26322d,#0c1310 60%,#1d2823);transform:translateZ(-15px) rotateY(180deg);pointer-events:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+        .cm-cam{position:absolute;top:22px;left:22px;width:92px;height:92px;border-radius:26px;background:linear-gradient(145deg,#2d3a34,#111915);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 2px 6px rgba(0,0,0,.6)}
+        .cm-cam i{position:absolute;width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#3d5a6e,#0a1218 60%);box-shadow:0 0 0 3px #1b2622,0 0 0 4px rgba(255,255,255,.15)}
+        .cm-cam i:nth-child(1){top:8px;left:8px}.cm-cam i:nth-child(2){bottom:8px;left:8px}.cm-cam i:nth-child(3){top:29px;right:8px}
+        .cm-phone-front{position:relative;transform:translateZ(15px);border-radius:50px;padding:11px;background:linear-gradient(145deg,#6c7a73 0%,#2a3631 22%,#0e1512 50%,#2c3833 78%,#79877f 100%);box-shadow:0 60px 110px -10px rgba(0,0,0,.8),0 0 0 1px rgba(0,0,0,.6),inset 0 0 0 1.5px rgba(255,255,255,.18),inset 0 0 8px rgba(0,0,0,.6);}
+        .cm-phone-wrap{animation:cmfloat 7s ease-in-out infinite}
+        @keyframes cmfloat{50%{margin-top:-12px}}
+        .cm-btn{position:absolute;width:6px;border-radius:3px;background:linear-gradient(90deg,#6b7a73,#26302c);transform:translateZ(-1px)}
+        .cm-btn.l1{left:-4px;top:112px;height:30px}.cm-btn.l2{left:-4px;top:168px;height:56px}.cm-btn.l3{left:-4px;top:236px;height:56px}.cm-btn.r1{right:-4px;top:200px;height:88px}
         .cm-phone-screen{position:relative;border-radius:40px;overflow:hidden;background:#0b141a;height:640px;display:flex;flex-direction:column;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
         .cm-sheen{position:absolute;inset:0;z-index:5;pointer-events:none;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.07) 45%,transparent 55%);background-size:250% 100%;animation:cmsheen 6s ease-in-out infinite}
         @keyframes cmsheen{from{background-position:130% 0}to{background-position:-60% 0}}
@@ -224,11 +242,15 @@ export default function WhatsAppDemo() {
         .cm-demo-cta:hover{transform:translateY(-2px);box-shadow:0 12px 36px rgba(41,242,154,.35)}
         @media(max-width:900px){
           .cm-demo{padding:72px 16px 80px}
-          .cm-stage{grid-template-columns:1fr;gap:0;margin-top:40px}
-          .cm-browser{margin-right:0}
+          .cm-stage{grid-template-columns:minmax(0,1fr);gap:0;row-gap:18px;margin-top:40px}
+          .cm-stage{perspective:1200px}
+          .cm-browser3d{transform:none}
+          .cm-phone-wrap{transform:rotateY(-12deg) rotateX(3deg)}
+          .cm-stage{overflow:visible}
+          .cm-btn{width:4px}
           .cm-site{padding:18px 16px;min-height:0}
           .cm-site-nav span{display:none}
-          .cm-phone-wrap{margin-top:-40px}
+          .cm-phone-wrap{margin-top:12px}
           .cm-phone{width:min(300px,86%)}
           .cm-phone-screen{height:600px}
           .cm-link{display:none}
@@ -254,7 +276,9 @@ export default function WhatsAppDemo() {
       <div className="cm-stage" onPointerMove={onMove} onPointerLeave={() => { px.set(0); py.set(0); }}>
         <div className="cm-link" aria-hidden="true"><div className={`cm-pulse${sent ? ' on' : ''}`} /></div>
 
-        <motion.div className="cm-browser" style={{ rotateY: webRY, rotateX: webRX }}>
+        <motion.div className="cm-browser3d" style={narrow ? undefined : { rotateY: webRY, rotateX: webRX }}>
+          {Array.from({ length: 8 }, (_, i) => <i key={i} className="cm-slab" style={{ transform: `translateZ(${7 - i}px)` }} />)}
+          <div className="cm-browser">
           <div className="cm-bar">
             <div className="cm-dotsrow" aria-hidden="true"><i /><i /><i /></div>
             <div className="cm-url"><Lock size={12} /> chekameds.co.bw/search</div>
@@ -302,12 +326,17 @@ export default function WhatsAppDemo() {
             </div>
             <p className="cm-hint">Try it: type your own medicine and press Search. Availability is reported by pharmacies; always confirm stock, price and hours.</p>
           </div>
+          </div>
         </motion.div>
 
-        <motion.div className="cm-phone-wrap" style={{ rotateY: phoneRY, rotateX: phoneRX }}>
+        <motion.div className="cm-phone-wrap" style={narrow ? undefined : { rotateY: phoneRY, rotateX: phoneRX }}>
           <div className="cm-phone-glow" aria-hidden="true" />
           <div className="cm-phone-shadow" aria-hidden="true" />
           <div className="cm-phone">
+            <div className="cm-back" aria-hidden="true"><div className="cm-cam"><i /><i /><i /></div></div>
+            {Array.from({ length: 28 }, (_, i) => <i key={i} className="cm-edge" style={{ transform: `translateZ(${14 - i}px)` }} />)}
+            <div className="cm-phone-front">
+            <i className="cm-btn l1" /><i className="cm-btn l2" /><i className="cm-btn l3" /><i className="cm-btn r1" />
             <span className="cm-tag">Example conversation</span>
             <div className="cm-phone-screen">
               <div className="cm-island" aria-hidden="true" />
@@ -355,6 +384,7 @@ export default function WhatsAppDemo() {
               <div className="cm-inputbar" aria-hidden="true">
                 <Plus size={22} /><div className="field">Message</div><span className="mic"><Mic size={17} /></span>
               </div>
+            </div>
             </div>
           </div>
         </motion.div>
