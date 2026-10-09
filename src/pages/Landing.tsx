@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import SiteFooter from '@/components/SiteFooter';
 
-const whatsappSearch = 'https://wa.me/26771434486?text=' + encodeURIComponent('Hi ChekaMeds, I am looking for a medicine. Please help me find a pharmacy with availability.');
+const whatsappSearch = 'https://wa.me/26771424486?text=' + encodeURIComponent('Hi ChekaMeds, I am looking for a medicine. Please help me find a pharmacy with availability.');
 
 const reveal = {
   hidden: { opacity: 0, y: 24 },
