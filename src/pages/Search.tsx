@@ -218,8 +218,9 @@ const runInventorySearch = async (terms: string[]) => {
 };
 
 const SearchPage = () => {
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const initialQuery = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('q') || '').slice(0, 80) : '';
+  const [query, setQuery] = useState(initialQuery);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery.trim());
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSearch = (value: string) => {
