@@ -99,7 +99,7 @@ export default function Landing() {
         .cm-trust-note svg{color:var(--green)}
         .cm-hero{position:relative;grid-template-columns:minmax(0,640px)!important;min-height:min(86vh,760px);align-items:center;padding:96px 0 84px!important}
         .cm-cine{position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:0;overflow:hidden;background:#050a08}
-        .cm-cine img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:72% 28%}
+        .cm-cine img{position:absolute;top:0;right:0;width:78%;height:100%;object-fit:cover;object-position:12% 40%;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34%);mask-image:linear-gradient(90deg,transparent 0,#000 34%)}
         .cm-cine-shade{position:absolute;inset:0;background:
           linear-gradient(90deg,rgba(5,10,8,.96) 0%,rgba(5,10,8,.86) 30%,rgba(5,10,8,.35) 62%,rgba(5,10,8,.08) 100%),
           linear-gradient(180deg,rgba(5,10,8,.55) 0%,transparent 22%,transparent 62%,rgba(5,10,8,.95) 100%),
@@ -115,11 +115,11 @@ export default function Landing() {
         .cm-contacts b{color:#f4fff9;font-weight:600}
         .cm-contacts a:hover b{color:var(--green)}
         @media(max-width:700px){
-          .cm-hero{min-height:0;padding:64px 0 48px!important;align-items:end}
-          .cm-cine img{object-position:68% 18%}
-          .cm-cine-shade{background:linear-gradient(180deg,rgba(5,10,8,.5) 0%,rgba(5,10,8,.55) 35%,rgba(5,10,8,.93) 72%,#050a08 100%)}
+          .cm-hero{min-height:0;padding:0 0 48px!important;align-items:end}
+          .cm-cine{bottom:auto;height:350px}.cm-cine img{width:100%;object-position:32% 40%;-webkit-mask-image:none;mask-image:none}
+          .cm-cine-shade{background:linear-gradient(180deg,rgba(5,10,8,.25) 0%,rgba(5,10,8,.05) 40%,rgba(5,10,8,.8) 85%,#050a08 100%)}
           .cm-cine-hud{display:none}
-          .cm-hero-copy{padding-top:220px}
+          .cm-hero-copy{padding-top:270px}
         }
         .cm-photo{position:relative;justify-self:center;width:min(100%,430px);border-radius:30px;overflow:hidden;border:1px solid rgba(211,255,232,.16);box-shadow:0 40px 90px -30px rgba(0,0,0,.85),0 0 90px rgba(41,242,154,.12);background:#0b1511}
         .cm-photo img{display:block;width:100%;height:auto;aspect-ratio:4/5;object-fit:cover}
@@ -229,7 +229,7 @@ export default function Landing() {
             <div className="cm-cine" aria-hidden="true">
               <picture>
                 <source media="(max-width: 700px)" srcSet="/media/hero-elder-sm.webp" />
-                <img src="/media/hero-elder.webp" alt="" width="1920" height="823" fetchPriority="high" decoding="async" onError={(e) => { const i = e.currentTarget; if (!i.dataset.fb) { i.dataset.fb = '1'; i.parentElement?.querySelectorAll('source').forEach((x) => x.remove()); i.src = '/media/hero-woman.webp'; } }} />
+                <img src="/media/hero-elder.webp" alt="" width="2100" height="1179" fetchPriority="high" decoding="async" onError={(e) => { const i = e.currentTarget; if (!i.dataset.fb) { i.dataset.fb = '1'; i.parentElement?.querySelectorAll('source').forEach((x) => x.remove()); i.src = '/media/hero-woman.webp'; } }} />
               </picture>
               <div className="cm-cine-shade" />
               <div className="cm-cine-hud"><i /><i /><i /><i /></div>
