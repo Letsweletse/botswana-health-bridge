@@ -6,7 +6,7 @@ import {
   ChevronRight, HeartPulse, Menu, MessageCircle, Network, Search, ShieldCheck,
   Users, X, Zap
 } from 'lucide-react';
-import SiteFooter from '@/components/SiteFooter';
+import logoMark from '@/assets/chekameds-mark.webp';
 const WhatsAppDemo = lazy(() => import('@/components/landing/WhatsAppDemo'));
 const Moments = lazy(() => import('@/components/landing/Moments'));
 
@@ -79,6 +79,7 @@ export default function Landing() {
         .cm-wrap{width:min(1180px,calc(100% - 48px));margin:0 auto}
         .cm-header{height:82px;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:30;border-bottom:1px solid var(--line)}
         .cm-brand{display:inline-flex;align-items:center;gap:11px;font:800 1.35rem Manrope,sans-serif;letter-spacing:-.06em}
+        .cm-brand-img{width:36px;height:36px;border-radius:11px;box-shadow:0 0 30px rgba(41,242,154,.25)}
         .cm-brand-mark{width:34px;height:34px;border-radius:11px;background:linear-gradient(145deg,#9dffd0,#20db86);display:grid;place-items:center;color:#032b19;box-shadow:0 0 32px rgba(41,242,154,.2)}
         .cm-brand span{color:var(--green)}
         .cm-nav{display:flex;align-items:center;gap:29px;color:#c0d0c7;font-size:.88rem}
@@ -101,6 +102,12 @@ export default function Landing() {
         .cm-hero-actions{display:flex;flex-wrap:wrap;gap:11px}
         .cm-trust-note{display:flex;align-items:center;gap:9px;color:#8fa69a;font-size:.78rem;margin-top:22px}
         .cm-trust-note svg{color:var(--green)}
+        .cm-photo{position:relative;justify-self:center;width:min(100%,430px);border-radius:30px;overflow:hidden;border:1px solid rgba(211,255,232,.16);box-shadow:0 40px 90px -30px rgba(0,0,0,.85),0 0 90px rgba(41,242,154,.12);background:#0b1511}
+        .cm-photo img{display:block;width:100%;height:auto;aspect-ratio:4/5;object-fit:cover}
+        .cm-photo:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 55%,rgba(5,10,8,.75) 100%)}
+        .cm-photo-chip{position:absolute;left:16px;bottom:34px;z-index:2;display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;font-size:.82rem;font-weight:600;background:rgba(8,21,14,.78);border:1px solid rgba(41,242,154,.35);backdrop-filter:blur(6px)}
+        .cm-photo-chip i{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
+        .cm-photo-note{position:absolute;left:18px;bottom:12px;z-index:2;font-size:.64rem;color:#9fb5aa}
         .cm-visual{min-height:480px;position:relative;display:grid;place-items:center;isolation:isolate}
         .cm-visual-glow{position:absolute;width:78%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(28,225,133,.18),rgba(19,105,67,.08) 38%,transparent 70%);filter:blur(12px);animation:cmBreathe 7s ease-in-out infinite}
         .cm-visual-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(126,255,190,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(126,255,190,.055) 1px,transparent 1px);background-size:34px 34px;mask-image:radial-gradient(ellipse at center,#000 10%,transparent 72%);opacity:.55}
@@ -181,7 +188,7 @@ export default function Landing() {
       <div className="cm-wrap">
         <header className="cm-header">
           <Link to="/" className="cm-brand" aria-label="ChekaMeds home" onClick={closeMenu}>
-            <span className="cm-brand-mark"><HeartPulse size={20} strokeWidth={2.5} /></span>
+            <img className="cm-brand-img" src={logoMark} alt="" width="36" height="36" />
             <span style={{ color: '#f4fff9' }}>Cheka<span>Meds</span></span>
           </Link>
           <nav className={`cm-nav ${menuOpen ? 'cm-nav-open' : ''}`} aria-label="Main navigation">
@@ -211,15 +218,13 @@ export default function Landing() {
               <div className="cm-trust-note"><ShieldCheck size={16} /> No account needed to start searching. Confirm stock with the pharmacy before travelling.</div>
             </motion.div>
 
-            <motion.div className="cm-visual" initial={reduceMotion ? false : { opacity: 0, scale: .96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .9, delay: .15 }}>
-              <div className="cm-visual-grid" />
-              <div className="cm-visual-glow" />
-              <div className="cm-orbit" />
-              <div className="cm-core"><HeartPulse strokeWidth={1.2} /></div>
-              <div className="cm-node cm-node-a"><span className="cm-node-icon"><Search size={17} /></span><span><strong>Medicine search</strong><small>Find listed availability</small></span></div>
-              <div className="cm-node cm-node-b"><span className="cm-node-icon"><Building2 size={17} /></span><span><strong>Pharmacy network</strong><small><span className="cm-status" />Connected locations</small></span></div>
-              <div className="cm-node cm-node-c"><span className="cm-node-icon"><Activity size={17} /></span><span><strong>Demand signals</strong><small>Insights from searches</small></span></div>
-              <div className="cm-node cm-node-d"><span className="cm-node-icon"><Zap size={17} /></span><span><strong>Faster decisions</strong><small>Less guesswork</small></span></div>
+            <motion.div className="cm-photo" initial={reduceMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .7, delay: .1 }}>
+              <picture>
+                <source media="(max-width: 700px)" srcSet="/media/hero-woman-sm.webp" />
+                <img src="/media/hero-woman.webp" alt="A woman smiling as she reads a message on her phone outside a pharmacy" width="720" height="900" fetchPriority="high" decoding="async" />
+              </picture>
+              <span className="cm-photo-chip"><i /> Search on WhatsApp or online</span>
+              <small className="cm-photo-note">Illustrative AI-generated image</small>
             </motion.div>
             <div className="cm-scroll-cue"><ArrowDownRight size={15} /> Scroll to explore</div>
           </section>
@@ -319,7 +324,6 @@ export default function Landing() {
         </section>
       </div>
 
-      <SiteFooter />
     </div>
   );
 }

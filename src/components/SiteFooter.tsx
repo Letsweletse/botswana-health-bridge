@@ -1,3 +1,4 @@
+import logoMark from '@/assets/chekameds-mark.webp';
 import { Link } from 'react-router-dom';
 
 const whatsappPrimary = '26775560140';
@@ -17,6 +18,7 @@ export default function SiteFooter() {
       <div className="site-footer__inner">
         <div className="site-footer__brand">
           <Link to="/" className="site-footer__logo" aria-label="ChekaMeds home">
+            <img src={logoMark} alt="" width="32" height="32" style={{ width: 32, height: 32, borderRadius: 9, marginRight: 10, verticalAlign: 'middle', display: 'inline-block' }} />
             Cheka<span>Meds</span>
           </Link>
           <p>
