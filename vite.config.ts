@@ -7,7 +7,7 @@ export default defineConfig(() => ({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       includeAssets: ["favicon.png", "app-icon.png", "icon-192.png", "icon-512.png"],
       workbox: {
         navigateFallbackDenylist: [/^\/~oauth/],

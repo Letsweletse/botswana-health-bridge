@@ -224,12 +224,6 @@ const FacilitiesPage = () => {
           )}
         </section>
       </main>
-
-      <footer className="border-t border-white/[0.06] py-6 px-6">
-        <div className="max-w-6xl mx-auto text-center">
-          <p className="text-[11px] text-white/15">© {new Date().getFullYear()} ChekaMeds — Facility directory and medicine availability platform.</p>
-        </div>
-      </footer>
     </div>
   );
 };

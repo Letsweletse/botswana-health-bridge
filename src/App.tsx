@@ -167,6 +167,13 @@ const PWAInstallBanner = () => {
   );
 };
 
+const NO_FOOTER = ["/admin", "/dashboard", "/scanner", "/login", "/register", "/reset-password"];
+const PublicFooter = () => {
+  const { pathname } = useLocation();
+  if (NO_FOOTER.some((p) => pathname === p || pathname.startsWith(p + "/"))) return null;
+  return <SiteFooter />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -174,7 +181,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AnimatedRoutes />
-        <SiteFooter />
+        <PublicFooter />
         <AnimatePresence>
           <PWAInstallBanner />
         </AnimatePresence>

@@ -1,11 +1,7 @@
 import { useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import {
-  Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Building2, Check,
-  ChevronRight, HeartPulse, Menu, MessageCircle, Network, Search, ShieldCheck,
-  Users, X, Zap
-} from 'lucide-react';
+import { Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Building2, Check, ChevronRight, HeartPulse, Menu, MessageCircle, Network, Search, ShieldCheck, Users, X, Zap, Phone, MapPin } from 'lucide-react';
 import logoMark from '@/assets/chekameds-mark.webp';
 const WhatsAppDemo = lazy(() => import('@/components/landing/WhatsAppDemo'));
 const Moments = lazy(() => import('@/components/landing/Moments'));
@@ -71,7 +67,6 @@ export default function Landing() {
   return (
     <div className="cm-launch">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
         .cm-launch{--bg:#050a08;--panel:#0b1511;--panel2:#101d17;--green:#29f29a;--green2:#a4ffd2;--white:#f4fff9;--muted:#9aada4;--line:rgba(211,255,232,.12);font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--white);overflow:hidden}
         .cm-launch *{box-sizing:border-box}
         .cm-launch a{color:inherit;text-decoration:none}
@@ -102,6 +97,30 @@ export default function Landing() {
         .cm-hero-actions{display:flex;flex-wrap:wrap;gap:11px}
         .cm-trust-note{display:flex;align-items:center;gap:9px;color:#8fa69a;font-size:.78rem;margin-top:22px}
         .cm-trust-note svg{color:var(--green)}
+        .cm-hero{position:relative;grid-template-columns:minmax(0,640px)!important;min-height:min(86vh,760px);align-items:center;padding:96px 0 84px!important}
+        .cm-cine{position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);z-index:0;overflow:hidden;background:#050a08}
+        .cm-cine img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:72% 28%}
+        .cm-cine-shade{position:absolute;inset:0;background:
+          linear-gradient(90deg,rgba(5,10,8,.96) 0%,rgba(5,10,8,.86) 30%,rgba(5,10,8,.35) 62%,rgba(5,10,8,.08) 100%),
+          linear-gradient(180deg,rgba(5,10,8,.55) 0%,transparent 22%,transparent 62%,rgba(5,10,8,.95) 100%),
+          radial-gradient(70% 60% at 82% 45%,transparent 40%,rgba(5,10,8,.5) 100%)}
+        .cm-cine-shade:after{content:"";position:absolute;inset:0;background:radial-gradient(40% 50% at 80% 40%,rgba(41,242,154,.14),transparent 70%);mix-blend-mode:screen}
+        .cm-cine-hud{position:absolute;right:max(24px,calc((100vw - 1180px)/2));top:28px;bottom:36px;width:min(38vw,420px);pointer-events:none}
+        .cm-cine-hud i{position:absolute;width:26px;height:26px;border:2px solid rgba(41,242,154,.55)}
+        .cm-cine-hud i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}.cm-cine-hud i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
+        .cm-cine-hud i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}.cm-cine-hud i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+        .cm-contacts{display:flex;flex-wrap:wrap;gap:10px 22px;margin-top:26px;padding-top:20px;border-top:1px solid rgba(211,255,232,.14);max-width:560px}
+        .cm-contacts a,.cm-contacts span{display:inline-flex;align-items:center;gap:8px;font-size:.84rem;color:#a9bdb2}
+        .cm-contacts svg{color:var(--green)}
+        .cm-contacts b{color:#f4fff9;font-weight:600}
+        .cm-contacts a:hover b{color:var(--green)}
+        @media(max-width:700px){
+          .cm-hero{min-height:0;padding:64px 0 48px!important;align-items:end}
+          .cm-cine img{object-position:68% 18%}
+          .cm-cine-shade{background:linear-gradient(180deg,rgba(5,10,8,.5) 0%,rgba(5,10,8,.55) 35%,rgba(5,10,8,.93) 72%,#050a08 100%)}
+          .cm-cine-hud{display:none}
+          .cm-hero-copy{padding-top:220px}
+        }
         .cm-photo{position:relative;justify-self:center;width:min(100%,430px);border-radius:30px;overflow:hidden;border:1px solid rgba(211,255,232,.16);box-shadow:0 40px 90px -30px rgba(0,0,0,.85),0 0 90px rgba(41,242,154,.12);background:#0b1511}
         .cm-photo img{display:block;width:100%;height:auto;aspect-ratio:4/5;object-fit:cover}
         .cm-photo:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 55%,rgba(5,10,8,.75) 100%)}
@@ -207,6 +226,14 @@ export default function Landing() {
 
         <main>
           <section className="cm-hero">
+            <div className="cm-cine" aria-hidden="true">
+              <picture>
+                <source media="(max-width: 700px)" srcSet="/media/hero-elder-sm.webp" />
+                <img src="/media/hero-elder.webp" alt="" width="1920" height="823" fetchPriority="high" decoding="async" onError={(e) => { const i = e.currentTarget; if (!i.dataset.fb) { i.dataset.fb = '1'; i.parentElement?.querySelectorAll('source').forEach((x) => x.remove()); i.src = '/media/hero-woman.webp'; } }} />
+              </picture>
+              <div className="cm-cine-shade" />
+              <div className="cm-cine-hud"><i /><i /><i /><i /></div>
+            </div>
             <motion.div className="cm-hero-copy" initial={reduceMotion ? false : 'hidden'} animate="visible" variants={reveal}>
               <div className="cm-eyebrow"><span className="cm-live-dot" /> Built in Botswana. Designed for better access.</div>
               <h1>Medicine access.<br /><span className="cm-highlight">Reimagined.</span></h1>
@@ -215,17 +242,14 @@ export default function Landing() {
                 <Link to="/search" className="cm-btn cm-btn-primary"><Search size={17} /> Search for medicine <ArrowUpRight size={16} /></Link>
                 <a href={whatsappSearch} target="_blank" rel="noreferrer" className="cm-btn cm-btn-ghost"><MessageCircle size={17} /> Search on WhatsApp</a>
               </div>
+              <div className="cm-contacts">
+                <a href={whatsappSearch} target="_blank" rel="noreferrer"><MessageCircle size={15} /> WhatsApp <b>+267 71 424 486</b></a>
+                <a href="tel:+26775560140"><Phone size={15} /> Support <b>+267 75 560 140</b></a>
+                <span><MapPin size={15} /> <b>Botswana</b></span>
+              </div>
               <div className="cm-trust-note"><ShieldCheck size={16} /> No account needed to start searching. Confirm stock with the pharmacy before travelling.</div>
             </motion.div>
 
-            <motion.div className="cm-photo" initial={reduceMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .7, delay: .1 }}>
-              <picture>
-                <source media="(max-width: 700px)" srcSet="/media/hero-woman-sm.webp" />
-                <img src="/media/hero-woman.webp" alt="A woman smiling as she reads a message on her phone outside a pharmacy" width="720" height="900" fetchPriority="high" decoding="async" />
-              </picture>
-              <span className="cm-photo-chip"><i /> Search on WhatsApp or online</span>
-              <small className="cm-photo-note">Illustrative AI-generated image</small>
-            </motion.div>
             <div className="cm-scroll-cue"><ArrowDownRight size={15} /> Scroll to explore</div>
           </section>
         </main>
