@@ -11,8 +11,10 @@ export default function Moments() {
   return (
     <section className="cm-moments" aria-label="How ChekaMeds helps people">
       <style>{`
-        .cm-moments{max-width:1180px;margin:0 auto;padding:40px 24px 110px}
-        .cm-moments-head{text-align:center;max-width:680px;margin:0 auto 44px}
+        .cm-moments{width:min(1180px,calc(100% - 48px));margin-left:auto;margin-right:auto;padding:40px 0 110px}
+        @media(max-width:980px){.cm-moments{width:min(100% - 36px,760px)}}
+        @media(max-width:700px){.cm-moments{width:calc(100% - 34px)}}
+        .cm-moments-head{max-width:680px;margin:0 0 44px}
         .cm-moments-head h2{font-family:Manrope,system-ui,sans-serif;font-size:clamp(1.8rem,4vw,3rem);line-height:1.06;letter-spacing:-.03em;margin:14px 0 14px}
         .cm-moments-head p{color:var(--muted);line-height:1.65;font-size:1.05rem;margin:0}
         .cm-moments-grid{display:grid;grid-template-columns:minmax(0,.62fr) minmax(0,1fr);gap:22px;align-items:stretch}
@@ -20,14 +22,13 @@ export default function Moments() {
         .cm-moment .vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
         .cm-moment:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(5,10,8,.55) 0%,transparent 20%,transparent 36%,rgba(5,10,8,.94) 100%)}
         .cm-moment-cap{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:26px}
-        .cm-moment-cap span{display:inline-block;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin-bottom:8px}
+        .cm-moment-cap span{display:inline-block;font-size:.72rem;letter-spacing:.01em;font-weight:600;color:var(--green);margin-bottom:8px}
         .cm-moment-cap h3{font-family:Manrope,system-ui,sans-serif;font-size:1.35rem;letter-spacing:-.02em;margin:0 0 6px}
         .cm-moment-cap p{margin:0;color:#b9cbc1;font-size:.95rem;line-height:1.5;max-width:420px}
-        .cm-moments-note{margin:18px auto 0;text-align:center;font-size:.74rem;color:#6f857a}
-        @media(max-width:900px){.cm-moments{padding:20px 16px 80px}.cm-moments-grid{grid-template-columns:1fr}.cm-moment{min-height:460px}.cm-moment.wide{min-height:300px}}
+        .cm-moments-note{margin:18px 0 0;font-size:.74rem;color:#6f857a}
+        @media(max-width:900px){.cm-moments{padding:20px 0 80px}.cm-moments-grid{grid-template-columns:1fr}.cm-moment{min-height:460px}.cm-moment.wide{min-height:300px}}
       `}</style>
       <motion.div className="cm-moments-head" {...rise()}>
-        <div className="cm-kicker">From search to the counter</div>
         <h2>Find it on your phone.<br />Collect it from a pharmacy near you.</h2>
         <p>ChekaMeds points people to participating pharmacies, so the trip is worth making.</p>
       </motion.div>
