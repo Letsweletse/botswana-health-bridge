@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence, useInView, useReducedMotion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { MapPin, MessageCircle, CheckCheck, Search, ArrowRight, UserRound, Lock, ChevronLeft, Phone, Video, Plus, Mic, Signal, Wifi, BatteryFull } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import LazyVideo from './LazyVideo';
 
 const WA_LINK =
   'https://wa.me/26771424486?text=' +
@@ -131,6 +132,7 @@ export default function WhatsAppDemo() {
           radial-gradient(45% 40% at 18% 70%,rgba(24,130,92,.2),transparent 70%),
           linear-gradient(180deg,#050a08 0%,#07130e 45%,#050a08 100%)}
         .cm-demo:after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.5;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .08 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");mix-blend-mode:overlay}
+        .cm-bgvideo{position:absolute!important;inset:0;z-index:-2;opacity:.5;-webkit-mask-image:radial-gradient(90% 80% at 50% 45%,#000 30%,transparent 100%);mask-image:radial-gradient(90% 80% at 50% 45%,#000 30%,transparent 100%)}
         .cm-beam{position:absolute;top:-10%;left:50%;width:70%;height:90%;z-index:-1;transform:translateX(-30%) rotate(14deg);background:conic-gradient(from 160deg at 50% 0%,transparent 0 20%,rgba(164,255,210,.07) 28%,transparent 40%);filter:blur(8px);animation:cmbeam 9s ease-in-out infinite alternate}
         @keyframes cmbeam{from{opacity:.55;transform:translateX(-34%) rotate(12deg)}to{opacity:1;transform:translateX(-26%) rotate(16deg)}}
         .cm-floor{position:absolute;left:0;right:0;bottom:0;height:38%;z-index:-1;pointer-events:none;background:
@@ -233,6 +235,7 @@ export default function WhatsAppDemo() {
         }
         @media (prefers-reduced-motion:reduce){.cm-phone,.cm-beam,.cm-sheen,.cm-pulse{animation:none}}
       `}</style>
+      <LazyVideo className="cm-bgvideo" src="/media/bg-loop.mp4" poster="/media/bg-poster.webp" alt="" />
       <div className="cm-beam" aria-hidden="true" />
       <div className="cm-floor" aria-hidden="true" />
 

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import SiteFooter from '@/components/SiteFooter';
 const WhatsAppDemo = lazy(() => import('@/components/landing/WhatsAppDemo'));
+const Moments = lazy(() => import('@/components/landing/Moments'));
 
 const whatsappSearch = 'https://wa.me/26771424486?text=' + encodeURIComponent('Hi ChekaMeds, I am looking for a medicine. Please help me find a pharmacy with availability.');
 
@@ -236,7 +237,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <Suspense fallback={null}><WhatsAppDemo /></Suspense>
+      <Suspense fallback={null}><WhatsAppDemo /><Moments /></Suspense>
 
       <div className="cm-wrap">
         <section className="cm-section" id="for-everyone">
