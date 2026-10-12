@@ -27,13 +27,13 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          supabase functions deploy ultramsg-webhook --project-ref kcgsxxwgzrmsnnxvpkvi
+          supabase functions deploy ultramsg-webhook --project-ref kcgsxxwgzrmsnnxvpkvi --no-verify-jwt
 
       - name: Deploy whatsapp-webhook
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          supabase functions deploy whatsapp-webhook --project-ref kcgsxxwgzrmsnnxvpkvi
+          supabase functions deploy whatsapp-webhook --project-ref kcgsxxwgzrmsnnxvpkvi --no-verify-jwt
 
       - name: Deploy checkout-reservation if present
         env:
