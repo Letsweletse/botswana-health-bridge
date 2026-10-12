@@ -1,5 +1,9 @@
 project_id = "kcgsxxwgzrmsnnxvpkvi"
 
+# UltraMsg posts with no Authorization header, so these must not require a JWT.
+[functions.ultramsg-webhook]
+verify_jwt = false
+
 [functions.whatsapp-webhook]
 verify_jwt = false
 
