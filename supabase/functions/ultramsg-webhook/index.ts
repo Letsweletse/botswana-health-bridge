@@ -12,7 +12,10 @@ const CONSULT=/^(video consult|consult|doctor|video|online consult|consult a doc
 const OPTOUT=/^(stop|unsubscribe|opt out|optout|no messages|remove me)$/;
 const NOTIFY_ME=/^(notify|notify me|alert me|tell me|watch|remind me|yes notify)$/;
 
-const ULTRAMSG_INSTANCE = Deno.env.get("ULTRAMSG_INSTANCE") || "instance114633";
+// Accept either name: whatsapp-webhook uses ULTRAMSG_INSTANCE_ID, this one
+// historically used ULTRAMSG_INSTANCE. No hardcoded fallback - a wrong
+// instance silently sends replies into someone else's account.
+const ULTRAMSG_INSTANCE = Deno.env.get("ULTRAMSG_INSTANCE_ID") || Deno.env.get("ULTRAMSG_INSTANCE") || "";
 const ULTRAMSG_TOKEN_VAL = Deno.env.get("ULTRAMSG_TOKEN") || "";
 
 const ROW_LIMIT = 100000;
