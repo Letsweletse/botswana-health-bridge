@@ -10,11 +10,23 @@ const PRIORITY_CLINIC = "pulse pharmacy tati siding";
    configured secret, but fall back to the known instance rather than sending
    nowhere - and say so in the log, so a missing secret is never silent. */
 const ULTRAMSG_FALLBACK = "instance114633";
-const ULTRAMSG_INSTANCE = Deno.env.get("ULTRAMSG_INSTANCE_ID") || Deno.env.get("ULTRAMSG_INSTANCE") || ULTRAMSG_FALLBACK;
-const ULTRAMSG_TOKEN_VAL = Deno.env.get("ULTRAMSG_TOKEN") || "";
-if (ULTRAMSG_INSTANCE === ULTRAMSG_FALLBACK && !Deno.env.get("ULTRAMSG_INSTANCE_ID") && !Deno.env.get("ULTRAMSG_INSTANCE")) {
-  console.warn(`ULTRAMSG_INSTANCE_ID is not set; falling back to ${ULTRAMSG_FALLBACK}`);
+/* An UltraMsg instance id looks like "instance114633". A bare number is
+   accepted and prefixed. Anything else - most often a token pasted into the
+   wrong field - is rejected, because UltraMsg answers an unknown instance
+   with a misleading "stopped due to non-payment" error. */
+function resolveInstance(): string {
+  const raw = (Deno.env.get("ULTRAMSG_INSTANCE_ID") || Deno.env.get("ULTRAMSG_INSTANCE") || "").trim();
+  if (!raw) {
+    console.warn(`ULTRAMSG_INSTANCE_ID is not set; using ${ULTRAMSG_FALLBACK}`);
+    return ULTRAMSG_FALLBACK;
+  }
+  if (/^instance\d+$/.test(raw)) return raw;
+  if (/^\d+$/.test(raw)) return `instance${raw}`;
+  console.error(`ULTRAMSG_INSTANCE_ID is "${raw}", which is not an instance id (expected e.g. instance114633 - a token may have been pasted into this field). Using ${ULTRAMSG_FALLBACK}.`);
+  return ULTRAMSG_FALLBACK;
 }
+const ULTRAMSG_INSTANCE = resolveInstance();
+const ULTRAMSG_TOKEN_VAL = Deno.env.get("ULTRAMSG_TOKEN") || "";
 const KNOWN_LOCATIONS = ["jwaneng","gaborone","francistown","maun","kasane","palapye","serowe","lobatse","kanye","molepolole","tlokweng","mogoditshane","ramotswa","orapa","letlhakane","selebi phikwe","selibe phikwe","ghanzi","tsabong","hukuntsi","shakawe","gumare","masunga","tati siding","tati","tutume"];
 const LOCATION_NUMBER_MAP: Record<string,string> = {"1":"jwaneng","2":"gaborone","3":""};
 const NON_MEDICINE_WORDS = ["gold plated","regular gold","necklace","bracelet","earring","earrings","perfume","hair piece","hairpiece","body spray","toy","watch"];
