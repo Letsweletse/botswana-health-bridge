@@ -5,6 +5,16 @@ const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-
 const DIV = "───────────────";
 const RESERVATION_HOURS = 3;
 const PRIORITY_CLINIC = "pulse pharmacy tati siding";
+
+/* The ChekaMeds WhatsApp number lives on UltraMsg instance114633. Prefer the
+   configured secret, but fall back to the known instance rather than sending
+   nowhere - and say so in the log, so a missing secret is never silent. */
+const ULTRAMSG_FALLBACK = "instance114633";
+const ULTRAMSG_INSTANCE = Deno.env.get("ULTRAMSG_INSTANCE_ID") || Deno.env.get("ULTRAMSG_INSTANCE") || ULTRAMSG_FALLBACK;
+const ULTRAMSG_TOKEN_VAL = Deno.env.get("ULTRAMSG_TOKEN") || "";
+if (ULTRAMSG_INSTANCE === ULTRAMSG_FALLBACK && !Deno.env.get("ULTRAMSG_INSTANCE_ID") && !Deno.env.get("ULTRAMSG_INSTANCE")) {
+  console.warn(`ULTRAMSG_INSTANCE_ID is not set; falling back to ${ULTRAMSG_FALLBACK}`);
+}
 const KNOWN_LOCATIONS = ["jwaneng","gaborone","francistown","maun","kasane","palapye","serowe","lobatse","kanye","molepolole","tlokweng","mogoditshane","ramotswa","orapa","letlhakane","selebi phikwe","selibe phikwe","ghanzi","tsabong","hukuntsi","shakawe","gumare","masunga","tati siding","tati","tutume"];
 const LOCATION_NUMBER_MAP: Record<string,string> = {"1":"jwaneng","2":"gaborone","3":""};
 const NON_MEDICINE_WORDS = ["gold plated","regular gold","necklace","bracelet","earring","earrings","perfume","hair piece","hairpiece","body spray","toy","watch"];
@@ -110,9 +120,9 @@ function formatWelcomeMenu():NativeWhatsAppPayload{return{type:"button",text:`�
 async function facilityWhatsAppNumber(clinicName:string){try{const{data}=await db().from("chekameds_facilities").select("phone_whatsapp").ilike("facility_name",`%${clinicName.trim()}%`).not("phone_whatsapp","is",null).limit(1).maybeSingle();return cleanPhone(String((data as any)?.phone_whatsapp||""));}catch(_){return"";}}
 
 async function sendPharmacyNotification(pharmacyPhone:string, message:string, pharmacy:string, medicine:string):Promise<{sent:boolean;error:string;response:any}>{
-  const instanceId=Deno.env.get("ULTRAMSG_INSTANCE_ID");
-  const token=Deno.env.get("ULTRAMSG_TOKEN");
-  if(!instanceId||!token)return{sent:false,error:"UltraMsg env vars missing",response:null};
+  const instanceId=ULTRAMSG_INSTANCE;
+  const token=ULTRAMSG_TOKEN_VAL;
+  if(!instanceId||!token)return{sent:false,error:`UltraMsg env missing (instance="${instanceId}", token=${token?"set":"EMPTY"})`,response:null};
   try{
     const r=await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token,to:pharmacyPhone,body:message,priority:10})});
     const json=await r.json();
@@ -154,7 +164,7 @@ async function reserve(phone:string,selected:SessionOption){
 }
 
 function payloadToText(payload:NativeWhatsAppPayload):string{if(payload.type==="text")return payload.text||"";if(payload.type==="button"){const hints=(payload.buttons||[]).map(b=>`▪️ *${b.text}*`).join("\n");return`${payload.text||""}${hints?`\n\n👇 Reply with one of:\n${hints}`:""}`;} if(payload.type==="list"){const rows=(payload.sections||[]).flatMap(s=>s.rows);const lines=rows.map((r,i)=>`*${i+1}.* ${r.title}${r.description?`\n    ${r.description}`:""}`).join("\n");return`${payload.text||""}\n\n${lines}\n\n👇 Reply with a number (1-${rows.length}) to select.`;}return payload.text||"";}
-async function sendWhatsApp(to:string,payload:NativeWhatsAppPayload){const instanceId=Deno.env.get("ULTRAMSG_INSTANCE_ID");const token=Deno.env.get("ULTRAMSG_TOKEN");if(!instanceId||!token)throw new Error("UltraMsg env vars missing");const response=await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token,to:cleanPhone(to),body:payloadToText(payload),priority:10})});const data=await response.json();if(!response.ok||data?.sent==="false"||data?.error)throw new Error(`UltraMsg failure: ${JSON.stringify(data)}`);}
+async function sendWhatsApp(to:string,payload:NativeWhatsAppPayload){const instanceId=ULTRAMSG_INSTANCE;const token=ULTRAMSG_TOKEN_VAL;if(!instanceId||!token)throw new Error(`UltraMsg env missing (instance="${instanceId}", token=${token?"set":"EMPTY"})`);const response=await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token,to:cleanPhone(to),body:payloadToText(payload),priority:10})});const data=await response.json();if(!response.ok||data?.sent==="false"||data?.error)throw new Error(`UltraMsg[${instanceId}]: ${JSON.stringify(data)}`);}
 async function logWebhook(entry:any){try{await db().from("whatsapp_webhook_logs").insert(entry);}catch(_){}try{await db().from("whatsapp_webhook_events").insert({provider:"ultramsg",from_phone:entry.from_number||null,message_text:entry.message_body||null,message_type:"chat",raw_payload:entry.raw_payload||{},status:entry.error_message?"error":"received",error:entry.error_message||null});}catch(_){}}
 function extractInteractiveMessage(payload:any){return String(payload.body||payload.message||payload.text||payload.list_reply?.id||payload.button_reply?.id||payload.interactive?.list_reply?.id||payload.interactive?.button_reply?.id||payload.data?.list_reply?.id||payload.data?.button_reply?.id||"");}
 

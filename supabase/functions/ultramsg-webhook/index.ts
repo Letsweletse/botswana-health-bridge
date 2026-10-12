@@ -12,11 +12,15 @@ const CONSULT=/^(video consult|consult|doctor|video|online consult|consult a doc
 const OPTOUT=/^(stop|unsubscribe|opt out|optout|no messages|remove me)$/;
 const NOTIFY_ME=/^(notify|notify me|alert me|tell me|watch|remind me|yes notify)$/;
 
-// Accept either name: whatsapp-webhook uses ULTRAMSG_INSTANCE_ID, this one
-// historically used ULTRAMSG_INSTANCE. No hardcoded fallback - a wrong
-// instance silently sends replies into someone else's account.
-const ULTRAMSG_INSTANCE = Deno.env.get("ULTRAMSG_INSTANCE_ID") || Deno.env.get("ULTRAMSG_INSTANCE") || "";
+/* The ChekaMeds WhatsApp number lives on UltraMsg instance114633. Prefer the
+   configured secret, but fall back to the known instance rather than sending
+   nowhere - and say so in the log, so a missing secret is never silent. */
+const ULTRAMSG_FALLBACK = "instance114633";
+const ULTRAMSG_INSTANCE = Deno.env.get("ULTRAMSG_INSTANCE_ID") || Deno.env.get("ULTRAMSG_INSTANCE") || ULTRAMSG_FALLBACK;
 const ULTRAMSG_TOKEN_VAL = Deno.env.get("ULTRAMSG_TOKEN") || "";
+if (ULTRAMSG_INSTANCE === ULTRAMSG_FALLBACK && !Deno.env.get("ULTRAMSG_INSTANCE_ID") && !Deno.env.get("ULTRAMSG_INSTANCE")) {
+  console.warn(`ULTRAMSG_INSTANCE_ID is not set; falling back to ${ULTRAMSG_FALLBACK}`);
+}
 
 const ROW_LIMIT = 100000;
 const MAX_TERMS = 16;
