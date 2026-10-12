@@ -57,7 +57,7 @@ const VoteBanner = () => {
         <span className="cm-vote-flag" aria-hidden="true">🇧🇼</span>
         <p className="cm-vote-copy">
           <b>ChekaMeds is Botswana&rsquo;s nominee</b> for Health &amp; Wellness Innovation at the FOYA Awards.{' '}
-          <span>Free vote, once a day &middot; {round.label} closes in {days} {days === 1 ? 'day' : 'days'}.</span>
+          <span>{round.label} closes in {days} {days === 1 ? 'day' : 'days'}.</span>
         </p>
         <a className="cm-vote-cta" href={VOTE_URL} target="_blank" rel="noopener noreferrer">Vote for ChekaMeds</a>
         <button className="cm-vote-x" onClick={close} aria-label="Hide voting banner"><X size={15} /></button>
