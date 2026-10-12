@@ -434,10 +434,10 @@ function waText(p:WA):string{
   return p.text||"";
 }
 async function sendWA(to:string,p:WA){
-  if(!ULTRAMSG_INSTANCE||!ULTRAMSG_TOKEN_VAL)throw new Error("UltraMsg env missing");
+  if(!ULTRAMSG_INSTANCE||!ULTRAMSG_TOKEN_VAL)throw new Error(`UltraMsg env missing (instance="${ULTRAMSG_INSTANCE}", token=${ULTRAMSG_TOKEN_VAL?"set":"EMPTY"})`);
   const r=await fetch(`https://api.ultramsg.com/${ULTRAMSG_INSTANCE}/messages/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:ULTRAMSG_TOKEN_VAL,to:cp(to),body:waText(p),priority:10})});
   const d=await r.json();
-  if(!r.ok||d?.sent==="false"||d?.error)throw new Error(`UltraMsg: ${JSON.stringify(d)}`);
+  if(!r.ok||d?.sent==="false"||d?.error)throw new Error(`UltraMsg[${ULTRAMSG_INSTANCE}]: ${JSON.stringify(d)}`);
 }
 async function logEntry(entry:any){
   try{await sb().from("whatsapp_webhook_logs").insert(entry);}catch(_){}
