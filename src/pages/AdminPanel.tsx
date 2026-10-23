@@ -7,14 +7,15 @@ import {
   CheckCircle2, XCircle, Building2, Clock, ArrowLeft, Loader2, Users, ShieldCheck, Mail,
   LayoutDashboard, Store, Phone, PhoneOff, Search, Plus, Save, MessageCircle, Truck,
   ClipboardList, Stethoscope, Eye, EyeOff, BellRing, BellOff, ExternalLink, AlertTriangle, TrendingUp,
-  Copy, Calendar,
+  Copy, Calendar, Globe2,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import logo from '@/assets/ChekaMeds_Logo.png';
+import PartnerEnquiriesTab, { usePartnerEnquiries } from '@/components/PartnerEnquiriesTab';
 import { MonthlyLineChart, WeeklyBarChart, ReservationDonut, MedicinePieChart, PharmacyStatusBar, AnalyticsMonthlyBar, AnalyticsWeeklyLine, MedicineBarsChart } from '@/components/AdminCharts';
 
-type AdminTab = 'overview' | 'approvals' | 'directory' | 'orders' | 'consultations' | 'analytics';
+type AdminTab = 'overview' | 'approvals' | 'directory' | 'orders' | 'consultations' | 'partners' | 'analytics';
 
 type Facility = {
   id: string;
@@ -146,6 +147,7 @@ const AdminPanel = () => {
     enabled: isAdmin === true,
   });
 
+  const { data: partnerLeads = [] } = usePartnerEnquiries();
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: ['admin-orders'],
     queryFn: async () => {
@@ -365,6 +367,7 @@ const AdminPanel = () => {
     { id: 'directory', label: 'Pharmacy Directory', icon: Store, badge: missingNumbers.length },
     { id: 'orders', label: 'Reservations', icon: ClipboardList, badge: orders.filter((o) => o.status === 'reserved').length },
     { id: 'consultations', label: 'Consultations', icon: Stethoscope },
+    { id: 'partners', label: 'Partners', icon: Globe2, badge: partnerLeads.filter((l) => l.status === 'new').length },
     { id: 'analytics', label: 'Analytics', icon: TrendingUp },
   ];
 
@@ -1016,6 +1019,10 @@ const AdminPanel = () => {
               </div>
             )}
           </div>
+        )}
+
+        {tab === 'partners' && (
+          <PartnerEnquiriesTab />
         )}
 
         {tab === 'analytics' && (

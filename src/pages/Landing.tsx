@@ -250,6 +250,7 @@ export default function Landing() {
             <a href="#for-everyone" onClick={closeMenu}>Who it's for</a>
             <a href="#intelligence" onClick={closeMenu}>Healthcare intelligence</a>
             <Link to="/facilities" onClick={closeMenu}>For pharmacies</Link>
+            <Link to="/partners" onClick={closeMenu}>License ChekaMeds</Link>
           </nav>
           <div className="cm-header-actions">
             <Link to="/search" className="cm-btn cm-btn-primary">Find medicine <ArrowUpRight size={16} /></Link>

@@ -8,6 +8,7 @@ const platform = [
   { label: 'Find medicine', to: '/search' },
   { label: 'Video consultation', to: '/consultant' },
   { label: 'Partner facilities', to: '/facilities' },
+  { label: 'License ChekaMeds', to: '/partners' },
 ];
 
 const company = [

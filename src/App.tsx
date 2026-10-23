@@ -24,6 +24,7 @@ const CampaignAdmin = lazy(() => import("./pages/CampaignAdmin"));
 const WhatsAppWebhookAdmin = lazy(() => import("./pages/WhatsAppWebhookAdmin"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Scanner = lazy(() => import("./pages/Scanner"));
+const Partners = lazy(() => import("./pages/Partners"));
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import SiteFooter from "./components/SiteFooter";
@@ -54,6 +55,7 @@ const AnimatedRoutes = () => {
           <Route path="/delivery" element={<Delivery />} />
           <Route path="/facilities" element={<Facilities />} />
           <Route path="/consultant" element={<Consultant />} />
+          <Route path="/partners" element={<Partners />} />
           <Route path="/dashboard/consultant" element={<ProtectedRoute><ConsultantAdmin /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
           <Route path="/admin/campaigns" element={<AdminRoute><CampaignAdmin /></AdminRoute>} />
