@@ -4,7 +4,7 @@ import {
   ArrowUpRight, BarChart3, Check, CheckCircle2, Download, Globe2, Loader2, Mail, MessageCircle,
   MonitorSmartphone, Phone, Smartphone,
 } from 'lucide-react';
-import logoMark from '@/assets/chekameds-mark.webp';
+import SiteHeader from '@/components/SiteHeader';
 
 const WA = '26775560140';
 const WA_TEXT = encodeURIComponent("Hi Letsweletse, I'd like to discuss licensing ChekaMeds in my country.");
@@ -129,7 +129,7 @@ export default function Partners() {
   const cls = (name: string) => (bad.includes(name) ? 'cm-pt-bad' : undefined);
 
   return (
-    <div className="cm-pt">
+    <div className="cms cm-pt">
       <style>{`
         .cm-pt{--bg:#050a08;--panel:#0a1410;--panel2:#0d1a14;--line:rgba(211,255,232,.11);--ink:#eaf5ef;--mute:#8fa69a;--dim:#60766a;--g:#29f29a;--amber:#fbbf5a;
           background:var(--bg);color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
@@ -220,7 +220,7 @@ export default function Partners() {
         .cm-pt input,.cm-pt select,.cm-pt textarea{width:100%;background:#050c09;border:1px solid rgba(211,255,232,.16);border-radius:10px;padding:12px 13px;color:#f4fff9;font:inherit;font-size:.95rem}
         .cm-pt textarea{min-height:110px;resize:vertical}
         .cm-pt select option{background:#0a1410}
-        .cm-pt .cm-pt-bad{border-color:#f87171}
+        .cm-pt .cm-pt-bad{border-color:#f87171!important}
         .cm-pt-chips{display:flex;flex-wrap:wrap;gap:8px}
         .cm-pt-chip{border:1px solid rgba(211,255,232,.18);background:transparent;color:#c8d9cf;border-radius:99px;padding:9px 14px;font:600 .85rem 'DM Sans';cursor:pointer;display:inline-flex;align-items:center;gap:6px}
         .cm-pt-chip[aria-pressed='true']{background:rgba(41,242,154,.12);border-color:var(--g);color:#d8ffe9}
@@ -266,21 +266,8 @@ export default function Partners() {
         @media(prefers-reduced-motion:reduce){.cm-pt-btn{transition:none}.cm-pt-btn:hover{transform:none}}
       `}</style>
 
+      <SiteHeader />
       <div className="cm-pt-w">
-        <header className="cm-pt-hd">
-          <Link to="/" className="cm-pt-brand" aria-label="ChekaMeds home">
-            <img src={logoMark} alt="" width="36" height="36" />
-            <span>Cheka<span>Meds</span></span>
-            <small>Partners</small>
-          </Link>
-          <nav className="cm-pt-nav" aria-label="Partner page sections">
-            <a href="#channels">Channels</a>
-            <a href="#plans">Pricing</a>
-            <a href="#launch">How it works</a>
-            <a href="#faq">FAQ</a>
-          </nav>
-          <a href="#enquire" className="cm-pt-btn cm-pt-btn-p">Book a call</a>
-        </header>
 
         <section className="cm-pt-hero">
           <div>

@@ -1,44 +1,59 @@
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { Menu, X } from 'lucide-react';
 import logoMark from '@/assets/chekameds-mark.webp';
 
-type SiteHeaderLink = {
-  label: string;
-  to: string;
-};
+/* One header for every public page. Must be rendered inside a .cms wrapper
+   (src/styles/site.css). The old props are accepted and ignored so any
+   remaining callers keep compiling. */
 
-type SiteHeaderProps = {
-  links?: SiteHeaderLink[];
-  ctaLabel?: string;
-  ctaTo?: string;
-};
+type SiteHeaderProps = { links?: unknown; ctaLabel?: string; ctaTo?: string };
 
-const defaultLinks: SiteHeaderLink[] = [
-  { label: 'Search', to: '/search' },
+const LINKS = [
+  { label: 'Find medicine', to: '/search' },
   { label: 'Delivery', to: '/delivery' },
-  { label: 'Video Consult', to: '/consultant' },
-  { label: 'Facilities', to: '/facilities' },
+  { label: 'Video consult', to: '/consultant' },
+  { label: 'Pharmacies', to: '/facilities' },
+  { label: 'For partners', to: '/partners' },
 ];
 
-const SiteHeader = ({ links = defaultLinks, ctaLabel, ctaTo }: SiteHeaderProps) => {
-  const location = useLocation();
-  const finalLinks = ctaLabel && ctaTo ? [...links, { label: ctaLabel, to: ctaTo }] : links;
+const SiteHeader = (_props: SiteHeaderProps) => {
+  const { pathname } = useLocation();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  const isActive = (to: string) => pathname === to || pathname.startsWith(to + '/');
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 border-b border-emerald-300/15 bg-[linear-gradient(135deg,rgba(1,18,14,0.96),rgba(2,42,31,0.94)_48%,rgba(0,12,10,0.96))] text-white shadow-[0_18px_60px_rgba(0,0,0,0.42),0_0_42px_rgba(16,185,129,0.12)] backdrop-blur-2xl">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(52,211,153,0.16),transparent_32%),radial-gradient(circle_at_82%_0%,rgba(125,211,252,0.10),transparent_28%)]" />
-      <div className="relative mx-auto flex h-20 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-12">
-        <Link to="/" className="flex min-w-0 items-center" aria-label="ChekaMeds home">
-          <span className="flex items-center gap-2.5"><img src={logoMark} alt="" width="40" height="40" className="h-10 w-10 rounded-xl shadow-[0_0_24px_rgba(41,242,154,0.25)]" /><span className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">Cheka<span className="text-emerald-300">Meds</span></span></span>
-        </Link>
-        <nav className="hidden items-center gap-2 rounded-full border border-white/10 bg-black/20 p-1.5 shadow-inner md:flex" aria-label="Main navigation">
-          {finalLinks.map((link) => {
-            const isActive = link.to === '/' ? location.pathname === '/' : location.pathname.startsWith(link.to);
-            return (
-              <Link key={link.to} to={link.to} aria-current={isActive ? 'page' : undefined} className={`whitespace-nowrap rounded-full px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition sm:px-4 sm:text-xs ${isActive ? 'bg-emerald-300 text-[#06130e] shadow-[0_0_24px_rgba(52,211,153,0.34)]' : 'text-white/72 hover:bg-white/10 hover:text-white'}`}>
-                {link.label}
-              </Link>
-            );
-          })}
+    <header className="cms-hd">
+      <div className="cms-wrap">
+        <div className="cms-hd-in">
+          <Link to="/" className="cms-brand" aria-label="ChekaMeds home">
+            <img src={logoMark} alt="" width="34" height="34" />
+            <span>Cheka<span>Meds</span></span>
+          </Link>
+
+          <nav className="cms-nav" aria-label="Main navigation">
+            {LINKS.map((l) => (
+              <Link key={l.to} to={l.to} aria-current={isActive(l.to) ? 'page' : undefined}>{l.label}</Link>
+            ))}
+          </nav>
+
+          <div className="cms-hd-act">
+            <Link to="/login" className="cms-hd-login">Pharmacy login</Link>
+            {pathname !== '/search' && <Link to="/search" className="cms-btn cms-btn-p cms-btn-sm">Find medicine</Link>}
+            <button type="button" className="cms-burger" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+              {open ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
+        </div>
+
+        <nav className={`cms-drawer${open ? ' open' : ''}`} aria-label="Mobile navigation">
+          {LINKS.map((l) => (
+            <Link key={l.to} to={l.to} aria-current={isActive(l.to) ? 'page' : undefined}>{l.label}</Link>
+          ))}
+          <Link to="/login">Pharmacy login</Link>
         </nav>
       </div>
     </header>

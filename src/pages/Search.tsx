@@ -1,11 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Pill, Package, Building2, AlertCircle, Loader2, MapPin } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Building2, AlertCircle, Loader2, MapPin, MessageCircle, Phone, Truck } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import SiteHeader from '@/components/SiteHeader';
-import heroBg from '@/assets/hero-bg.webp';
 
 interface InventoryItem {
   id: string;
@@ -273,7 +271,7 @@ const SearchPage = () => {
   }, [payload]);
 
   const stockLabel = (q: number) =>
-    q > 100 ? { text: 'In Stock', cls: 'text-emerald-400' } : q >= 20 ? { text: 'Low Stock', cls: 'text-amber-400' } : { text: 'Limited', cls: 'text-red-400' };
+    q > 100 ? { text: 'In stock', cls: '' } : q >= 20 ? { text: 'Low stock', cls: 'amber' } : { text: 'Limited', cls: 'amber' };
 
   const groupedByClinic = useMemo(() => {
     const map = new Map<string, typeof results>();
@@ -309,152 +307,136 @@ const SearchPage = () => {
     setDebouncedQuery(medicine);
   };
 
+  const WA_SEARCH = 'https://wa.me/26771424486?text=' + encodeURIComponent(`Hi ChekaMeds, I am looking for ${debouncedQuery || 'a medicine'}.`);
+  const deliveryLink = (med: InventoryItem) =>
+    `/delivery?inventory_id=${encodeURIComponent(med.id)}&medicine_name=${encodeURIComponent([med.med_name, med.strength].filter(Boolean).join(' '))}&pharmacy_name=${encodeURIComponent(med.clinic_name)}${med.contact ? `&pharmacy_contact=${encodeURIComponent(med.contact)}` : ''}`;
+
   return (
-    <div className="min-h-screen font-[Gordita,system-ui,sans-serif] antialiased bg-[#020e08]">
-      <SiteHeader ctaLabel="Clinic Login" ctaTo="/login" />
+    <div className="cms cm-search">
+      <style>{`
+        .cm-search-hero{padding:56px 0 28px;text-align:center;display:grid;justify-items:center;gap:14px}
+        .cm-search-box{position:relative;width:min(680px,100%);margin-top:14px}
+        .cm-search-box svg.lead{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:var(--muted)}
+        .cm-search-box input{height:62px!important;padding-left:52px;padding-right:52px;font-size:1.08rem;border-radius:14px;background:#08110d}
+        .cm-search-box .spin{position:absolute;right:18px;top:50%;margin-top:-10px;color:var(--g)}
+        .cm-try{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;align-items:center;margin-top:4px}
+        .cm-try span{font-size:.84rem;color:var(--dim);margin-right:2px}
+        .cm-meta{display:flex;gap:20px;justify-content:center;font-size:.88rem;color:var(--muted);margin-top:6px}
+        .cm-meta b{color:#fff}
+        .cm-results{width:min(820px,100%);margin:0 auto;padding:12px 0 96px;display:grid;gap:14px}
+        .cm-res{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+        .cm-res-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+        .cm-res-hd h3{font-size:1.02rem}
+        .cm-res-hd p{font-size:.82rem;color:var(--muted);margin-top:2px}
+        .cm-res-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line)}
+        .cm-res-row:last-child{border-bottom:0}
+        .cm-res-name{font-weight:600;color:#f6fffa}
+        .cm-res-sub{font-size:.82rem;color:var(--muted);margin-top:3px}
+        .cm-res-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+        .cm-res-acts a{display:inline-flex;align-items:center;gap:5px;font-size:.8rem;font-weight:600;color:var(--g);padding:5px 10px;border-radius:8px;background:var(--g-soft)}
+        .cm-res-price{text-align:right;flex-shrink:0}
+        .cm-res-price b{display:block;font:800 1.05rem var(--head);color:#f6fffa}
+        .cm-empty{text-align:center;padding:48px 0 96px;display:grid;justify-items:center;gap:12px}
+        .cm-how{width:min(820px,100%);margin:20px auto 96px}
+        @media(max-width:600px){.cm-search-hero{padding-top:32px}.cm-res-row{align-items:flex-start}.cm-res-hd,.cm-res-row{padding-left:16px;padding-right:16px}}
+      `}</style>
+      <SiteHeader />
 
-      <div className="pt-20">
-        <div className="relative w-full">
-          <img src={heroBg} alt="ChekaMeds — Find Medicines Faster" className="w-full h-auto block" />
-          <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#020e08] to-transparent" />
-        </div>
-      </div>
+      <div className="cms-wrap">
+        <section className="cm-search-hero">
+          <span className="cms-eyebrow"><i /> Free · No login needed</span>
+          <h1 className="cms-h1" style={{ fontSize: 'clamp(2.1rem,4.6vw,3.4rem)' }}>Find your medicine</h1>
+          <p className="cms-sub" style={{ margin: '0 auto' }}>Search by brand, generic or common name. Close spellings work too.</p>
 
-      <section className="relative max-w-3xl mx-auto px-4 pt-12 pb-8 text-center">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <div className="inline-flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-4 py-1.5 text-xs font-semibold mb-6 border border-emerald-500/20">
-            <Pill className="h-3.5 w-3.5" /> Free · No login required
+          <div className="cm-search-box">
+            <Search size={20} className="lead" />
+            <input
+              value={query}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="e.g. Panado, amoxicillin, heartburn"
+              className="cms-input"
+              aria-label="Search for a medicine"
+              autoFocus
+            />
+            {isLoading && <Loader2 size={20} className="spin cms-spin" />}
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 tracking-tight">
-            Find Your Medicine <span className="text-emerald-400">Instantly</span>
-          </h2>
-          <p className="text-white/40 text-sm md:text-base max-w-lg mx-auto mb-6 font-light">
-            Search by brand name, generic name, common name, symptom-style wording, or close misspelling.
-          </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
-            <span className="text-xs text-white/30 mr-1">Try:</span>
-            {['Panado', 'Paracetmol', 'Ibuprofen', 'Allergex', 'Heartburn', 'Esomep', 'Flu'].map((med) => (
-              <button
-                key={med}
-                onClick={() => setQuickSearch(med)}
-                className="text-xs px-3 py-1.5 border border-white/[0.1] bg-white/[0.03] hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-400 text-white/40 transition-all duration-200 font-medium"
-              >
-                {med}
-              </button>
+          <div className="cm-try">
+            <span>Try:</span>
+            {['Panado', 'Ibuprofen', 'Allergex', 'Amoxicillin', 'Heartburn', 'Esomep'].map((med) => (
+              <button key={med} type="button" onClick={() => setQuickSearch(med)} className="cms-chip">{med}</button>
             ))}
           </div>
-        </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="relative max-w-xl mx-auto">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30" />
-          <input
-            value={query}
-            onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Try Panado, Paracetmol, Allergex, Heartburn..."
-            className="w-full pl-12 pr-4 h-14 text-base border border-white/[0.1] bg-white/[0.04] text-white placeholder:text-white/25 focus:outline-none focus:border-emerald-500/50 transition-colors shadow-lg shadow-black/30"
-            autoFocus
-          />
-          {isLoading && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-emerald-400 animate-spin" />}
-        </motion.div>
+          {searchHint && <p className="cms-small" style={{ color: 'var(--g)' }}>{searchHint}</p>}
+          {debouncedQuery.length >= 2 && !isLoading && results.length > 0 && (
+            <div className="cm-meta">
+              <span><b>{uniqueMedicines}</b> medicine{uniqueMedicines !== 1 ? 's' : ''}</span>
+              <span><b>{uniqueClinics}</b> pharmac{uniqueClinics !== 1 ? 'ies' : 'y'}</span>
+            </div>
+          )}
+        </section>
 
-        {searchHint && <p className="text-xs text-emerald-400/70 mt-3">{searchHint}</p>}
-
-        {debouncedQuery.length >= 2 && !isLoading && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center gap-6 mt-5 text-xs text-white/30">
-            <span className="flex items-center gap-1.5"><Pill className="h-3.5 w-3.5 text-emerald-400" /><strong className="text-white/70">{uniqueMedicines}</strong> medicine{uniqueMedicines !== 1 ? 's' : ''}</span>
-            <span className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-emerald-400" /><strong className="text-white/70">{uniqueClinics}</strong> facilit{uniqueClinics !== 1 ? 'ies' : 'y'}</span>
-          </motion.div>
-        )}
-      </section>
-
-      <section className="max-w-3xl mx-auto px-4 pb-16">
-        <AnimatePresence mode="wait">
-          {debouncedQuery.length < 2 && query.length === 0 ? (
-            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center py-12">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto">
-                {[
-                  { icon: Search, label: 'Smarter search', desc: 'Brand, generic or common names' },
-                  { icon: MapPin, label: 'Find facilities', desc: 'Active visible pharmacies only' },
-                  { icon: Package, label: 'Check availability', desc: 'Stock and price where listed' },
-                ].map((item, i) => (
-                  <div key={i} className="bg-white/[0.03] border border-white/[0.08] p-5 text-center">
-                    <div className="h-10 w-10 bg-emerald-500/10 flex items-center justify-center mx-auto mb-3"><item.icon className="h-5 w-5 text-emerald-400" /></div>
-                    <p className="text-xs font-semibold text-white/70 mb-0.5">{item.label}</p>
-                    <p className="text-[10px] text-white/30">{item.desc}</p>
-                  </div>
-                ))}
+        {debouncedQuery.length < 2 && query.length === 0 ? (
+          <div className="cm-how">
+            <div className="cms-grid-3">
+              <div className="cms-card cms-card-tight"><span className="cms-icon"><Search size={19} /></span><h3 className="cms-h3">1. Search</h3><p>Type the medicine name. We also search generic and brand names.</p></div>
+              <div className="cms-card cms-card-tight"><span className="cms-icon"><Building2 size={19} /></span><h3 className="cms-h3">2. Pick a pharmacy</h3><p>See who reports it in stock, with price where listed.</p></div>
+              <div className="cms-card cms-card-tight"><span className="cms-icon"><Truck size={19} /></span><h3 className="cms-h3">3. Collect or deliver</h3><p>Call to confirm, get directions, or request delivery.</p></div>
+            </div>
+            <p className="cms-small" style={{ textAlign: 'center', marginTop: 22 }}>
+              Prefer WhatsApp? <a href={WA_SEARCH} target="_blank" rel="noreferrer" className="cms-link">Message 71 424 486</a>
+            </p>
+          </div>
+        ) : debouncedQuery.length >= 2 && !isLoading && results.length === 0 ? (
+          <div className="cm-empty">
+            <AlertCircle size={40} color="#6b8276" />
+            <h2 className="cms-h3" style={{ fontSize: '1.3rem' }}>No pharmacy lists "{debouncedQuery}" right now</h2>
+            <p className="cms-sub">Try the generic name, a shorter spelling, or one of these. We've logged your search so pharmacies can see the demand.</p>
+            {payload.suggestions.length > 0 && (
+              <div className="cm-try">
+                {payload.suggestions.map((s) => <button key={s} type="button" onClick={() => setQuickSearch(s)} className="cms-chip">{s}</button>)}
               </div>
-            </motion.div>
-          ) : debouncedQuery.length >= 2 && !isLoading && results.length === 0 ? (
-            <motion.div key="no-results" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-center py-16">
-              <AlertCircle className="h-12 w-12 text-white/15 mx-auto mb-4" />
-              <p className="text-lg font-semibold text-white mb-1">No exact result found</p>
-              <p className="text-sm text-white/40 max-w-md mx-auto mb-5">No active facility currently lists <strong className="text-white/60">{debouncedQuery}</strong>. Try a generic name, brand name, shorter spelling, or one of the suggestions below.</p>
-              {payload.suggestions.length > 0 && (
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  {payload.suggestions.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      onClick={() => setQuickSearch(suggestion)}
-                      className="text-xs px-3 py-1.5 border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition-all duration-200 font-medium"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
+            )}
+            <a href={WA_SEARCH} target="_blank" rel="noreferrer" className="cms-btn cms-btn-g" style={{ marginTop: 8 }}><MessageCircle size={16} /> Ask us on WhatsApp</a>
+          </div>
+        ) : (
+          <div className="cm-results">
+            {groupedByClinic.map(([clinicName, medicines]) => (
+              <article key={clinicName} className="cm-res">
+                <div className="cm-res-hd">
+                  <div>
+                    <h3>{clinicName}</h3>
+                    <p>{medicines.length} matching medicine{medicines.length > 1 ? 's' : ''}{medicines[0]?.location ? ` · ${medicines[0].location}` : ''}</p>
+                  </div>
+                  <span className="cms-badge">Reports in stock</span>
                 </div>
-              )}
-            </motion.div>
-          ) : (
-            <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
-              {groupedByClinic.map(([clinicName, medicines], idx) => (
-                <motion.div key={clinicName} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} className="bg-white/[0.03] border border-white/[0.08] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                  <div className="px-5 py-4 border-b border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 bg-emerald-500/10 flex items-center justify-center"><Building2 className="h-4 w-4 text-emerald-400" /></div>
-                      <div>
-                        <h3 className="text-sm font-bold text-white">{clinicName}</h3>
-                        <p className="text-[10px] text-white/30">{medicines.length} matching medicine{medicines.length > 1 ? 's' : ''} listed</p>
+                {medicines.map((med) => {
+                  const st = stockLabel(med.quantity);
+                  const tel = (med.contact || '').replace(/[^0-9+]/g, '');
+                  return (
+                    <div key={`${med.id}-${med.med_name}`} className="cm-res-row">
+                      <div style={{ minWidth: 0 }}>
+                        <p className="cm-res-name">{med.med_name}{med.strength ? ` ${med.strength}` : ''}</p>
+                        <p className="cm-res-sub">{[med.dosage_form, med.pack_size, med.category].filter(Boolean).join(' · ') || 'Medicine'}</p>
+                        <div className="cm-res-acts">
+                          {tel && <a href={`tel:${tel}`}><Phone size={13} /> Call to confirm</a>}
+                          {med.directions_link && <a href={med.directions_link} target="_blank" rel="noopener noreferrer"><MapPin size={13} /> Directions</a>}
+                          <Link to={deliveryLink(med)}><Truck size={13} /> Deliver</Link>
+                        </div>
+                      </div>
+                      <div className="cm-res-price">
+                        {med.price_bwp != null && <b>P {Number(med.price_bwp).toFixed(2)}</b>}
+                        <span className={`cms-badge ${st.cls}`} style={{ marginTop: 6 }}>{st.text}</span>
                       </div>
                     </div>
-                    <span className="text-[10px] px-2.5 py-1 border font-semibold bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Available</span>
-                  </div>
-
-                  <div className="divide-y divide-white/[0.04]">
-                    {medicines.map((med) => (
-                      <div key={`${med.id}-${med.med_name}`} className="px-5 py-3 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-white/80 truncate">{med.med_name}</p>
-                            {med.strength && <span className="text-[10px] text-white/30 bg-white/[0.05] px-1.5 py-0.5">{med.strength}</span>}
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {med.dosage_form && <span className="text-[10px] text-white/25">{med.dosage_form}</span>}
-                            {med.pack_size && <span className="text-[10px] text-white/25">· {med.pack_size}</span>}
-                            <span className="text-[10px] text-white/25">· {med.category || 'Essential'}</span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 mt-1">
-                            {med.location && <p className="text-[10px] text-white/30">Location: {med.location}</p>}
-                            {med.directions_link && (
-                              <a href={med.directions_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 hover:text-emerald-200 border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 transition-colors">
-                                <MapPin className="h-3 w-3" /> Directions
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right flex-shrink-0 ml-4">
-                          {med.price_bwp != null && <p className="text-sm font-bold text-emerald-300">P {Number(med.price_bwp).toFixed(2)}</p>}
-                          <p className={`text-xs font-semibold ${stockLabel(med.quantity).cls}`}>{stockLabel(med.quantity).text}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </section>
+                  );
+                })}
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

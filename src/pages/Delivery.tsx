@@ -1,7 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, Loader2, MapPin, PackageCheck, Phone, ShieldCheck, Truck } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { ArrowLeft, CheckCircle2, Info, Loader2, MapPin, PackageCheck, Phone, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import SiteHeader from '@/components/SiteHeader';
 import { toast } from '@/hooks/use-toast';
@@ -81,114 +80,92 @@ const Delivery = () => {
     }
   };
 
-  const inputClass = 'h-12 w-full border-2 border-emerald-900/60 bg-[#061a13] px-3 text-sm text-white outline-none transition focus:border-emerald-300';
-  const textareaClass = 'w-full border-2 border-emerald-900/60 bg-[#061a13] px-3 py-3 text-sm text-white outline-none transition focus:border-emerald-300';
+  const F = (field: keyof DeliveryForm, label: string, placeholder: string, opts: { area?: boolean; full?: boolean; required?: boolean } = {}) => (
+    <div className={opts.full ? 'full' : undefined}>
+      <label className="cms-label" htmlFor={`d-${field}`}>{label}{opts.required ? ' *' : ''}</label>
+      {opts.area
+        ? <textarea id={`d-${field}`} value={form[field]} onChange={(e) => updateField(field, e.target.value)} className="cms-textarea" placeholder={placeholder} />
+        : <input id={`d-${field}`} value={form[field]} onChange={(e) => updateField(field, e.target.value)} className="cms-input" placeholder={placeholder} />}
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[#020e08] text-white font-[Gordita,system-ui,sans-serif] antialiased">
+    <div className="cms cm-deliv">
+      <style>{`
+        .cm-deliv-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:28px;align-items:start;margin-top:28px}
+        .cm-deliv-towns{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+        .cm-deliv-map{margin-top:24px;border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--line);height:300px;background:#000}
+        .cm-deliv-map iframe{width:100%;height:100%;border:0;filter:grayscale(.3) brightness(.85)}
+        .cm-pin{margin:22px auto 0;max-width:260px;border-radius:var(--r);border:1px solid var(--g-line);background:var(--g-soft);padding:18px;text-align:center}
+        .cm-pin b{display:block;font:800 2.4rem var(--head);letter-spacing:.2em;color:#fff;margin-top:4px}
+        @media(max-width:900px){.cm-deliv-grid{grid-template-columns:1fr}.cm-deliv-map{height:240px}}
+      `}</style>
       <SiteHeader />
 
-      <main className="mx-auto max-w-6xl px-4 pb-20 pt-28 sm:px-6 lg:px-8">
-        <Link to="/search" className="mb-6 inline-flex items-center gap-2 border-2 border-emerald-400 bg-[#052016] px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-emerald-200 hover:bg-emerald-400 hover:text-[#04120d]">
-          <ArrowLeft className="h-4 w-4" /> Back to search
-        </Link>
-
-        <section className="mb-8 overflow-hidden border-2 border-emerald-400/40 bg-[#03140e] shadow-[12px_12px_0_rgba(16,185,129,0.14)]">
-          <div className="grid grid-cols-4">
-            <div className="h-2 bg-emerald-400" />
-            <div className="h-2 bg-cyan-300" />
-            <div className="h-2 bg-amber-300" />
-            <div className="h-2 bg-lime-300" />
-          </div>
-          <div className="grid lg:grid-cols-[360px_1fr]">
-            <div className="border-b-2 border-emerald-400/30 bg-[#052016] p-5 lg:border-b-0 lg:border-r-2">
-              <div className="inline-flex items-center gap-2 border-2 border-emerald-300 bg-emerald-300 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#04120d]">
-                <MapPin className="h-4 w-4" /> Delivery coverage
-              </div>
-              <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl">ChekaMeds <span className="text-emerald-300">Delivery</span></h1>
-              <p className="mt-3 text-sm leading-6 text-white/65">Visible coverage across Botswana. Patients request delivery, the facility confirms, then the driver is assigned.</p>
-              <div className="mt-5 grid gap-2">
-                <div className="border-2 border-emerald-300 bg-emerald-300/15 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-100">Gaborone Active</div>
-                <div className="border-2 border-amber-300 bg-amber-300/15 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-amber-100">Jwaneng Active</div>
-                <div className="border-2 border-cyan-300 bg-cyan-300/15 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-cyan-100">Botswana Map</div>
-              </div>
-            </div>
-            <div className="h-[360px] bg-black lg:h-[430px]">
-              <iframe title="ChekaMeds Botswana delivery map" src={mapEmbedSrc} className="h-full w-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
-            </div>
-          </div>
+      <main className="cms-wrap cms-page" style={{ paddingTop: 0 }}>
+        <section className="cms-hero">
+          <Link to="/search" className="cms-link" style={{ color: 'var(--muted)' }}><ArrowLeft size={15} /> Back to search</Link>
+          <span className="cms-eyebrow"><i /> ChekaMeds Delivery</span>
+          <h1 className="cms-h1" style={{ fontSize: 'clamp(2.1rem,4.4vw,3.2rem)' }}>Found it? <em>Get it delivered.</em></h1>
+          <p className="cms-lead">Send a delivery request to the pharmacy. They confirm first, then assign a driver and tell you the delivery fee.</p>
         </section>
 
-        <section className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden border-2 border-emerald-500/30 bg-[#03140e] p-6 shadow-[12px_12px_0_rgba(16,185,129,0.14)] sm:p-8">
-            <div className="absolute inset-x-0 top-0 grid grid-cols-4">
-              <div className="h-2 bg-emerald-400" />
-              <div className="h-2 bg-cyan-300" />
-              <div className="h-2 bg-amber-300" />
-              <div className="h-2 bg-lime-300" />
+        <div className="cm-deliv-grid">
+          <div>
+            <div className="cms-steps">
+              <div><span><h3>Pharmacy confirms</h3><p>Nothing is sent until the pharmacy has checked stock and accepted your request.</p></span></div>
+              <div><span><h3>Driver delivers</h3><p>The pharmacy assigns a driver and agrees the delivery fee with you.</p></span></div>
+              <div><span><h3>Hand over with your PIN</h3><p>You get a 4-digit PIN. Give it to the driver when your medicine arrives.</p></span></div>
             </div>
-            <div className="relative pt-4">
-              <div className="mb-5 inline-flex items-center gap-2 border-2 border-emerald-300 bg-emerald-300 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#04120d]">
-                <Truck className="h-4 w-4" /> Request flow
-              </div>
-              <h2 className="text-3xl font-black tracking-tight sm:text-5xl">Found it? <span className="text-emerald-300">Request delivery.</span></h2>
-              <p className="mt-4 max-w-xl text-sm leading-7 text-white/65 sm:text-base">Send a delivery request to the listed facility. The facility confirms first, then assigns the driver and manages the delivery fee.</p>
-
-              <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                {[
-                  { icon: ShieldCheck, title: 'Facility confirms', text: 'No delivery proceeds before facility review.', cls: 'border-emerald-400 bg-emerald-400/10 text-emerald-200' },
-                  { icon: PackageCheck, title: 'Tracked handover', text: 'Request, status and PIN stay recorded.', cls: 'border-cyan-300 bg-cyan-300/10 text-cyan-100' },
-                  { icon: Phone, title: 'WhatsApp alerts', text: 'Driver and patient updates are supported.', cls: 'border-amber-300 bg-amber-300/10 text-amber-100' },
-                ].map((item) => (
-                  <div key={item.title} className={`border-2 p-4 ${item.cls}`}>
-                    <item.icon className="mb-3 h-5 w-5" />
-                    <p className="text-xs font-black uppercase tracking-[0.12em]">{item.title}</p>
-                    <p className="mt-2 text-xs leading-5 text-white/55">{item.text}</p>
-                  </div>
-                ))}
+            <div style={{ marginTop: 22 }}>
+              <p className="cms-small">Delivery active in</p>
+              <div className="cm-deliv-towns">
+                <span className="cms-badge">Gaborone</span>
+                <span className="cms-badge">Jwaneng</span>
+                <span className="cms-badge muted">More towns soon</span>
               </div>
             </div>
-          </motion.div>
+            <div className="cm-deliv-map">
+              <iframe title="ChekaMeds delivery coverage map" src={mapEmbedSrc} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+            </div>
+          </div>
 
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="border-2 border-white/15 bg-[#04130e] p-5 shadow-[12px_12px_0_rgba(255,255,255,0.05)] sm:p-6">
+          <div className="cms-card" style={{ padding: 28 }}>
             {success ? (
-              <div className="py-8 text-center">
-                <CheckCircle2 className="mx-auto mb-4 h-14 w-14 text-emerald-300" />
-                <h2 className="text-2xl font-black">Request received</h2>
-                <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-white/55">The facility will review the request. Keep this PIN for delivery confirmation.</p>
-                <div className="mx-auto mt-6 max-w-xs border-2 border-emerald-300 bg-emerald-300/10 p-5">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-200">Delivery PIN</p>
-                  <p className="mt-2 text-4xl font-black tracking-[0.22em] text-white">{success.pin}</p>
-                </div>
-                <p className="mt-5 text-xs text-white/35">Reference: {success.id.slice(0, 8).toUpperCase()}</p>
-                <Link to="/search" className="mt-7 inline-flex items-center justify-center border-2 border-emerald-300 bg-emerald-300 px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-[#06130e] hover:bg-[#06130e] hover:text-emerald-200">Search another item</Link>
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <CheckCircle2 size={52} color="#29f29a" style={{ margin: '0 auto' }} />
+                <h2 className="cms-h2" style={{ fontSize: '1.7rem', marginTop: 14 }}>Request received</h2>
+                <p className="cms-sub" style={{ margin: '10px auto 0' }}>The pharmacy will review it and contact you. Keep this PIN for the hand-over.</p>
+                <div className="cm-pin"><span className="cms-small">Delivery PIN</span><b>{success.pin}</b></div>
+                <p className="cms-fine" style={{ marginTop: 14 }}>Reference {success.id.slice(0, 8).toUpperCase()}</p>
+                <Link to="/search" className="cms-btn cms-btn-p" style={{ marginTop: 22 }}>Search another medicine</Link>
               </div>
             ) : (
-              <form onSubmit={submitRequest} className="space-y-4">
-                <div className="border-l-8 border-emerald-300 bg-emerald-300/10 p-4">
-                  <h2 className="text-xl font-black">Delivery details</h2>
-                  <p className="mt-1 text-xs leading-5 text-white/50">Use the correct patient phone number. The facility may call before confirming.</p>
+              <form onSubmit={submitRequest}>
+                <h2 className="cms-h3" style={{ fontSize: '1.3rem' }}>Delivery details</h2>
+                <p className="cms-small" style={{ marginTop: 4, marginBottom: 20 }}>Use the right phone number. The pharmacy may call before confirming.</p>
+                <div className="cms-form-grid">
+                  {F('patient_name', 'Patient name', 'Full name', { required: true })}
+                  {F('patient_phone', 'Phone / WhatsApp', 'e.g. 75560140', { required: true })}
+                  {F('delivery_address', 'Delivery address', 'Plot, ward, town and a landmark', { area: true, full: true, required: true })}
+                  {F('medicine_name', 'Medicine', 'Name and strength', { required: true })}
+                  {F('pharmacy_name', 'Pharmacy', 'Pharmacy name', { required: true })}
+                  {F('pharmacy_contact', 'Pharmacy phone', 'Optional', { full: true })}
+                  {F('notes', 'Notes', 'Anything the driver should know', { area: true, full: true })}
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="space-y-1.5"><span className="text-xs font-bold text-emerald-200">Patient name</span><input value={form.patient_name} onChange={(e) => updateField('patient_name', e.target.value)} className={inputClass} placeholder="Full name" /></label>
-                  <label className="space-y-1.5"><span className="text-xs font-bold text-cyan-100">Phone / WhatsApp</span><input value={form.patient_phone} onChange={(e) => updateField('patient_phone', e.target.value)} className={inputClass} placeholder="e.g. 75560140" /></label>
-                </div>
-                <label className="space-y-1.5 block"><span className="text-xs font-bold text-amber-100">Delivery address</span><textarea value={form.delivery_address} onChange={(e) => updateField('delivery_address', e.target.value)} className={`${textareaClass} min-h-[86px]`} placeholder="House/plot, ward, town, landmark" /></label>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="space-y-1.5"><span className="text-xs font-bold text-lime-100">Medicine / item</span><input value={form.medicine_name} onChange={(e) => updateField('medicine_name', e.target.value)} className={inputClass} placeholder="Name" /></label>
-                  <label className="space-y-1.5"><span className="text-xs font-bold text-emerald-200">Facility</span><input value={form.pharmacy_name} onChange={(e) => updateField('pharmacy_name', e.target.value)} className={inputClass} placeholder="Facility name" /></label>
-                </div>
-                <label className="space-y-1.5 block"><span className="text-xs font-bold text-cyan-100">Facility contact, if listed</span><input value={form.pharmacy_contact} onChange={(e) => updateField('pharmacy_contact', e.target.value)} className={inputClass} placeholder="Optional" /></label>
-                <label className="space-y-1.5 block"><span className="text-xs font-bold text-amber-100">Notes</span><textarea value={form.notes} onChange={(e) => updateField('notes', e.target.value)} className={`${textareaClass} min-h-[72px]`} placeholder="Optional delivery notes" /></label>
-                <div className="border-2 border-amber-300 bg-amber-300/10 p-4 text-xs leading-5 text-amber-100">The listed facility must confirm the request before delivery proceeds.</div>
-                <button disabled={isSubmitting} className="flex w-full items-center justify-center gap-2 border-2 border-emerald-300 bg-emerald-300 px-5 py-4 text-xs font-black uppercase tracking-[0.14em] text-[#06130e] transition hover:bg-[#06130e] hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-60">
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-                  Submit delivery request
+                <div className="cms-note" style={{ marginTop: 18 }}><Info size={17} /> The pharmacy must confirm before delivery goes ahead.</div>
+                <button disabled={isSubmitting} className="cms-btn cms-btn-p cms-btn-block" style={{ marginTop: 18, minHeight: 52 }}>
+                  {isSubmitting ? <Loader2 size={17} className="cms-spin" /> : <MapPin size={17} />} Send delivery request
                 </button>
+                <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 16 }} className="cms-fine">
+                  <span style={{ display: 'inline-flex', gap: 6 }}><ShieldCheck size={14} /> Pharmacy reviewed</span>
+                  <span style={{ display: 'inline-flex', gap: 6 }}><PackageCheck size={14} /> PIN hand-over</span>
+                  <span style={{ display: 'inline-flex', gap: 6 }}><Phone size={14} /> WhatsApp updates</span>
+                </div>
               </form>
             )}
-          </motion.div>
-        </section>
+          </div>
+        </div>
       </main>
     </div>
   );
