@@ -76,7 +76,6 @@ const FacilitiesPage = () => {
   }, [facilities, query, type, city]);
 
   const cities = useMemo(() => Array.from(new Set(facilities.map((f) => f.city_town).filter(Boolean).map((c) => normalize(c!)))).sort(), [facilities]);
-  const connectedCount = facilities.filter((f) => f.stock_visibility || f.can_receive_reservations || f.listing_status === 'connected').length;
 
   const claimLink = (facility: Facility) => {
     const message = `Hello ChekaMeds, I want to claim or update this facility listing:%0A%0AFacility: ${facility.facility_name}%0ACity: ${facility.city_town || 'Not listed'}%0AArea: ${facility.area || 'Not listed'}%0A%0APlease assist.`;
@@ -145,9 +144,8 @@ const FacilitiesPage = () => {
           <p className="cms-lead">Find a pharmacy, hospital or clinic near you. Pharmacies marked <b style={{ color: 'var(--g)' }}>Live stock</b> share their stock on ChekaMeds, so you can search their medicines.</p>
         </section>
 
-        <div className="cms-stats" style={{ ['--n' as string]: 3, marginTop: 28 }}>
-          <div className="cms-stat"><b>{facilities.length || '—'}</b><span>facilities listed</span></div>
-          <div className="cms-stat"><b>{connectedCount || '—'}</b><span>with live stock</span></div>
+        <div className="cms-stats" style={{ ['--n' as string]: 2, marginTop: 28, maxWidth: 560 }}>
+          <div className="cms-stat"><b>{facilities.length || '—'}</b><span>pharmacies, clinics and hospitals</span></div>
           <div className="cms-stat"><b>{cities.length || '—'}</b><span>towns covered</span></div>
         </div>
 
