@@ -38,7 +38,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: 'fever_pain', label: 'Fever & pain relief',
-    match: /(paracetamol|panado|acetaminophen|ibuprofen|brufen|nurofen|aspirin|disprin|mefenamic|ponstan|diclofenac|voltaren|grand-?pa|myprodol|stopayne|naproxen|fever)/,
+    match: /(paracetamol|panado|acetaminophen|ibuprofen|brufen|nurofen|aspirin|disprin|mefenamic|ponstan|diclofenac|voltaren|grand-?pa|myprodol|stopayne|naproxen|fever|headache|head pain|head paining|\bibu\b|painamol|genpayne|payne|pain ?kill|migraine)/,
     signal: 'General rise in fever or pain, often an early non-specific sign of infection',
     action: 'Watch together with malaria and respiratory signals; confirm with clinic attendance data.',
     owner: 'DHMT Disease Surveillance',
@@ -52,21 +52,21 @@ export const GROUPS: Group[] = [
   },
   {
     id: 'allergy_asthma', label: 'Allergy & asthma', climate: 'heat',
-    match: /(antihistamine|loratadine|clarityne|cetirizine|zyrtec|allergex|chlorphen|promethazine|phenergan|fexofenadine|telfast|salbutamol|ventolin|asthavent|inhaler|budesonide|beclomethasone|montelukast|asthma|allerg)/,
+    match: /(antihistamine|loratadine|clarityne|cetirizine|zyrtec|allergex|chlorphen|promethazine|phenergan|fexofenadine|telfast|salbutamol|ventolin|asthavent|inhaler|budesonide|beclomethasone|montelukast|asthma|allerg|allegex|aspelone|prednisolone|wheez)/,
     signal: 'Possible air-quality, dust or pollen problem',
     action: 'Check air-quality and dust readings; advise people with asthma; make sure inhalers are in stock.',
     owner: 'DHMT and Department of Meteorological Services',
   },
   {
     id: 'chronic', label: 'Chronic care (BP, diabetes, HIV)',
-    match: /(metformin|glucophage|insulin|gliclazide|glibenclamide|amlodipine|enalapril|lisinopril|hydrochlorothiazide|losartan|atenolol|nifedipine|simvastatin|atorvastatin|tenofovir|dolutegravir|efavirenz|lamivudine|\barv\b|tld|tle)/,
+    match: /(metformin|glucophage|insulin|gliclazide|glibenclamide|amlodipine|enalapril|lisinopril|hydrochlorothiazide|losartan|atenolol|nifedipine|simvastatin|atorvastatin|captopril|furosemide|spironolactone|carvedilol|tamsulosin|warfarin|levothyrox|eltroxin|tenofovir|dolutegravir|efavirenz|lamivudine|\barv\b|tld|tle)/,
     signal: 'Patients struggling to find chronic medicines: a supply problem, not an outbreak',
     action: 'Flag to the supplier and Central Medical Stores; contact patients to avoid missed doses.',
     owner: 'Central Medical Stores (CMS) and pharmacies',
   },
   {
     id: 'skin_eye', label: 'Skin & eye infections', climate: 'heat',
-    match: /(eye drop|chloramphenicol|conjunctiv|tobramycin|fucidin|fusidic|clotrimazole|canesten|miconazole|daktarin|hydrocortisone|betamethasone|calamine|scabies|benzyl benzoate|permethrin|acyclovir|aciclovir|rash)/,
+    match: /(eye drop|chloramphenicol|conjunctiv|tobramycin|fucidin|fusidic|clotrimazole|canesten|miconazole|daktarin|hydrocortisone|betamethasone|calamine|scabies|benzyl benzoate|permethrin|acyclovir|aciclovir|rash|zam-?buk|acne|acnetane|isotretinoin|combigan|timolol|latanoprost|eczema|fungal)/,
     signal: 'Possible skin or eye infection cluster (e.g. conjunctivitis, scabies)',
     action: 'Alert school and clinic health teams in the area; check stock of eye drops and topical treatments.',
     owner: 'DHMT and school health',

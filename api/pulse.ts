@@ -46,7 +46,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   try {
     const [logs, stock, weather] = await Promise.all([
-      fetchAll(sb, 'search_logs', 'normalized_query,query,results_count,found,source,location,user_lat,user_lng,created_at', (q) => q.gte('created_at', since).order('created_at', { ascending: true })),
+      fetchAll(sb, 'search_logs', 'normalized_query,query,results_count,found,source,location,user_lat,user_lng,user_phone,created_at', (q) => q.gte('created_at', since).order('created_at', { ascending: true })),
       fetchAll(sb, 'active_pharmacy_inventory', 'med_name,generic_name,clinic_name,location,quantity'),
       fetchWeather(weeks),
     ]);
@@ -65,9 +65,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     let thisWeek = 0; let thisWeekUnfilled = 0;
     const channel: Record<string, number> = {};
 
+    const seen = new Set<string>(); let duplicates = 0;
     for (const r of logs) {
       const q = String(r.normalized_query || r.query || '').toLowerCase().trim();
       const wk = weekKey(r.created_at);
+      // One person repeating the same search in a week counts once.
+      if (r.user_phone) { const k = `${r.user_phone}|${q}|${wk}`; if (seen.has(k)) { duplicates++; continue; } seen.add(k); }
       const i = idx.get(wk);
       const reason = noiseReason(q);
       if (reason) { noise[reason] = (noise[reason] || 0) + 1; if (i != null) weekly[i].noise++; continue; }
@@ -123,7 +126,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const live = {
       weeks, weekly,
       totals: {
-        clean: cleanTotal, noise: Object.values(noise).reduce((a, b) => a + b, 0), noiseByReason: noise,
+        clean: cleanTotal, duplicates, noise: Object.values(noise).reduce((a, b) => a + b, 0), noiseByReason: noise,
         unfilled: weekly.reduce((a, w) => a + w.unfilled, 0), located: locatedTotal,
         locatedShare: cleanTotal ? Math.round((locatedTotal / cleanTotal) * 100) / 100 : 0,
         channel, thisWeek: { searches: thisWeek, unfilled: thisWeekUnfilled, week: currentWeek },
@@ -137,12 +140,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
     /* ---------------- SIMULATION: district roll-out ---------------- */
     // Calibrate the illness mix on real searches (blended 50/50 with a default mix).
-    const realMix: Record<string, number> = {};
-    const nonOther = gids.reduce((a, g) => a + national[g].reduce((s, x) => s + x.c, 0), 0) || 1;
-    for (const g of gids) realMix[g] = national[g].reduce((s, x) => s + x.c, 0) / nonOther;
+    // Real shares are taken among recognised illness groups only, so unrecognised
+    // searches ("other") do not dilute the signals; "other" keeps its default share.
     const DEFAULT: Record<string, number> = { fever_pain: 0.2, respiratory: 0.13, allergy_asthma: 0.09, antibiotics: 0.1, chronic: 0.16, diarrhoea: 0.05, malaria: 0.015, skin_eye: 0.07, other: 0.185 };
-    const mix: Record<string, number> = {};
-    for (const g of SIM_GROUPS) mix[g] = 0.5 * (DEFAULT[g] ?? 0) + 0.5 * (realMix[g] ?? 0);
+    const illness = GROUPS.map((g) => g.id);
+    const realTotal = illness.reduce((a, g) => a + national[g].reduce((s, x) => s + x.c, 0), 0) || 1;
+    const defTotal = illness.reduce((a, g) => a + DEFAULT[g], 0);
+    const mix: Record<string, number> = { other: DEFAULT.other };
+    for (const g of illness) mix[g] = defTotal * (0.5 * (DEFAULT[g] / defTotal) + 0.5 * (national[g].reduce((s, x) => s + x.c, 0) / realTotal));
 
     const sim = simulate({ weeks, mix, anomalies, stories: STORIES });
     const minT = THRESHOLDS.baselineWeeks + THRESHOLDS.guardWeeks + 1;
@@ -210,7 +215,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       sim: {
         weeks, alerts, history, townStatus, validation, backtest: bt, mix,
         assumptions: [
-          'National roll-out volume: 7 searches per 10,000 people per week, split by the real ChekaMeds search mix (blended 50/50 with a default mix).',
+          'National roll-out volume: 7 searches per 10,000 people per week, split across illness groups by the real ChekaMeds search mix (blended 50/50 with a default mix).',
           'Seasonal and weather effects use real Open-Meteo data for each town when available, otherwise Botswana seasonal normals.',
           'Malaria demand is 4× higher in Ngamiland and Chobe than in the south.',
           'Scenario events (listed under Validation) are scripted so the detector can be checked against a known truth.',

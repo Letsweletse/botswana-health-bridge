@@ -23,7 +23,7 @@ type Pulse = {
   thresholds: { watch: number; alert: number; baselineWeeks: number; guardWeeks: number; smallCell: number };
   live: {
     weeks: string[]; weekly: { week: string; searches: number; unfilled: number; noise: number }[];
-    totals: { clean: number; noise: number; noiseByReason: Record<string, number>; unfilled: number; located: number; locatedShare: number; channel: Record<string, number>; thisWeek: { searches: number; unfilled: number; week: string }; pharmacies: number; stockListings: number };
+    totals: { clean: number; duplicates: number; noise: number; noiseByReason: Record<string, number>; unfilled: number; located: number; locatedShare: number; channel: Record<string, number>; thisWeek: { searches: number; unfilled: number; week: string }; pharmacies: number; stockListings: number };
     signals: { group: string; label: string; level: Level; kind: string; score: number; count: number | null; expected: number; ratio: number; unfilledShare: number; last4: number | null; spark: number[]; reasons: string[] }[];
     topUnmet: { name: string; searches: number; group: string }[]; sensitiveUnmet: number | null;
     locatedByTown: { town: string; searches: number | null }[];
@@ -280,7 +280,7 @@ export default function Pulse() {
               <Kpi value={data.live.totals.clean.toLocaleString()} label="Medicine searches" sub={`${data.live.weeks.length} weeks, cleaned`} />
               <Kpi value={pct(data.live.totals.clean ? data.live.totals.unfilled / data.live.totals.clean : 0)} label="Could not be filled" sub="unmet demand" />
               <Kpi value={data.live.totals.pharmacies.toString()} label="Pharmacies reporting stock" sub={`${data.live.totals.stockListings.toLocaleString()} listings`} />
-              <Kpi value={data.live.totals.noise.toLocaleString()} label="Noise removed" sub="adverts, greetings, tests" />
+              <Kpi value={(data.live.totals.noise + (data.live.totals.duplicates || 0)).toLocaleString()} label="Noise removed" sub="adverts, tests, repeat searches" />
             </div>
 
             <section className="pl-panel">
@@ -346,7 +346,7 @@ export default function Pulse() {
                 <div><b>{Object.entries(data.live.totals.channel).map(([k, v]) => `${pct(v / Math.max(1, data.live.totals.clean))} ${k}`).join(' · ')}</b><span>search channels</span></div>
                 <div><b>{data.live.totals.thisWeek.searches}</b><span>searches so far this week</span></div>
               </div>
-              <p className="pl-fine">Next step: the WhatsApp bot asks “Which town are you in?” once per user. That moves the live view from national to town level, so the engine above runs on real data town by town.</p>
+              <p className="pl-fine">Cleaning removed {data.live.totals.noise} adverts, greetings and test messages, and {data.live.totals.duplicates || 0} repeat searches (the same person searching the same medicine in the same week counts once). Next step: the WhatsApp bot asks “Which town are you in?” once per user. That moves the live view from national to town level, so the engine above runs on real data town by town.</p>
             </section>
           </>
         )}
