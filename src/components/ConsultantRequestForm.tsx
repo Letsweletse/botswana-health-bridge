@@ -214,7 +214,7 @@ const ConsultantRequestForm = () => {
           <label className={labelClass}>
             Pregnancy status, if applicable
             <select value={form.pregnancy_status} onChange={(e) => updateField('pregnancy_status', e.target.value)} className={fieldClass}>
-              <option value="">Not applicable / prefer not to say</option>
+              <option value="">Not applicable</option>
               <option>Pregnant</option>
               <option>Recently gave birth</option>
               <option>Trying to conceive</option>
@@ -242,7 +242,7 @@ const ConsultantRequestForm = () => {
           Prescription upload link, if available
           <div className="flex items-center gap-2 border border-dashed border-white/15 bg-white/[0.03] px-3 py-2.5">
             <Upload className="h-4 w-4 text-white/80" />
-            <input value={form.prescription_url} onChange={(e) => updateField('prescription_url', e.target.value)} className="w-full bg-transparent text-sm text-white outline-none" placeholder="Paste file/image link" />
+            <input value={form.prescription_url} onChange={(e) => updateField('prescription_url', e.target.value)} className="cms-bare w-full text-sm text-white outline-none" placeholder="Paste file/image link" />
           </div>
         </label>
 

@@ -230,3 +230,5 @@
   border-color: rgba(255, 255, 255, 0.7) !important; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08) !important;
 }
 .cms .cms-bad, .cms input.cm-pt-bad { border-color: var(--red) !important; }
+.cms select { font-size: 0.98rem !important; text-overflow: ellipsis; }
+.cms input.cms-bare { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
