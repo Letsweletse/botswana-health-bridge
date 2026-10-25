@@ -1,4 +1,11 @@
-// ChekaMeds WhatsApp webhook — v201
+// ChekaMeds WhatsApp webhook — v202
+//
+// v202 (25 Oct 2026). Change from v201 (nothing else touched):
+//   • Brand fallback. ALIASES turns brands into generic names ("allergex" ->
+//     "chlorpheniramine"), but some pharmacies list only the brand ("ALLERGEX
+//     4MG", no generic). The search then found nothing although 65 listings were
+//     in stock. When a search finds nothing, try the brand names that map to the
+//     term before saying "not found".
 //
 // v201 (25 Oct 2026). Changes from v200 (nothing else touched):
 //   • When a search names no town, search_logs records the last town that
@@ -580,6 +587,17 @@ async function doSearch(phone: string, sess: Session, rawTerm: string, loc: stri
   let widened = false;
   if (!hits.length && loc) { hits = await runSearch(term, form, ""); widened = hits.length > 0; }
 
+  // v202: brand fallback. The generic name found nothing, but a pharmacy may list
+  // the same product only by its brand (e.g. "ALLERGEX 4MG" for chlorpheniramine).
+  if (!hits.length) {
+    const brands = Object.entries(ALIASES).filter(([k, v]) => v === term && k !== term).map(([k]) => k).slice(0, 4);
+    for (const br of brands) {
+      hits = await runSearch(br, form, loc);
+      if (!hits.length && loc) { hits = await runSearch(br, form, ""); widened = hits.length > 0; }
+      if (hits.length) { console.log("BRAND_FALLBACK:", term, "->", br, hits.length); break; }
+    }
+  }
+
   if (hits.length) {
     const strong = hits.filter(h => h.match_kind !== "fuzzy");
     let useHits = strong.length ? strong : hits;
@@ -856,7 +874,7 @@ serve(async (req: Request) => {
   try {
     if (req.method === "GET") {
       const q = url.searchParams.get("query");
-      if (!q) return new Response(JSON.stringify({ status:"ok", version:"v201",
+      if (!q) return new Response(JSON.stringify({ status:"ok", version:"v202",
         search:"postgres_rpc", form_guard:true, alternatives:"removed", gemini:"normalise_only" }),
         { headers: { ...cors, "Content-Type":"application/json" } });
       return new Response(JSON.stringify({ reply: await handle(q, "GET", {}) }),
