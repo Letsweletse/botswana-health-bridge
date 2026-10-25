@@ -102,7 +102,7 @@ export default function PulseBulletin() {
       </div>
 
       <main className="pb-page">
-        <header className="pb-head">
+        <div className="pb-head">
           <div>
             <p className="pb-kicker">ChekaMeds Pulse · Weekly early-warning bulletin</p>
             <h1>Week {isoWeek(data.week).split('W')[1]}, {fmt(data.week, { year: 'numeric' })}</h1>
@@ -111,7 +111,7 @@ export default function PulseBulletin() {
           <div className="pb-for">
             <b>For</b> District Health Management Teams, Central Medical Stores, Ministry of Health disease surveillance
           </div>
-        </header>
+        </div>
 
         <section className="pb-kpis">
           <div><b className={alerts.length ? 'red' : ''}>{alerts.length}</b><span>alerts</span></div>
@@ -179,7 +179,7 @@ export default function PulseBulletin() {
             <table>
               <thead><tr><th>Town</th><th>Searches (4 wks)</th><th>Pharmacies</th><th>Thin cover</th></tr></thead>
               <tbody>
-                {data.towns.filter((t) => L.townStatus[t.id]?.searches4 != null || L.stockByTown.some((s) => s.town === t.id)).map((t) => {
+                {data.towns.filter((t) => (L.townStatus[t.id]?.searches4 ?? 1) > 0 || L.stockByTown.some((s) => s.town === t.id)).map((t) => {
                   const st = L.stockByTown.find((s) => s.town === t.id);
                   const s4 = L.townStatus[t.id]?.searches4;
                   return (
@@ -219,7 +219,7 @@ const CSS = `
 .pb-bar button{margin-left:8px;padding:9px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;font:500 .88rem Inter,system-ui,sans-serif;cursor:pointer}
 .pb-bar button.primary{background:#e8b10b;border-color:#e8b10b;color:#141a33}
 .pb-page{max-width:1000px;margin:24px auto;background:#fff;padding:40px 44px;border-radius:6px;box-shadow:0 2px 14px rgba(20,26,51,.08)}
-.pb-head{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;border-bottom:2px solid #141a33;padding-bottom:16px;margin-bottom:18px;flex-wrap:wrap}
+.pb-head{background:#fff!important;display:flex;justify-content:space-between;gap:24px;align-items:flex-start;border-bottom:2px solid #141a33;padding-bottom:16px;margin-bottom:18px;flex-wrap:wrap}
 .pb-kicker{margin:0;color:#8a6a00;font-weight:600;font-size:.82rem;letter-spacing:.03em;text-transform:uppercase}
 .pb h1{font-size:1.9rem;margin:6px 0 4px;color:#141a33;font-weight:650}
 .pb h2{font-size:1.05rem;margin:22px 0 8px;color:#141a33;font-weight:650}
@@ -232,7 +232,9 @@ const CSS = `
 .pb-kpis span{font-size:.76rem;color:#5d6576}
 .pb table{width:100%;border-collapse:collapse;font-size:.84rem}
 .pb th{text-align:left;background:#f5f6f8;color:#3a4152;font-weight:600;padding:7px 8px;border-bottom:1px solid #d9dde5}
-.pb td{padding:7px 8px;border-bottom:1px solid #eceef2;vertical-align:top}
+.pb td{padding:7px 8px;border-bottom:1px solid #eceef2;vertical-align:top;color:#1b1f2a!important;background:#fff!important}
+.pb th{background:#f5f6f8!important;color:#3a4152!important}
+.pb section{overflow-x:auto}
 .pb .cap{text-transform:capitalize}
 .pb-tag{display:inline-block;font-size:.72rem;font-weight:650;padding:3px 8px;border-radius:999px;white-space:nowrap}
 .pb-tag.alert{background:#fde8e8;color:#b13434}.pb-tag.watch{background:#fdf1dc;color:#996407}.pb-tag.none{background:#e3f4ec;color:#1f7a50}
@@ -240,13 +242,14 @@ const CSS = `
 .pb-two{display:grid;grid-template-columns:1fr 1fr;gap:22px}
 .pb-method ul{margin:0;padding-left:18px;font-size:.84rem;line-height:1.55;color:#2c3242;display:grid;gap:4px}
 .pb-method > p{font-size:.78rem;margin-top:14px}
-@media (max-width:760px){.pb-page{padding:22px 16px;margin:0;border-radius:0}.pb-kpis{grid-template-columns:repeat(2,1fr)}.pb-two{grid-template-columns:1fr}.pb table{font-size:.78rem}}
+@media (max-width:760px){.pb-bar button{margin:6px 6px 0 0}.pb-page{padding:22px 16px;margin:0;border-radius:0}.pb table{min-width:520px}.pb-kpis{grid-template-columns:repeat(2,1fr)}.pb-two{grid-template-columns:1fr}.pb table{font-size:.78rem}}
 @media print{
   @page{size:A4;margin:12mm}
   .no-print{display:none!important}
   .pb{background:#fff}
   .pb-page{box-shadow:none;margin:0;padding:0;max-width:none}
   .pb tr{break-inside:avoid}
-  .pb section{break-inside:avoid-page}
+  .pb section{overflow:visible}
+  .pb h2{break-after:avoid}
 }
 `;
