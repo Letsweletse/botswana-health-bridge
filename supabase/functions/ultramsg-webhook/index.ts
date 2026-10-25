@@ -172,10 +172,19 @@ async function logSearch(o:{
   lat:number|null;lng:number|null;
 }){
   try{
+    // Pulse early warning: when this search names no town, reuse the last town this
+    // number gave, so demand can be mapped by town without asking every time.
+    let location=o.location;
+    if(!location&&o.phone&&o.phone!=="GET"){
+      try{
+        const{data:prev}=await sb().from("search_logs").select("location").eq("user_phone",o.phone).not("location","is",null).neq("location","").order("created_at",{ascending:false}).limit(1);
+        location=prev?.[0]?.location||null;
+      }catch(_){}
+    }
     const{error}=await sb().from("search_logs").insert({
       search_id:o.searchId,query:o.query,normalized_query:o.normalized,
       results_count:o.resultsCount,source:"whatsapp",user_phone:o.phone,
-      location:o.location,reserved:false,found:o.found,
+      location,reserved:false,found:o.found,
       matched_pharmacies:o.matched,gemini_used:o.geminiUsed,gemini_term:o.geminiTerm,
       user_lat:o.lat,user_lng:o.lng,
     });
@@ -467,7 +476,7 @@ function askMed(msg?:string):WA{return{type:"button",text:`${msg?msg+"\n\n":""}*
 
 function resultsList(query:string,loc:string,opts:Opt[],header?:string,hasUserLoc=false):WA{
   const cap=(s:string)=>s?s[0].toUpperCase()+s.slice(1):s;
-  const h=header||`*${cap(query)} — Stock Found* 💊\n${DIV}\n📍 ${prettyLoc(loc)}${hasUserLoc?" · 🚗 sorted by nearest":`\n\n📍 _Share your location (📎 → Location) to see distances_`}\n\n👇 Select a number to view details and reserve.`;
+  const h=header||`*${cap(query)} — Stock Found* 💊\n${DIV}\n📍 ${prettyLoc(loc)}${hasUserLoc?" · 🚗 sorted by nearest":loc?"":`\n\n📍 _Reply with your town (e.g. *Maun*) or share your location (📎 → Location) to see the nearest pharmacies_`}\n\n👇 Select a number to view details and reserve.`;
   const rows=opts.map((o,i)=>({id:`item_${i+1}`,title:o.med_name.substring(0,24),description:`🏥 ${o.clinic_name}${o.distance_km!=null?` · 🚗 ${fmtDist(o.distance_km)}`:""} · 💰 ${price(o.price_bwp)}`.substring(0,72)}));
   return{type:"list",text:h,listTitle:"Select a result",listButtonText:"View Stock",sections:[{title:"Available Stock",rows}]};
 }
@@ -677,7 +686,7 @@ async function doSearch(phone:string,sess:Session,medicine:string,location:strin
 
     // Honest empty state + watchlist offer. NO invented stock.
     await writeSession(phone,{...sess,medicine:nm,options:[],selected:null,state:"no_results"});
-    return{type:"button",text:`*Not In Stock* ❌\n${DIV}\n😔 No pharmacy on ChekaMeds currently has *"${nm}"*.\n\n🔔 Tap *Notify Me* and we'll message you the moment it arrives.\n\n💡 Or try a brand name or different spelling.`,buttons:[{id:"notify_me",text:"🔔 Notify Me"},{id:"find_medicine",text:"🔍 Try Again"}]};
+    return{type:"button",text:`*Not In Stock* ❌\n${DIV}\n😔 No pharmacy on ChekaMeds currently has *"${nm}"*.\n\n🔔 Tap *Notify Me* and we'll message you the moment it arrives.${location?"":"\n\n📍 Reply with your town (e.g. *Francistown*) so pharmacies near you know it's needed."}\n\n💡 Or try a brand name or different spelling.`,buttons:[{id:"notify_me",text:"🔔 Notify Me"},{id:"find_medicine",text:"🔍 Try Again"}]};
   }
 
   const withDist=await withDistance(opts,sess.user_lat,sess.user_lng);
@@ -694,7 +703,7 @@ serve(async(req:Request)=>{
   try{
     if(req.method==="GET"){
       const q=url.searchParams.get("query");
-      if(!q)return new Response(JSON.stringify({status:"ok",version:"v119",features:{pulse_top_slots:PULSE_TOP_SLOTS,result_slots:RESULT_SLOTS,gemini_enabled:!!GEMINI_API_KEY,gemini_guardrails:"inventory_verified",analytics:"full_attribution",watchlist:true,optout:true}}),{headers:{...cors,"Content-Type":"application/json"}});
+      if(!q)return new Response(JSON.stringify({status:"ok",version:"v120",features:{pulse_top_slots:PULSE_TOP_SLOTS,result_slots:RESULT_SLOTS,gemini_enabled:!!GEMINI_API_KEY,gemini_guardrails:"inventory_verified",analytics:"full_attribution",watchlist:true,optout:true}}),{headers:{...cors,"Content-Type":"application/json"}});
       const r=await handle(q,"GET",{});
       return new Response(JSON.stringify({reply:r}),{headers:{...cors,"Content-Type":"application/json"}});
     }

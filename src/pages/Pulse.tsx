@@ -22,8 +22,9 @@ type Pulse = {
   groups: Group[]; towns: Town[];
   thresholds: { watch: number; alert: number; baselineWeeks: number; guardWeeks: number; smallCell: number };
   live: {
+    alerts: Alert[]; townStatus: Record<string, { level: Level; score: number; group: string | null; searches4: number | null }>;
     weeks: string[]; weekly: { week: string; searches: number; unfilled: number; noise: number }[];
-    totals: { clean: number; duplicates: number; noise: number; noiseByReason: Record<string, number>; unfilled: number; located: number; locatedShare: number; channel: Record<string, number>; thisWeek: { searches: number; unfilled: number; week: string }; pharmacies: number; stockListings: number };
+    totals: { clean: number; duplicates: number; noise: number; noiseByReason: Record<string, number>; unfilled: number; located: number; inferred?: number; locatedShare: number; channel: Record<string, number>; thisWeek: { searches: number; unfilled: number; week: string }; pharmacies: number; stockListings: number };
     signals: { group: string; label: string; level: Level; kind: string; score: number; count: number | null; expected: number; ratio: number; unfilledShare: number; last4: number | null; spark: number[]; reasons: string[] }[];
     topUnmet: { name: string; searches: number; group: string }[]; sensitiveUnmet: number | null;
     locatedByTown: { town: string; searches: number | null }[];
@@ -107,9 +108,10 @@ function Contributions({ c }: { c: Alert['contributions'] }) {
 export default function Pulse() {
   const [data, setData] = useState<Pulse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<'sim' | 'live'>('sim');
+  const [mode, setModeRaw] = useState<'sim' | 'live'>('live');
   const [sel, setSel] = useState<number>(0);
   const [townFilter, setTownFilter] = useState<string | null>(null);
+  const setMode = (m: 'sim' | 'live') => { setModeRaw(m); setSel(0); setTownFilter(null); };
 
   useEffect(() => {
     const prev = document.title; document.title = 'Pulse: early warning | ChekaMeds';
@@ -121,19 +123,25 @@ export default function Pulse() {
 
   const groupsById = useMemo(() => Object.fromEntries((data?.groups || []).map((g) => [g.id, g])), [data]);
   const townsById = useMemo(() => Object.fromEntries((data?.towns || []).map((t) => [t.id, t])), [data]);
-  const alerts = useMemo(() => (data?.sim.alerts || []).filter((a) => !townFilter || a.town === townFilter), [data, townFilter]);
+  const allAlerts = useMemo(() => (mode === 'live' ? data?.live.alerts : data?.sim.alerts) || [], [data, mode]);
+  const alerts = useMemo(() => allAlerts.filter((a) => !townFilter || a.town === townFilter), [allAlerts, townFilter]);
   const current = alerts[Math.min(sel, Math.max(0, alerts.length - 1))];
 
   const mapTowns: MapTown[] = useMemo(() => (data?.towns || []).map((t) => {
+    if (mode === 'live') {
+      const s = data!.live.townStatus?.[t.id];
+      const vol = s?.searches4 == null ? 'fewer than 5 searches' : `${s.searches4} searches`;
+      return { ...t, level: s?.level || 'none', note: `${s?.group ? `${LEVEL_TEXT[s.level]}: ${groupsById[s.group]?.label} · ` : ''}${vol} in the last 4 weeks` };
+    }
     const s = data!.sim.townStatus[t.id];
     return { ...t, level: s?.level || 'none', note: s?.group ? `${LEVEL_TEXT[s.level]}: ${groupsById[s.group]?.label}` : 'No unusual signals' };
-  }), [data, groupsById]);
+  }), [data, groupsById, mode]);
   const onSelectTown = useCallback((id: string) => { setTownFilter((t) => (t === id ? null : id)); setSel(0); }, []);
 
   const counts = useMemo(() => ({
-    alert: data?.sim.alerts.filter((a) => a.level === 'alert').length || 0,
-    watch: data?.sim.alerts.filter((a) => a.level === 'watch').length || 0,
-  }), [data]);
+    alert: allAlerts.filter((a) => a.level === 'alert').length,
+    watch: allAlerts.filter((a) => a.level === 'watch').length,
+  }), [allAlerts]);
 
   const climateFor = (a: Alert) => {
     const g = groupsById[a.group];
@@ -141,44 +149,17 @@ export default function Pulse() {
     return { series: a.climateSeries, label: g.climate === 'rain' ? 'Rain anomaly (2-wk lag)' : g.climate === 'heat' ? 'Heat anomaly' : 'Cold anomaly' };
   };
 
-  return (
-    <div className="cms pl">
-      <style>{CSS}</style>
-      <SiteHeader />
-      <main className="cms-wrap" style={{ paddingBottom: 96 }}>
-        <section className="pl-hero">
-          <span className="cms-eyebrow"><i /> ChekaMeds Pulse · population health early warning</span>
-          <h1 className="cms-h1">See health trouble coming, <span className="pl-accent">weeks earlier.</span></h1>
-          <p className="cms-lead">When people start searching for ORS, antimalarials or inhalers, and can’t find them, it shows up on ChekaMeds before it reaches clinic reports. Pulse combines medicine searches, unfilled demand, pharmacy stock and weather to flag emerging risks by town. It explains every alert and names who should act.</p>
-          <div className="pl-tabs" role="tablist" aria-label="Data mode">
-            <button role="tab" aria-selected={mode === 'sim'} className={mode === 'sim' ? 'on' : ''} onClick={() => setMode('sim')}>District simulation</button>
-            <button role="tab" aria-selected={mode === 'live'} className={mode === 'live' ? 'on' : ''} onClick={() => setMode('live')}>Live ChekaMeds data</button>
-          </div>
-        </section>
-
-        {error && <div className="cms-card pl-note">Pulse could not load right now ({error}). Please refresh in a minute.</div>}
-        {!data && !error && <div className="pl-loading"><span /> Crunching searches, stock and weather…</div>}
-
-        {data && mode === 'sim' && (
+  const board = data ? (
           <>
-            <div className="pl-banner"><b>Simulation.</b> A Botswana-wide roll-out scenario, calibrated on the real ChekaMeds search mix and {data.weather.source === 'open-meteo' ? 'real Open-Meteo weather for each town' : 'Botswana seasonal weather normals'}. Scripted events are listed under Validation so you can check the detector against a known truth. Week of {fmtWeek(data.week)}.</div>
-
-            <div className="pl-kpis">
-              <Kpi value={String(counts.alert)} label="Active alerts" sub="this week" />
-              <Kpi value={String(counts.watch)} label="On watch" sub="this week" />
-              <Kpi value={`${data.sim.backtest.medianLeadWeeks} wks`} label="Median early warning" sub="vs routine reporting" />
-              <Kpi value={data.sim.backtest.falseAlertsPerTownMonth.toFixed(1)} label="False alerts" sub="per town per month" />
-            </div>
-
             <section className="pl-grid">
               <div className="pl-panel pl-mapwrap">
-                <div className="pl-panel-h"><h2>Botswana, this week</h2><div className="pl-key"><span><i className="a" />Alert</span><span><i className="w" />Watch</span><span><i className="n" />Normal</span></div></div>
+                <div className="pl-panel-h"><h2>Botswana, week of {fmtWeek(data.week)}</h2><div className="pl-key"><span><i className="a" />Alert</span><span><i className="w" />Watch</span><span><i className="n" />Normal</span></div></div>
                 <PulseMap towns={mapTowns} selected={townFilter} onSelect={onSelectTown} />
                 {townFilter && <button className="pl-clear" onClick={() => setTownFilter(null)}>Showing {townsById[townFilter]?.name} · show all towns</button>}
               </div>
               <div className="pl-panel pl-feed">
                 <div className="pl-panel-h"><h2>Alert feed</h2><span className="pl-dim">{alerts.length} signal{alerts.length === 1 ? '' : 's'}</span></div>
-                {alerts.length === 0 && <p className="pl-dim" style={{ padding: '8px 4px' }}>No unusual signals{townFilter ? ' in this town' : ''} this week.</p>}
+                {alerts.length === 0 && <p className="pl-dim" style={{ padding: '8px 4px' }}>No unusual signals{townFilter ? ' in this town' : ''} this week{mode === 'live' ? '. Towns appear here as soon as they have enough located searches to compare with their own baseline' : ''}.</p>}
                 <div className="pl-list">
                   {alerts.map((a, i) => (
                     <button key={a.town + a.group} className={`pl-item ${i === sel ? 'on' : ''}`} onClick={() => setSel(i)}>
@@ -209,6 +190,39 @@ export default function Pulse() {
                 </div>
               </section>
             ); })()}
+          </>
+  ) : null;
+
+  return (
+    <div className="cms pl">
+      <style>{CSS}</style>
+      <SiteHeader />
+      <main className="cms-wrap" style={{ paddingBottom: 96 }}>
+        <section className="pl-hero">
+          <span className="cms-eyebrow"><i /> ChekaMeds Pulse · population health early warning</span>
+          <h1 className="cms-h1">See health trouble coming, <span className="pl-accent">weeks earlier.</span></h1>
+          <p className="cms-lead">When people start searching for ORS, antimalarials or inhalers, and can’t find them, it shows up on ChekaMeds before it reaches clinic reports. Pulse combines medicine searches, unfilled demand, pharmacy stock and weather to flag emerging risks by town. It explains every alert and names who should act.</p>
+          <div className="pl-tabs" role="tablist" aria-label="Data mode">
+            <button role="tab" aria-selected={mode === 'live'} className={mode === 'live' ? 'on' : ''} onClick={() => setMode('live')}>Live</button>
+            <button role="tab" aria-selected={mode === 'sim'} className={mode === 'sim' ? 'on' : ''} onClick={() => setMode('sim')}>Scenario test</button>
+          </div>
+        </section>
+
+        {error && <div className="cms-card pl-note">Pulse could not load right now ({error}). Please refresh in a minute.</div>}
+        {!data && !error && <div className="pl-loading"><span /> Crunching searches, stock and weather…</div>}
+
+        {data && mode === 'sim' && (
+          <>
+            <div className="pl-banner"><b>Scenario test.</b> A Botswana-wide roll-out scenario, calibrated on the real ChekaMeds search mix and {data.weather.source === 'open-meteo' ? 'real Open-Meteo weather for each town' : 'Botswana seasonal weather normals'}. Scripted events are listed under Validation so you can check the detector against a known truth. Week of {fmtWeek(data.week)}.</div>
+
+            <div className="pl-kpis">
+              <Kpi value={String(counts.alert)} label="Active alerts" sub="this week" />
+              <Kpi value={String(counts.watch)} label="On watch" sub="this week" />
+              <Kpi value={`${data.sim.backtest.medianLeadWeeks} wks`} label="Median early warning" sub="vs routine reporting" />
+              <Kpi value={data.sim.backtest.falseAlertsPerTownMonth.toFixed(1)} label="False alerts" sub="per town per month" />
+            </div>
+
+            {board}
 
             <section className="pl-two">
               <div className="pl-panel">
@@ -267,7 +281,7 @@ export default function Pulse() {
                 {data.sim.assumptions.map((a) => <li key={a}>{a}</li>)}
                 <li>Medicine searches are a proxy signal, not a diagnosis. Alerts are prompts for a human to check clinic and lab data; they are not case counts.</li>
                 <li>Small towns produce too few searches to score every week. Signals there are pooled or suppressed rather than guessed.</li>
-                <li>Today most real ChekaMeds searches carry no town, so the town-level view runs on the simulation while location capture is added to the WhatsApp bot.</li>
+                <li>This tab tests the detector on a simulated national roll-out with known events. The Live tab runs the same engine on real ChekaMeds data.</li>
               </ul>
             </section>
           </>
@@ -275,13 +289,15 @@ export default function Pulse() {
 
         {data && mode === 'live' && (
           <>
-            <div className="pl-banner live"><b>Live data.</b> Real ChekaMeds searches and pharmacy stock over the last {data.live.weeks.length} weeks, cleaned and grouped automatically. Counts below {data.thresholds.smallCell} are hidden. No names or phone numbers ever leave the database.</div>
+            <div className="pl-banner live"><b>Live.</b> Real ChekaMeds searches, pharmacy stock and Open-Meteo weather, refreshed every few hours. Searches are cleaned, grouped by illness signal and placed in a town when the person named one (now or in an earlier search). Counts below {data.thresholds.smallCell} are hidden; no names or phone numbers ever leave the database.</div>
             <div className="pl-kpis">
+              <Kpi value={String(counts.alert)} label="Live alerts" sub={`${counts.watch} on watch this week`} />
               <Kpi value={data.live.totals.clean.toLocaleString()} label="Medicine searches" sub={`${data.live.weeks.length} weeks, cleaned`} />
               <Kpi value={pct(data.live.totals.clean ? data.live.totals.unfilled / data.live.totals.clean : 0)} label="Could not be filled" sub="unmet demand" />
               <Kpi value={data.live.totals.pharmacies.toString()} label="Pharmacies reporting stock" sub={`${data.live.totals.stockListings.toLocaleString()} listings`} />
-              <Kpi value={(data.live.totals.noise + (data.live.totals.duplicates || 0)).toLocaleString()} label="Noise removed" sub="adverts, tests, repeat searches" />
             </div>
+
+            {board}
 
             <section className="pl-panel">
               <div className="pl-panel-h"><h2>Weekly searches</h2><span className="pl-dim">All of Botswana</span></div>
@@ -342,11 +358,11 @@ export default function Pulse() {
             <section className="pl-panel">
               <h2>Data quality, honestly</h2>
               <div className="pl-bt">
-                <div><b>{pct(data.live.totals.locatedShare)}</b><span>of searches carry a town today</span></div>
+                <div><b>{pct(data.live.totals.locatedShare)}</b><span>of searches placed in a town{data.live.totals.inferred ? ` (${data.live.totals.inferred} from the person's earlier searches)` : ''}</span></div>
                 <div><b>{Object.entries(data.live.totals.channel).map(([k, v]) => `${pct(v / Math.max(1, data.live.totals.clean))} ${k}`).join(' · ')}</b><span>search channels</span></div>
                 <div><b>{data.live.totals.thisWeek.searches}</b><span>searches so far this week</span></div>
               </div>
-              <p className="pl-fine">Cleaning removed {data.live.totals.noise} adverts, greetings and test messages, and {data.live.totals.duplicates || 0} repeat searches (the same person searching the same medicine in the same week counts once). Next step: the WhatsApp bot asks “Which town are you in?” once per user. That moves the live view from national to town level, so the engine above runs on real data town by town.</p>
+              <p className="pl-fine">Cleaning removed {data.live.totals.noise} adverts, greetings and test messages, and {data.live.totals.duplicates || 0} repeat searches (the same person searching the same medicine in the same week counts once). The WhatsApp bot now asks for a town when it doesn't know one and remembers it for that number, so the share of located searches, and the town-level live alerts, grow every week.</p>
             </section>
           </>
         )}

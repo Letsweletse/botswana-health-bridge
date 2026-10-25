@@ -65,6 +65,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     let thisWeek = 0; let thisWeekUnfilled = 0;
     const channel: Record<string, number> = {};
 
+    // Last known town per phone number (server side only; numbers never leave this function).
+    // A person who named a town once is placed in that town for searches where they did not.
+    const phoneTown: Record<string, string> = {};
+    for (const r of logs) {
+      const tw = townFor(r.location, r.user_lat, r.user_lng);
+      if (tw && r.user_phone) phoneTown[r.user_phone] = tw;
+    }
+    const townSeries: Record<string, Record<string, Cell[]>> = {};
+    let inferredTotal = 0;
     const seen = new Set<string>(); let duplicates = 0;
     for (const r of logs) {
       const q = String(r.normalized_query || r.query || '').toLowerCase().trim();
@@ -83,8 +92,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const g = groupFor(q);
       national[g][i].c++; if (unfilled) national[g][i].u++;
       weekly[i].searches++; if (unfilled) weekly[i].unfilled++;
-      const town = townFor(r.location, r.user_lat, r.user_lng);
-      if (town) { located[town] = (located[town] || 0) + 1; locatedTotal++; }
+      const direct = townFor(r.location, r.user_lat, r.user_lng);
+      const town = direct || (r.user_phone ? phoneTown[r.user_phone] : null) || null;
+      if (town) {
+        located[town] = (located[town] || 0) + 1; locatedTotal++; if (!direct) inferredTotal++;
+        const ts = (townSeries[town] ??= Object.fromEntries(gids.map((gg) => [gg, weeks.map(() => ({ c: 0, u: 0 }))])));
+        ts[g][i].c++; if (unfilled) ts[g][i].u++;
+      }
       if (unfilled && i >= WEEKS - 13) {
         if (isSensitive(q)) sensitiveUnmet++;
         else if (q.length >= 3 && q.length <= 40) { unmet[q] = (unmet[q] || 0) + 1; unmetGroup[q] = g; }
@@ -123,11 +137,45 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       groups: v.groups, gaps: GROUPS.filter((g) => (v.groups[g.id] || 0) < 3).map((g) => g.id),
     })).sort((a, b) => b.listings - a.listings);
 
+    const mkAlert = (series: Cell[], g: typeof GROUPS[number], townId: string, townName: string, an: number[] | null) => {
+      const d = detect(series, t, an, g);
+      if (d.level === 'none') return null;
+      return {
+        week: weeks[t], town: townId, townName, group: g.id, label: g.label, level: d.level, kind: d.kind, score: d.score,
+        count: d.count, expected: d.expected, ratio: d.ratio, unfilledShare: d.unfilledShare, unfilledBase: d.unfilledBase,
+        contributions: { demand: d.zDemand, unfilled: d.zUnfilled, climate: d.climate },
+        reasons: explain(d, g, townName),
+        signal: d.kind === 'supply' ? 'Supply problem: people are searching and not finding this medicine' : g.signal,
+        action: d.kind === 'supply' ? 'Ask pharmacies and suppliers to restock; check Central Medical Stores supply for this medicine group.' : g.action,
+        owner: d.kind === 'supply' ? 'Pharmacies, suppliers and CMS' : g.owner,
+        series: series.map((x) => x.c), unfilledSeries: series.map((x) => x.u), climateSeries: an,
+      };
+    };
+    const liveAlerts: any[] = [];
+    const liveTownStatus: Record<string, { level: string; score: number; group: string | null; searches4: number | null }> = {};
+    for (const g of GROUPS) { const a = mkAlert(national[g.id], g, 'botswana', 'Botswana (national)', null); if (a) liveAlerts.push(a); }
+    for (const tw of TOWNS) {
+      const ts = townSeries[tw.id];
+      const recent = ts ? gids.reduce((acc, gg) => acc + ts[gg].slice(-4).reduce((x, y) => x + y.c, 0), 0) : 0;
+      liveTownStatus[tw.id] = { level: 'none', score: 0, group: null, searches4: supp(recent) };
+      if (!ts) continue;
+      for (const g of GROUPS) {
+        const a = mkAlert(ts[g.id], g, tw.id, tw.name, g.climate ? anomalies[tw.id]?.[g.climate] ?? null : null);
+        if (!a) continue;
+        liveAlerts.push(a);
+        const rank = (l: string) => (l === 'alert' ? 2 : l === 'watch' ? 1 : 0);
+        const cur = liveTownStatus[tw.id];
+        if (rank(a.level) > rank(cur.level) || (rank(a.level) === rank(cur.level) && a.score > cur.score)) liveTownStatus[tw.id] = { ...cur, level: a.level, score: a.score, group: g.id };
+      }
+    }
+    liveAlerts.sort((a, b) => (a.level === b.level ? b.score - a.score : a.level === 'alert' ? -1 : 1));
+
     const live = {
+      alerts: liveAlerts, townStatus: liveTownStatus,
       weeks, weekly,
       totals: {
         clean: cleanTotal, duplicates, noise: Object.values(noise).reduce((a, b) => a + b, 0), noiseByReason: noise,
-        unfilled: weekly.reduce((a, w) => a + w.unfilled, 0), located: locatedTotal,
+        unfilled: weekly.reduce((a, w) => a + w.unfilled, 0), located: locatedTotal, inferred: inferredTotal,
         locatedShare: cleanTotal ? Math.round((locatedTotal / cleanTotal) * 100) / 100 : 0,
         channel, thisWeek: { searches: thisWeek, unfilled: thisWeekUnfilled, week: currentWeek },
         pharmacies: new Set(stock.map((s) => s.clinic_name)).size, stockListings: stock.length,
