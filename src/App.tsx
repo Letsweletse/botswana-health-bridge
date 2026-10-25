@@ -27,6 +27,7 @@ const Scanner = lazy(() => import("./pages/Scanner"));
 const Partners = lazy(() => import("./pages/Partners"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
+const Pulse = lazy(() => import("./pages/Pulse"));
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import SiteFooter from "./components/SiteFooter";
@@ -60,6 +61,7 @@ const AnimatedRoutes = () => {
           <Route path="/partners" element={<Partners />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/pulse" element={<Pulse />} />
           <Route path="/dashboard/consultant" element={<ProtectedRoute><ConsultantAdmin /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
           <Route path="/admin/campaigns" element={<AdminRoute><CampaignAdmin /></AdminRoute>} />

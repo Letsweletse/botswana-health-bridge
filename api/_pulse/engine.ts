@@ -2,7 +2,7 @@
    Pure functions: cleaning, weekly aggregation, explainable multi-signal
    anomaly scoring, a calibrated district simulation and a back-test. */
 
-import { GROUPS, OTHER_GROUP, TOWNS, groupFor, type Group, type Town } from './reference';
+import { GROUPS, OTHER_GROUP, TOWNS, groupFor, type Group, type Town } from './reference.js';
 
 /* ---------- utilities ---------- */
 

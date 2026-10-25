@@ -3,8 +3,8 @@ import {
   GROUPS, TOWNS, groupFor, weekKey, weekRange, lastCompleteWeek, noiseReason, isSensitive,
   detect, explain, fetchWeather, climateAnomalies, simulate, backtest, STORIES, SIM_GROUPS,
   SMALL_CELL, THRESHOLDS, type Cell,
-} from './_pulse/engine';
-import { OTHER_GROUP, townFor } from './_pulse/reference';
+} from './_pulse/engine.js';
+import { OTHER_GROUP, townFor } from './_pulse/reference.js';
 
 /* ChekaMeds Pulse API.
    Reads raw searches and stock with the service role, and returns ONLY aggregated,
