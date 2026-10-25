@@ -182,8 +182,27 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       }
     } catch { /* alerting tables not created yet */ }
 
+    // Review results across all weeks (public: counts and statuses only, no names or notes).
+    let reviews: any = null;
+    try {
+      const { data: all, error: allErr } = await sb.from('pulse_alerts')
+        .select('week,town_name,label,level,kind,status,notified_at,status_at').order('week', { ascending: false }).order('created_at', { ascending: false }).limit(300);
+      if (!allErr && all) {
+        const count = (st: string) => all.filter((r: any) => r.status === st).length;
+        const reviewed = all.length - count('new');
+        const hours = all.filter((r: any) => r.status_at && r.notified_at)
+          .map((r: any) => (new Date(r.status_at).getTime() - new Date(r.notified_at).getTime()) / 36e5).filter((h: number) => h >= 0).sort((a: number, b: number) => a - b);
+        reviews = {
+          total: all.length, reviewed, confirmed: count('confirmed'), checked: count('checked'), falseAlarm: count('false_alarm'), pending: count('new'),
+          delivered: all.filter((r: any) => r.notified_at).length,
+          medianHoursToReview: hours.length ? Math.round(hours[Math.floor(hours.length / 2)] * 10) / 10 : null,
+          recent: all.slice(0, 12).map((r: any) => ({ week: r.week, place: r.town_name, label: r.label, level: r.level, kind: r.kind, status: r.status, delivered: !!r.notified_at })),
+        };
+      }
+    } catch { /* tables not created yet */ }
+
     const live = {
-      alerts: liveAlerts, townStatus: liveTownStatus,
+      alerts: liveAlerts, townStatus: liveTownStatus, reviews,
       weeks, weekly,
       totals: {
         clean: cleanTotal, duplicates, noise: Object.values(noise).reduce((a, b) => a + b, 0), noiseByReason: noise,

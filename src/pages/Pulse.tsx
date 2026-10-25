@@ -30,6 +30,8 @@ type Pulse = {
     topUnmet: { name: string; searches: number; group: string }[]; sensitiveUnmet: number | null;
     locatedByTown: { town: string; searches: number | null }[];
     stockByTown: { town: string; listings: number; inStock: number; pharmacies: number; groups: Record<string, number>; gaps: string[] }[];
+    reviews?: { total: number; reviewed: number; confirmed: number; checked: number; falseAlarm: number; pending: number; delivered: number; medianHoursToReview: number | null;
+      recent: { week: string; place: string; label: string; level: Level; kind: string; status: string; delivered: boolean }[] } | null;
   };
   sim: {
     weeks: string[]; alerts: Alert[]; history: { week: string; town: string; townName: string; group: string; label: string; kind: string; score: number }[];
@@ -156,7 +158,23 @@ export default function Pulse() {
               <div className="pl-panel pl-mapwrap">
                 <div className="pl-panel-h"><h2>Botswana, week of {fmtWeek(data.week)}</h2><div className="pl-key"><span><i className="a" />Alert</span><span><i className="w" />Watch</span><span><i className="n" />Normal</span></div></div>
                 <PulseMap towns={mapTowns} selected={townFilter} onSelect={onSelectTown} />
-                {townFilter && <button className="pl-clear" onClick={() => setTownFilter(null)}>Showing {townsById[townFilter]?.name} · show all towns</button>}
+                {townFilter && (() => {
+                  const t = townsById[townFilter]; const mt = mapTowns.find((m) => m.id === townFilter);
+                  const st = mode === 'live' ? data.live.stockByTown.find((x) => x.town === townFilter) : null;
+                  const ls = mode === 'live' ? data.live.townStatus?.[townFilter] : null;
+                  return (
+                    <div className="pl-town">
+                      <div className="pl-town-h"><div><b>{t?.name}</b><span>{t?.district} district · about {Math.round((t?.pop || 0) / 1000)}k people</span></div><Badge level={mt?.level || 'none'} /></div>
+                      <div className="pl-town-s">
+                        <div><b>{mode === 'live' ? (ls?.searches4 == null ? '<5' : ls.searches4) : alerts.length}</b><span>{mode === 'live' ? 'searches, last 4 weeks' : 'signals this week'}</span></div>
+                        {st && <div><b>{st.pharmacies}</b><span>pharmacies with stock data</span></div>}
+                        {st && <div><b>{st.inStock.toLocaleString()}</b><span>listings in stock</span></div>}
+                        {st && st.gaps.length > 0 && <div className="wide"><b>{st.gaps.slice(0, 3).map((g) => groupsById[g]?.label || g).join(', ')}</b><span>thin stock (fewer than 3 listings)</span></div>}
+                      </div>
+                      <button className="pl-clear" onClick={() => setTownFilter(null)}>Show all towns</button>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="pl-panel pl-feed">
                 <div className="pl-panel-h"><h2>Alert feed</h2><span className="pl-dim">{alerts.length} signal{alerts.length === 1 ? '' : 's'}</span></div>
@@ -358,6 +376,29 @@ export default function Pulse() {
               </div>
             </section>
 
+            {data.live.reviews && data.live.reviews.total > 0 && (() => { const rv = data.live.reviews!; return (
+              <section className="pl-panel">
+                <div className="pl-panel-h"><h2>What officers decided</h2><span className="pl-dim">every alert is reviewed by a person</span></div>
+                <div className="pl-bt">
+                  <div><b>{rv.delivered} / {rv.total}</b><span>alerts delivered to officers</span></div>
+                  <div><b>{rv.reviewed}</b><span>reviewed{rv.pending ? ` · ${rv.pending} awaiting` : ''}</span></div>
+                  <div><b>{rv.confirmed + rv.checked}</b><span>confirmed or checked ({rv.confirmed} / {rv.checked})</span></div>
+                  <div><b>{rv.falseAlarm}</b><span>marked false alarm</span></div>
+                  {rv.medianHoursToReview != null && <div><b>{rv.medianHoursToReview < 1 ? `${Math.round(rv.medianHoursToReview * 60)} min` : `${rv.medianHoursToReview} h`}</b><span>median time from alert to review</span></div>}
+                </div>
+                <div className="pl-tablewrap" style={{ marginTop: 14 }}>
+                  <table className="pl-table">
+                    <thead><tr><th>Week</th><th>Place</th><th>Signal</th><th>Level</th><th>Outcome</th></tr></thead>
+                    <tbody>{rv.recent.map((r, i) => (
+                      <tr key={i}><td>{fmtWeek(r.week)}</td><td>{r.place}</td><td>{r.label}{r.kind === 'supply' ? ' (supply)' : ''}</td><td><Badge level={r.level} /></td>
+                        <td><em className={`pl-ack ${r.status}`}>{r.status === 'new' ? (r.delivered ? 'Sent · awaiting review' : 'Awaiting review') : r.status === 'checked' ? 'Checked' : r.status === 'confirmed' ? 'Confirmed' : 'False alarm'}</em></td></tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+                <p className="pl-fine">False alarms are kept, not hidden: they show where Pulse needs tuning. Officer names and notes are visible only to ChekaMeds admins.</p>
+              </section>
+            ); })()}
+
             <section className="pl-panel">
               <h2>Data quality, honestly</h2>
               <div className="pl-bt">
@@ -396,6 +437,7 @@ const CSS = `
 .pl-tabs button.on{background:#e9e9e9;color:#0a0707}
 .pl .pl-bulletin{display:inline-flex;margin:26px 0 0 12px;padding:11px 16px;border-radius:999px;border:1px solid var(--line-2);color:#fff;font-size:.9rem;vertical-align:top}
 .pl .pl-bulletin:hover{background:rgba(255,255,255,.06)}
+.pl-tablewrap{overflow-x:auto}
 .pl-ack{font-style:normal;font-size:.76rem;color:var(--muted)}
 .pl-ack.confirmed{color:#fca5a5}.pl-ack.checked{color:#fbbf5a}.pl-ack.false_alarm{color:#5eeaa8}
 .pl-banner{margin:6px 0 18px;padding:14px 18px;border-radius:14px;border:1px solid rgba(124,196,255,.28);background:rgba(124,196,255,.07);color:var(--ink-2);font-size:.92rem;line-height:1.55}
@@ -421,7 +463,9 @@ const CSS = `
 .pulse-map .leaflet-control-attribution{background:rgba(8,10,25,.7)!important;color:rgba(255,255,255,.45)!important;font-size:10px}
 .pulse-map .leaflet-control-attribution a{color:rgba(255,255,255,.6)!important}
 .pulse-map .leaflet-bar a{background:#14172b!important;color:#fff!important;border-color:rgba(255,255,255,.1)!important}
-.pulse-label span{white-space:nowrap;font:500 11.5px var(--body);color:rgba(255,255,255,.82);text-shadow:0 1px 3px #000}
+.pulse-label span{position:absolute;white-space:nowrap;font:500 11.5px var(--body);color:rgba(255,255,255,.72);text-shadow:0 1px 3px #000,0 0 6px #000;pointer-events:none}
+.pulse-label.hot span{color:#fff;font-weight:600}
+.pulse-label.sel span{color:#e8b10b;font-weight:650}
 .pulse-tip{background:#0c0f24!important;color:#fff!important;border:1px solid rgba(255,255,255,.15)!important;border-radius:8px!important;font:12px var(--body)!important}
 .pulse-tip:before{display:none}
 .pulse-ring{animation:plring 2.2s ease-out infinite;transform-origin:center;transform-box:fill-box}
@@ -431,6 +475,12 @@ const CSS = `
 .pl-key span{display:inline-flex;align-items:center;gap:6px}
 .pl-key i{width:9px;height:9px;border-radius:50%}
 .pl-key i.a{background:#f87171}.pl-key i.w{background:#fbbf5a}.pl-key i.n{background:#5eeaa8;opacity:.6}
+.pl-town{margin-top:12px;padding:14px;border:1px solid var(--line-2);border-radius:14px;background:rgba(255,255,255,.03)}
+.pl-town-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.pl-town-h b{display:block;font-size:1.05rem}.pl-town-h span{font-size:.8rem;color:rgba(255,255,255,.6)}
+.pl-town-s{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.pl-town-s div{display:grid;gap:2px}.pl-town-s .wide{grid-column:1/-1}
+.pl-town-s b{font-size:1rem}.pl-town-s span{font-size:.74rem;color:rgba(255,255,255,.58)}
 .pl-clear{margin-top:10px;font-size:.84rem;color:#fff;background:rgba(255,255,255,.08);border:1px solid var(--line-2);border-radius:999px;padding:7px 14px;cursor:pointer}
 .pl-feed{display:flex;flex-direction:column;max-height:560px}
 .pl-list{display:grid;gap:8px;overflow:auto;padding-right:2px}

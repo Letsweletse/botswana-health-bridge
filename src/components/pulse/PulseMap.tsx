@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -8,6 +8,14 @@ import 'leaflet/dist/leaflet.css';
 export type MapTown = { id: string; name: string; lat: number; lng: number; pop: number; level: 'none' | 'watch' | 'alert'; note?: string };
 
 const COLOR = { alert: '#f87171', watch: '#fbbf5a', none: '#5eeaa8' } as const;
+
+/* Label placement for the crowded south-east, so names don't sit on top of each other.
+   side: which side of the dot the name goes; dy: vertical nudge in pixels. */
+const LABEL: Record<string, { side: 'l' | 'r'; dy?: number }> = {
+  gaborone: { side: 'r', dy: 2 }, molepolole: { side: 'l', dy: -4 }, mochudi: { side: 'r', dy: -12 },
+  kanye: { side: 'l', dy: 4 }, lobatse: { side: 'r', dy: 8 }, palapye: { side: 'r', dy: -2 }, serowe: { side: 'l', dy: -2 },
+  phikwe: { side: 'r', dy: 6 }, mahalapye: { side: 'l', dy: 2 },
+};
 
 /* Simplified Botswana border [lat, lng], drawn locally so the map needs no tile provider or API key. */
 const BORDER: [number, number][] = [
@@ -22,6 +30,7 @@ export default function PulseMap({ towns, selected, onSelect }: { towns: MapTown
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
+  const [zoom, setZoom] = useState(5.5);
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
@@ -30,6 +39,7 @@ export default function PulseMap({ towns, selected, onSelect }: { towns: MapTown
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     map.fitBounds([[-26.9, 19.9], [-17.7, 29.4]], { padding: [10, 10] });
     mapRef.current = map; layerRef.current = L.layerGroup().addTo(map);
+    setZoom(map.getZoom()); map.on('zoomend', () => setZoom(map.getZoom()));
     const onResize = () => map.invalidateSize();
     window.addEventListener('resize', onResize);
     return () => { window.removeEventListener('resize', onResize); map.remove(); mapRef.current = null; };
@@ -51,14 +61,21 @@ export default function PulseMap({ towns, selected, onSelect }: { towns: MapTown
       }).addTo(layer);
       m.bindTooltip(`<b>${t.name}</b>${t.note ? `<br/>${t.note}` : ''}`, { direction: 'top', offset: [0, -r], className: 'pulse-tip' });
       if (onSelect) m.on('click', () => onSelect(t.id));
-      if (t.level !== 'none' || t.pop > 70000) {
+      const show = t.level !== 'none' || t.pop > 70000 || selected === t.id || zoom >= 6.75;
+      if (show) {
+        const p = LABEL[t.id] || { side: 'r' as const };
+        const name = t.name.replace('Greater ', '');
         L.marker([t.lat, t.lng], {
           interactive: false,
-          icon: L.divIcon({ className: 'pulse-label', html: `<span>${t.name.replace('Greater ', '')}</span>`, iconSize: [0, 0], iconAnchor: [-r - 4, 7] }),
+          icon: L.divIcon({
+            className: `pulse-label ${p.side}${t.level !== 'none' ? ' hot' : ''}${selected === t.id ? ' sel' : ''}`,
+            html: `<span style="${p.side === 'l' ? `right:${r + 4}px` : `left:${r + 4}px`};top:${(p.dy || 0) - 8}px">${name}</span>`,
+            iconSize: [0, 0], iconAnchor: [0, 0],
+          }),
         }).addTo(layer);
       }
     });
-  }, [towns, selected, onSelect]);
+  }, [towns, selected, onSelect, zoom]);
 
   return <div ref={ref} className="pulse-map" role="img" aria-label="Map of Botswana showing the current status of each monitored town" />;
 }

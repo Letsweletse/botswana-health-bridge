@@ -1,4 +1,4 @@
-import { serviceClient, sendWhatsApp, sign, env, SITE } from './_pulse/notify-lib.js';
+import { serviceClient, sendWhatsApp, sendEmail, emailHtml, emailEnabled, sign, env, SITE } from './_pulse/notify-lib.js';
 
 /* ChekaMeds Pulse – alert delivery (runs daily from Vercel Cron, 08:00 Gaborone).
    1. Reads this week's live alerts from /api/pulse.
@@ -61,7 +61,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     }
     if (row.notified_at) continue; // already delivered this week
 
-    const targets = subs.filter((s) => s.whatsapp
+    const useEmail = emailEnabled();
+    const targets = subs.filter((s) => (s.whatsapp || (useEmail && s.email))
       && rank(a.level) >= rank(s.min_level || 'alert')
       && (!s.towns?.length || (a.town !== 'botswana' && s.towns.includes(a.town)))
       && (!s.groups?.length || s.groups.includes(a.group)));
@@ -84,9 +85,21 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         `_A prompt to check, not a diagnosis. Aggregated data only._`,
       ].join('\n');
       if (dry) { report.deliveries.push({ alert: key, to: s.role, preview: body.replace(link, `${SITE}/pulse/ack?…(signed link)`) }); delivered++; continue; }
-      const r = await sendWhatsApp(s.whatsapp, body);
-      report.deliveries.push({ alert: key, to: s.role, ok: r.ok, error: r.error });
-      if (r.ok) { delivered++; report.sent++; } else report.failed++;
+      let reached = false;
+      if (s.whatsapp) {
+        const r = await sendWhatsApp(s.whatsapp, body);
+        report.deliveries.push({ alert: key, to: s.role, channel: 'whatsapp', ok: r.ok, error: r.error });
+        if (r.ok) reached = true;
+      }
+      if (useEmail && s.email) {
+        const subject = `Pulse ${a.level === 'alert' ? 'alert' : 'watch'}: ${a.label}, ${a.townName}`;
+        const html = emailHtml(`${a.label} · ${a.townName}`, [...a.reasons.slice(0, 3), `Suggested action: ${a.action}`, `Responsible: ${a.owner}`],
+          { label: 'Review this alert', url: link }, 'A prompt to check, not a diagnosis. Aggregated data only.');
+        const r = await sendEmail(s.email, subject, html, body.replace(/\*/g, ''));
+        report.deliveries.push({ alert: key, to: s.role, channel: 'email', ok: r.ok, error: r.error });
+        if (r.ok) reached = true;
+      }
+      if (reached) { delivered++; report.sent++; } else report.failed++;
     }
     if (!dry && (delivered > 0 || targets.length === 0)) {
       await sb.from('pulse_alerts').update({ notified_at: new Date().toISOString(), notified_count: delivered }).eq('id', row.id);
@@ -97,7 +110,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const gabDay = new Date(Date.now() + 2 * 3600e3).getUTCDay();
   if (gabDay === 2 || String(req.query?.bulletin || '') === '1') {
     const n = alerts.filter((a) => a.level === 'alert').length; const w = alerts.length - n;
-    for (const s of subs.filter((x) => x.weekly_bulletin && x.whatsapp && x.last_bulletin !== week)) {
+    const useEmailB = emailEnabled();
+    for (const s of subs.filter((x) => x.weekly_bulletin && (x.whatsapp || (useEmailB && x.email)) && x.last_bulletin !== week)) {
       const body = [
         `📋 *ChekaMeds Pulse weekly bulletin*`,
         `Week of ${new Date(week + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}`,
@@ -109,9 +123,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         `${SITE}/pulse/bulletin`,
       ].join('\n');
       if (dry) { report.deliveries.push({ bulletin: true, to: s.role, preview: body }); continue; }
-      const r = await sendWhatsApp(s.whatsapp, body);
-      if (r.ok) { report.bulletin_sent++; await sb.from('pulse_subscribers').update({ last_bulletin: week }).eq('id', s.id); }
-      else report.deliveries.push({ bulletin: true, to: s.role, ok: false, error: r.error });
+      let ok = false; const errs: string[] = [];
+      if (s.whatsapp) { const r = await sendWhatsApp(s.whatsapp, body); ok = ok || r.ok; if (!r.ok && r.error) errs.push(r.error); }
+      if (useEmailB && s.email) {
+        const html = emailHtml('Pulse weekly bulletin', [body.split('\n')[1], `${n} alert${n === 1 ? '' : 's'} · ${w} on watch`, ...alerts.slice(0, 5).map((a) => `${a.level === 'alert' ? 'Alert' : 'Watch'}: ${a.label}, ${a.townName}`)],
+          { label: 'Open the bulletin', url: `${SITE}/pulse/bulletin` }, 'Printable PDF and DHIS2 data file on the bulletin page.');
+        const r = await sendEmail(s.email, 'ChekaMeds Pulse weekly bulletin', html, body.replace(/\*/g, ''));
+        ok = ok || r.ok; if (!r.ok && r.error) errs.push(r.error);
+      }
+      if (ok) { report.bulletin_sent++; await sb.from('pulse_subscribers').update({ last_bulletin: week }).eq('id', s.id); }
+      else report.deliveries.push({ bulletin: true, to: s.role, ok: false, error: errs.join(' | ') });
     }
   }
 
