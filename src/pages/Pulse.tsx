@@ -182,7 +182,7 @@ export default function Pulse() {
                 <div className="pl-list">
                   {alerts.map((a, i) => (
                     <button key={a.town + a.group} className={`pl-item ${i === sel ? 'on' : ''}`} onClick={() => setSel(i)}>
-                      <div className="top"><Badge level={a.level} kind={a.kind} /><span className="pl-dim">score {a.score.toFixed(1)}</span></div>
+                      <div className="top"><Badge level={a.level} kind={a.kind} /><span className="pl-dim">{a.kind === 'supply' ? `${Math.round(a.unfilledShare * 100)}% unfilled` : `score ${a.score.toFixed(1)}`}</span></div>
                       <b>{a.label} · {a.townName}</b>
                       <span>{a.reasons[0]}</span>
                     </button>
@@ -394,7 +394,7 @@ const CSS = `
 .pl-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px}
 .pl-grid .pl-panel{margin-bottom:16px}
 .pl-mapwrap{position:relative}
-.pulse-map{height:470px;border-radius:16px;overflow:hidden;background:#0b0e1c}
+.pulse-map{height:470px;border-radius:16px;overflow:hidden;background:radial-gradient(120% 90% at 50% 40%,#0e1226 0%,#090b18 100%)}
 .pulse-map .leaflet-control-attribution{background:rgba(8,10,25,.7)!important;color:rgba(255,255,255,.45)!important;font-size:10px}
 .pulse-map .leaflet-control-attribution a{color:rgba(255,255,255,.6)!important}
 .pulse-map .leaflet-bar a{background:#14172b!important;color:#fff!important;border-color:rgba(255,255,255,.1)!important}
@@ -470,5 +470,5 @@ const CSS = `
 .pl-gov a{color:#fff;text-decoration:underline;text-underline-offset:3px}
 .pl-note{color:#fca5a5}
 @media (max-width:1000px){.pl-grid,.pl-two,.pl-detail-h,.pl-detail-b{grid-template-columns:1fr}.pl-kpis{grid-template-columns:1fr 1fr}.pulse-map{height:380px}.pl-feed{max-height:none}}
-@media (max-width:560px){.pl-bt{grid-template-columns:1fr}.pl-panel{padding:16px}.pl-table{font-size:.82rem}.pl-table th,.pl-table td{padding:9px 6px}.pulse-map{height:320px}}
+@media (max-width:560px){.pl-tabs button{white-space:nowrap;padding:9px 13px;font-size:.84rem}.pl-bt{grid-template-columns:1fr}.pl-panel{padding:16px}.pl-table{font-size:.82rem}.pl-table th,.pl-table td{padding:9px 6px}.pulse-map{height:320px}}
 `;

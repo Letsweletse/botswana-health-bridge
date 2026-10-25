@@ -9,6 +9,15 @@ export type MapTown = { id: string; name: string; lat: number; lng: number; pop:
 
 const COLOR = { alert: '#f87171', watch: '#fbbf5a', none: '#5eeaa8' } as const;
 
+/* Simplified Botswana border [lat, lng], drawn locally so the map needs no tile provider or API key. */
+const BORDER: [number, number][] = [
+  [-17.79, 25.26], [-17.89, 24.2], [-18.0, 23.3], [-18.32, 21.0], [-22.0, 21.0], [-22.0, 20.0], [-24.76, 20.0],
+  [-26.83, 20.86], [-26.73, 21.6], [-26.0, 22.6], [-25.27, 23.3], [-25.67, 24.2], [-25.75, 25.0], [-25.49, 25.66],
+  [-24.7, 25.95], [-24.6, 26.5], [-24.24, 26.85], [-23.6, 27.6], [-22.83, 28.0], [-22.4, 29.0], [-22.19, 29.37],
+  [-21.65, 28.8], [-21.5, 28.0], [-20.85, 27.7], [-20.5, 27.72], [-20.48, 27.3], [-19.29, 26.17], [-18.71, 25.85],
+  [-18.53, 25.65], [-17.79, 25.26],
+];
+
 export default function PulseMap({ towns, selected, onSelect }: { towns: MapTown[]; selected?: string | null; onSelect?: (id: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -16,10 +25,8 @@ export default function PulseMap({ towns, selected, onSelect }: { towns: MapTown
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
-    const map = L.map(ref.current, { zoomControl: false, attributionControl: true, scrollWheelZoom: false }).setView([-22.3, 24.7], 5.5);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', maxZoom: 12,
-    }).addTo(map);
+    const map = L.map(ref.current, { zoomControl: false, attributionControl: false, scrollWheelZoom: false, zoomSnap: 0.25, maxZoom: 9, minZoom: 4 }).setView([-22.3, 24.7], 5.5);
+    L.polygon(BORDER, { color: 'rgba(255,255,255,0.32)', weight: 1.2, fillColor: '#141a33', fillOpacity: 1, interactive: false }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     map.fitBounds([[-26.9, 19.9], [-17.7, 29.4]], { padding: [10, 10] });
     mapRef.current = map; layerRef.current = L.layerGroup().addTo(map);

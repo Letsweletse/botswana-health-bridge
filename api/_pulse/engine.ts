@@ -258,7 +258,7 @@ export type Story = { town: string; group: string; startOffset: number; ramp: nu
 /* Scenario events ending in the latest week, plus one historical wave. */
 export const STORIES: Story[] = [
   { town: 'francistown', group: 'diarrhoea', startOffset: -2, ramp: [1.5, 2.2, 3.0], title: 'Diarrhoea cluster, Francistown', truth: 'Simulated water-contamination cluster starting 3 weeks ago.' },
-  { town: 'maun', group: 'malaria', startOffset: -1, ramp: [1.8, 2.8], title: 'Malaria rise, Maun', truth: 'Simulated malaria rise after early rains, starting 2 weeks ago.' },
+  { town: 'maun', group: 'malaria', startOffset: -1, ramp: [2.0, 3.2], title: 'Malaria rise, Maun', truth: 'Simulated malaria rise after early rains, starting 2 weeks ago.' },
   { town: 'kanye', group: 'allergy_asthma', startOffset: -1, ramp: [1.6, 1.9], unfilled: 0.85, title: 'Inhaler stock-out, Kanye', truth: 'Simulated salbutamol shortage: normal demand, most searches unfilled.' },
   { town: 'gaborone', group: 'respiratory', startOffset: -17, ramp: [1.3, 1.7, 2.1, 1.8, 1.4], title: 'Winter flu wave, Greater Gaborone', truth: 'Simulated winter influenza wave in June–July.' },
   { town: 'serowe', group: 'skin_eye', startOffset: -9, ramp: [1.6, 2.4, 1.7], title: 'Conjunctivitis outbreak, Serowe', truth: 'Simulated school conjunctivitis outbreak in August.' },
@@ -277,7 +277,7 @@ export function simulate(o: SimOptions): SeriesMap {
     for (const g of SIM_GROUPS) {
       const grp = GROUPS.find((x) => x.id === g);
       let share = mix[g] / tot;
-      if (g === 'malaria') share *= town.north ? 4 : 0.5;
+      if (g === 'malaria') share *= town.north ? 6 : 0.5;
       const base = (town.pop / 1e4) * perTenK * share;
       for (let i = 0; i < n; i++) {
         let mult = 1;

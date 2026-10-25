@@ -217,7 +217,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         assumptions: [
           'National roll-out volume: 7 searches per 10,000 people per week, split across illness groups by the real ChekaMeds search mix (blended 50/50 with a default mix).',
           'Seasonal and weather effects use real Open-Meteo data for each town when available, otherwise Botswana seasonal normals.',
-          'Malaria demand is 4× higher in Ngamiland and Chobe than in the south.',
+          'Malaria demand is 6× higher in Ngamiland and Chobe than the national average, and half the average in the south.',
           'Scenario events (listed under Validation) are scripted so the detector can be checked against a known truth.',
         ],
       },
