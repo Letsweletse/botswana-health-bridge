@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Check, ShieldCheck, Smartphone } from 'lucide-react';
 import SiteHeader from '@/components/SiteHeader';
+import CountUp from '@/components/CountUp';
 
 const WhatsAppDemo = lazy(() => import('@/components/landing/WhatsAppDemo'));
 const Moments = lazy(() => import('@/components/landing/Moments'));
@@ -20,10 +21,10 @@ const services = [
 ];
 
 const stats = [
-  { n: '39', t: 'participating pharmacies' },
-  { n: '26,000+', t: 'medicine listings' },
-  { n: '1,600+', t: 'medicine searches a month' },
-  { n: '24/7', t: 'search on WhatsApp' },
+  { to: 39, suffix: '', t: 'participating pharmacies' },
+  { to: 26000, suffix: '+', t: 'medicine listings' },
+  { to: 1600, suffix: '+', t: 'medicine searches a month' },
+  { to: 24, suffix: '/7', t: 'search on WhatsApp' },
 ];
 
 export default function Landing() {
@@ -152,7 +153,7 @@ export default function Landing() {
             <div className="cm-card-wrap cms-a-scale" style={{ animationDelay: '900ms' }}>
               <div className="cm-rev">
                 <p className="cm-rev-label">Medicine listings</p>
-                <p className="cm-rev-num">26,000<span>+</span></p>
+                <p className="cm-rev-num"><CountUp to={26000} delay={1000} duration={2000} /><span>+</span></p>
                 <div className="cm-rev-delta"><b>39 pharmacies</b><span>across Botswana</span></div>
                 <div className="cm-rev-chart" aria-hidden="true">
                   <div className="cm-rev-bars">
@@ -176,7 +177,7 @@ export default function Landing() {
 
       <div className="cms-wrap">
         <div className="cms-stats" style={{ ['--n' as string]: 4 }} aria-label="ChekaMeds in numbers">
-          {stats.map((s) => <div key={s.t} className="cms-stat"><b>{s.n}</b><span>{s.t}</span></div>)}
+          {stats.map((s, i) => <div key={s.t} className="cms-stat"><b><CountUp to={s.to} suffix={s.suffix} delay={i * 120} /></b><span>{s.t}</span></div>)}
         </div>
 
         <section className="cms-section" id="services">
