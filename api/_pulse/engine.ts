@@ -323,7 +323,7 @@ export function backtest(weeks: string[], anomalies: ReturnType<typeof climateAn
     const ramp = [1 + A * 0.25, 1 + A * 0.55, 1 + A * 0.85, 1 + A, 1 + A * 0.6];
     return { town, group, start, sim: simulate({ weeks, mix, anomalies, seed: 1000 + k, inject: { town: town.id, group, start, ramp } }) };
   });
-  const baselines = Array.from({ length: 6 }, (_, k) => simulate({ weeks, mix, anomalies, seed: 5000 + k }));
+  const baselines = Array.from({ length: 10 }, (_, k) => simulate({ weeks, mix, anomalies, seed: 5000 + k }));
   const runs = (multi: boolean) => {
     let det = 0; const leads: number[] = [];
     for (const { town, group, start, sim } of specs) {
@@ -342,7 +342,7 @@ export function backtest(weeks: string[], anomalies: ReturnType<typeof climateAn
         cells++; if (d.level === 'alert') { alerts++; if ((sim[town.id][g.id][t].m ?? 1) < 1.25) fa++; }
       }
     }
-    const weeksObs = 6 * (n - minT);
+    const weeksObs = baselines.length * (n - minT);
     const sorted = [...leads].sort((a, b) => a - b);
     return {
       sensitivity: round(det / trials, 2), detected: det,

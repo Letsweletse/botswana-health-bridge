@@ -202,7 +202,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       };
     });
 
-    const bt = backtest(weeks, anomalies, mix, 240);
+    const bt = backtest(weeks, anomalies, mix, 600);
 
     const body = {
       generated_at: new Date().toISOString(),
