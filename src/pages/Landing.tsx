@@ -5,7 +5,6 @@ import SiteHeader from '@/components/SiteHeader';
 import CountUp from '@/components/CountUp';
 
 const WhatsAppDemo = lazy(() => import('@/components/landing/WhatsAppDemo'));
-const Moments = lazy(() => import('@/components/landing/Moments'));
 const PharmacyCarousel = lazy(() => import('@/components/landing/PharmacyCarousel'));
 
 const WA_SEARCH = 'https://wa.me/26771424486?text=' + encodeURIComponent('Hi ChekaMeds, I am looking for a medicine. Please help me find a pharmacy with availability.');
@@ -205,7 +204,6 @@ export default function Landing() {
       <Suspense fallback={null}>
         <PharmacyCarousel />
         <div style={{ paddingTop: 40 }}><WhatsAppDemo /></div>
-        <Moments />
       </Suspense>
 
       <div className="cms-wrap">
