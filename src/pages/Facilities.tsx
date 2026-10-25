@@ -39,7 +39,7 @@ const facilityTypeLabel = (type?: string | null) => {
 };
 
 const FacilitiesPage = () => {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(() => (typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('q') || '').slice(0, 80) : ''));
   const [type, setType] = useState('all');
   const [city, setCity] = useState('all');
 

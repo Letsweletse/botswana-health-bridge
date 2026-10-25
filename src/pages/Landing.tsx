@@ -5,6 +5,9 @@ import SiteHeader from '@/components/SiteHeader';
 
 const WhatsAppDemo = lazy(() => import('@/components/landing/WhatsAppDemo'));
 const Moments = lazy(() => import('@/components/landing/Moments'));
+const PharmacyCarousel = lazy(() => import('@/components/landing/PharmacyCarousel'));
+
+const PHARMACY_VIDEO = 'https://res.cloudinary.com/dyfecybo0/video/upload/q_auto/v1792925034/website_hero_kztntf.mp4';
 
 const WA_SEARCH = 'https://wa.me/26771424486?text=' + encodeURIComponent('Hi ChekaMeds, I am looking for a medicine. Please help me find a pharmacy with availability.');
 
@@ -43,7 +46,14 @@ export default function Landing() {
         .cm-home .cm-moment-cap span{color:rgba(255,255,255,.7)!important}
         .cm-ghero{position:relative;isolation:isolate;min-height:100vh;min-height:100svh;display:flex;flex-direction:column;overflow:hidden;background:#080a19}
         .cm-ghero-bg{position:absolute;inset:0;z-index:-1}
-        .cm-ghero-bg img{width:100%;height:100%;object-fit:cover;object-position:68% 30%}
+        .cm-ghero-bg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:68% 30%}
+        .cm-pvid{position:relative;border-radius:33px;overflow:hidden;border:1px solid rgba(255,255,255,.1);background:#0c0f24;aspect-ratio:16/9;margin-bottom:16px}
+        .cm-pvid video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+        .cm-pvid-tag{position:absolute;left:18px;top:18px;padding:8px 12px;border-radius:11px;background:rgba(10,7,7,.45);backdrop-filter:blur(17px);font-size:13px;color:#fff}
+        .cm-flip{display:block;color:#ff4d5a;perspective:600px}
+        .cm-flip span{display:inline-block;transform-origin:50% 60%;backface-visibility:hidden;animation:cm-flip 7s cubic-bezier(.16,1,.3,1) infinite both}
+        @keyframes cm-flip{0%{opacity:0;transform:rotateX(90deg) translateY(10px)}9%{opacity:1;transform:none}82%{opacity:1;transform:none}90%{opacity:0;transform:rotateX(-90deg) translateY(-10px)}100%{opacity:0;transform:rotateX(90deg) translateY(10px)}}
+        @media(prefers-reduced-motion:reduce){.cm-flip span{animation:none;opacity:1}}
         .cm-ghero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,10,25,.95) 0%,rgba(8,10,25,.74) 42%,rgba(8,10,25,.38) 100%),radial-gradient(60% 70% at 85% 30%,rgba(94,234,168,.14),transparent 70%),linear-gradient(180deg,transparent 70%,#080a19 100%)}
         .cm-ghero-body{flex:1;display:flex;align-items:center;padding:132px 0 48px}
         .cm-ghero-row{display:flex;flex-direction:column;gap:40px}
@@ -111,7 +121,14 @@ export default function Landing() {
         <div className="cm-ghero-body">
           <div className="cms-wrap cm-ghero-row">
             <div className="cm-ghero-copy">
-              <h1 className="cms-a-up" style={{ animationDelay: '300ms' }}>Find your medicine before you leave home</h1>
+              <h1 aria-label="Medicine access reimagined.">
+                <span className="cms-a-up" style={{ animationDelay: '300ms', display: 'block' }} aria-hidden="true">Medicine access</span>
+                <span className="cm-flip" aria-hidden="true">
+                  {'reimagined.'.split('').map((ch, i) => (
+                    <span key={i} style={{ animationDelay: `${700 + i * 55}ms` }}>{ch}</span>
+                  ))}
+                </span>
+              </h1>
               <p className="cm-ghero-sub cms-a-up" style={{ animationDelay: '500ms' }}>See which pharmacies near you report it in stock, on WhatsApp or the web</p>
               <div className="cm-ghero-cta cms-a-up" style={{ animationDelay: '700ms' }}>
                 <Link to="/search" className="cms-btn cms-btn-p">Search for medicine</Link>
@@ -168,6 +185,7 @@ export default function Landing() {
       </div>
 
       <Suspense fallback={null}>
+        <PharmacyCarousel />
         <div style={{ paddingTop: 40 }}><WhatsAppDemo /></div>
         <Moments />
       </Suspense>
@@ -177,6 +195,10 @@ export default function Landing() {
           <div className="cms-head">
             <h2 className="cms-h2">For pharmacies and partners</h2>
             <p className="cms-sub">Patients are already searching. Make sure they find you, or bring ChekaMeds to your country.</p>
+          </div>
+          <div className="cm-pvid">
+            <video src={PHARMACY_VIDEO} poster="/media/pharm-poster.webp" autoPlay muted loop playsInline preload="metadata" aria-label="Video: customers search on ChekaMeds and find the pharmacy that has their medicine" />
+            <span className="cm-pvid-tag">ChekaMeds for pharmacies</span>
           </div>
           <div className="cm-split">
             <div className="cm-panel">
