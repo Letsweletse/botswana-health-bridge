@@ -1,9 +1,9 @@
 name: Deploy ChekaMeds Edge Functions
 
-# MANUAL ONLY. The live ultramsg-webhook (v200) was deployed from the Supabase
-# dashboard and is newer than the copy in this repo (v119). Auto-deploying on push
-# would overwrite the live bot with the old code. Re-enable the push trigger only
-# after the live code has been copied into supabase/functions/ultramsg-webhook/.
+# MANUAL ONLY. The repo copy of ultramsg-webhook now mirrors the live v200
+# (copied from the Supabase dashboard on 25 Oct 2026). Deploys stay manual so a
+# push can never replace the live bot by accident. Run this workflow by hand only
+# after a reviewed change, or deploy by pasting in the Supabase dashboard.
 on:
   workflow_dispatch:
 

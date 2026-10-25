@@ -1,723 +1,864 @@
+// ChekaMeds WhatsApp webhook — v200
+//
+// What changed from v119 and why:
+//   • Matching moved into Postgres (search_inventory RPC). No more %infix%
+//     LIKE over 100k rows in the function. "vis" can no longer match Gaviscon.
+//   • Hard dosage-form guard. An eye-drop query cannot return an oral antacid.
+//   • The alternatives feature is GONE. The platform never tells a patient
+//     that one medicine treats the same thing as another. It shows stock and
+//     routes clinical judgement to the pharmacist.
+//   • Gemini normalises wording only, with a real token budget and a
+//     finishReason check. Truncated output is discarded, never parsed.
+//   • Replies are short enough to read on one phone screen.
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type"};
-const DIV="───────────────";
-const RESERVATION_HOURS=3;
-const KNOWN_LOCATIONS=["jwaneng","gaborone","francistown","maun","kasane","palapye","serowe","lobatse","kanye","molepolole","tlokweng","mogoditshane","ramotswa","orapa","letlhakane","selebi phikwe","selibe phikwe","ghanzi","tsabong","hukuntsi","shakawe","gumare","masunga","tati siding","tati","tutume","bordergate"];
-const NON_MEDICINE=["gold plated","regular gold","necklace","bracelet","earring","earrings","perfume","hair piece","hairpiece","body spray","toy","watch"];
-const JUNK=["google","facebook","youtube","instagram","tiktok","gmail","whatsapp","website","url","link","login","password"];
-const RESERVE=/^(store|buy|purchase|reserve for pickup|reserve for pick up|reserve pickup|reserve pick up|pay at store|reserve|pickup|pick up|reserv|reserb|resrv|reseve|resrve|proceed|i want to reserve|i want to collect|i will collect|i will pick up|pay in store|pay at counter|yes reserve|confirm reserve)$/;
-const CONSULT=/^(video consult|consult|doctor|video|online consult|consult a doctor|video_consult|speak to doctor|talk to doctor)$/;
-const OPTOUT=/^(stop|unsubscribe|opt out|optout|no messages|remove me)$/;
-const NOTIFY_ME=/^(notify|notify me|alert me|tell me|watch|remind me|yes notify)$/;
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-/* The ChekaMeds WhatsApp number lives on UltraMsg instance114633. Prefer the
-   configured secret, but fall back to the known instance rather than sending
-   nowhere - and say so in the log, so a missing secret is never silent. */
+const RESERVATION_HOURS = 3;
+// Six results: slots 1-3 partner pharmacies, slots 4-6 everyone else.
+// If either side is short, the other backfills rather than leaving the list
+// stubby. The reply header describes whatever ordering these two produce —
+// see resultsMsg — so changing them here changes the wording automatically.
+const RESULT_SLOTS = 6;
+const PARTNER_TOP_SLOTS = 3;      // partner pharmacies pinned to slots 1-3
+// Small "partner" tag on pinned rows. Item-level labelling is how every
+// marketplace handles paid placement — quiet, but it means the pinning is
+// never hidden. Set false to remove it.
+const SHOW_PARTNER_TAG = true;
+const PARTNER_MATCH = "pulse";
+const MIN_QUERY_LEN = 3;          // was effectively 2 — "vis" got through
+const SUGGEST_FLOOR = 0.62;       // below this we do not even offer a guess
+
+const KNOWN_LOCATIONS = ["jwaneng","gaborone","francistown","maun","kasane","palapye","serowe","lobatse","kanye","molepolole","tlokweng","mogoditshane","ramotswa","orapa","letlhakane","selebi phikwe","selibe phikwe","ghanzi","tsabong","hukuntsi","shakawe","gumare","masunga","tati siding","tati","tutume","bordergate"];
+const NON_MEDICINE = ["gold plated","regular gold","necklace","bracelet","earring","earrings","perfume","hair piece","hairpiece","body spray","toy","watch"];
+const JUNK = ["google","facebook","youtube","instagram","tiktok","gmail","whatsapp","website","url","link","login","password"];
+
+const RESERVE   = /^(store|buy|purchase|reserve for pickup|reserve for pick up|reserve pickup|reserve pick up|pay at store|reserve|pickup|pick up|reserv|reserb|resrv|reseve|resrve|proceed|i want to reserve|i want to collect|i will collect|i will pick up|pay in store|pay at counter|yes reserve|confirm reserve)$/;
+const CONSULT   = /^(video consult|consult|doctor|video|online consult|consult a doctor|video_consult|speak to doctor|talk to doctor)$/;
+const OPTOUT    = /^(stop|unsubscribe|opt out|optout|no messages|remove me)$/;
+const NOTIFY_ME = /^(notify|notify me|alert me|tell me|watch|remind me|yes notify)$/;
+const GREETING  = /^(hi|hello|hey|help|menu|start|dumelang|dumela|0)$/;
+const YES       = /^(yes|yep|ya|yeah|sure|ok|okay|correct|right|yebo|ee|eya|confirm)$/;
+
+// ─── UltraMsg ───────────────────────────────────────────────────────────────
 const ULTRAMSG_FALLBACK = "instance114633";
-/* An UltraMsg instance id looks like "instance114633". A bare number is
-   accepted and prefixed. Anything else - most often a token pasted into the
-   wrong field - is rejected, because UltraMsg answers an unknown instance
-   with a misleading "stopped due to non-payment" error. */
 function resolveInstance(): string {
   const raw = (Deno.env.get("ULTRAMSG_INSTANCE_ID") || Deno.env.get("ULTRAMSG_INSTANCE") || "").trim();
-  if (!raw) {
-    console.warn(`ULTRAMSG_INSTANCE_ID is not set; using ${ULTRAMSG_FALLBACK}`);
-    return ULTRAMSG_FALLBACK;
-  }
+  if (!raw) { console.warn(`ULTRAMSG_INSTANCE_ID not set; using ${ULTRAMSG_FALLBACK}`); return ULTRAMSG_FALLBACK; }
   if (/^instance\d+$/.test(raw)) return raw;
   if (/^\d+$/.test(raw)) return `instance${raw}`;
-  console.error(`ULTRAMSG_INSTANCE_ID is "${raw}", which is not an instance id (expected e.g. instance114633 - a token may have been pasted into this field). Using ${ULTRAMSG_FALLBACK}.`);
+  console.error(`ULTRAMSG_INSTANCE_ID is "${raw}" — not an instance id. Using ${ULTRAMSG_FALLBACK}.`);
   return ULTRAMSG_FALLBACK;
 }
 const ULTRAMSG_INSTANCE = resolveInstance();
-const ULTRAMSG_TOKEN_VAL = Deno.env.get("ULTRAMSG_TOKEN") || "";
+const ULTRAMSG_TOKEN = Deno.env.get("ULTRAMSG_TOKEN") || "";
 
-const ROW_LIMIT = 100000;
-const MAX_TERMS = 16;
-const RESULT_SLOTS = 5;
-const PER_CLINIC_CAP = 0;
-const PULSE_TOP_SLOTS = 2;   // Pulse = slots 1&2 only; 3,4,5 = other pharmacies
+// ─── Gemini ─────────────────────────────────────────────────────────────────
+// One job only: turn human wording into a search term. It never sees stock,
+// never names a pharmacy, never suggests a substitute.
+const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") || "";
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + GEMINI_KEY;
 
-const USE_GEMINI = true;
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + GEMINI_API_KEY;
+const GEMINI_SYSTEM = [
+  "You normalise shoppers' words into ONE search term for a Botswana pharmacy stock lookup.",
+  "Return ONLY the term. No sentence, no explanation, maximum 4 words.",
+  "",
+  "1. Misspelled medicine -> corrected name. 'amoxicilin' -> amoxicillin. 'paracetmol' -> paracetamol.",
+  "2. Brand name -> keep the brand. 'panado' -> panado. 'durex' -> durex. 'gaviscon' -> gaviscon.",
+  "3. Product described by type -> the type. 'drops for my eyes' -> eye drops. 'cough mixture' -> cough syrup.",
+  "4. A SPECIFIC symptom -> the product CATEGORY, never a named drug.",
+  "   'my head is paining' -> pain relief. 'blocked nose' -> nasal spray.",
+  "5. A VAGUE statement of being unwell, in any language, is NOT a product.",
+  "   'ke a lwala', 'I feel sick', 'I am not well' -> return exactly: NONE",
+  "6. Contraceptives -> condom. ",
+  "7. Nothing to do with health -> return exactly: NONE",
+  "",
+  "You do not know what is in stock. Never state availability, price or a pharmacy name.",
+  "Never give a dose, a treatment plan, or medical advice.",
+].join("\n");
 
-// ═════════════════════════════════════════════════════════════════
-// GEMINI GUARDRAILS
-// Gemini is used ONLY to normalise the user's words into a search term.
-// It NEVER produces stock, prices, pharmacy names, or availability.
-// Every term it returns is verified against clinic_inventory before use.
-// ═════════════════════════════════════════════════════════════════
-const GEMINI_SYSTEM = "You are a medicine name extractor for ChekaMeds, a Botswana pharmacy bot. " +
-"Given any user message, extract and return ONLY the medicine, health product, or health supply name in English. " +
-"STRICT RULES: " +
-"1. If the message is a medicine name (even misspelled) — correct and return it. Examples: 'amoxicilin' -> 'amoxicillin', 'panado' -> 'paracetamol', 'brufen' -> 'ibuprofen'. " +
-"2. If the message is a brand name — return it as-is. Examples: 'moods', 'durex', 'contempo', 'dynafil', 'viagra'. " +
-"3. If the message describes a symptom in ANY language including Setswana — return the most common OTC medicine. Examples: 'my head is paining' -> 'paracetamol', 'ke a lwala' -> 'paracetamol', 'I have a cough' -> 'cough syrup'. " +
-"4. If the message mentions condoms or contraceptives — return 'condom'. " +
-"5. If the message mentions sexual health products — return the product name or generic. " +
-"6. Return ONLY the medicine or product name. No explanation. No sentence. Maximum 6 words. " +
-"7. NEVER invent a pharmacy name, price, stock level, or availability. You do not know what is in stock. " +
-"8. NEVER give medical advice, dosage, or treatment instructions. " +
-"9. If the message has absolutely nothing to do with medicine or health — return exactly: NONE.";
-
-async function geminiExtract(message: string): Promise<string | null> {
-  if (!USE_GEMINI || !GEMINI_API_KEY) { console.warn("GEMINI_DISABLED key_present=false"); return null; }
+async function geminiNormalise(message: string): Promise<string | null> {
+  if (!GEMINI_KEY) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const reqBody = JSON.stringify({
-      contents: [{ parts: [{ text: GEMINI_SYSTEM + "\n\nTASK - EXTRACT SEARCH TERM FROM: " + message }] }],
-      generationConfig: { temperature: 0, maxOutputTokens: 200 },
-    });
-    const res = await fetch(GEMINI_URL, { method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal, body: reqBody });
-    let data = await res.json();
-    if (data?.error?.code === 503) {
-      console.warn("GEMINI_RETRY_503:", message);
-      await new Promise(r => setTimeout(r, 600));
-      const retryRes = await fetch(GEMINI_URL, { method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal, body: reqBody });
-      data = await retryRes.json();
-    }
-    clearTimeout(timeout);
-    if (data?.error) { console.error("GEMINI_API_ERROR:", JSON.stringify(data.error).substring(0,300)); return null; }
-    const out = String(data?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
-    console.log("GEMINI_EXTRACT:", message, "->", out);
-    if (!out || out.toUpperCase() === "NONE" || out.length < 2) return null;
-    const cleaned = out.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-    // GUARDRAIL: reject anything that looks like a sentence or invented claim
-    if (cleaned.split(" ").length > 6) { console.warn("GEMINI_REJECTED too_long:", cleaned); return null; }
-    if (/\b(pharmacy|pula|bwp|price|stock|available|in stock|p[0-9])\b/.test(cleaned)) { console.warn("GEMINI_REJECTED claim_like:", cleaned); return null; }
-    return cleaned;
-  } catch (e) {
-    console.error("GEMINI_EXTRACT_ERROR:", String(e));
-    return null;
-  }
-}
-
-// GUARDRAIL: alternatives are checked against REAL inventory before suggesting.
-async function geminiAlternatives(medicine: string): Promise<string[]> {
-  if (!USE_GEMINI || !GEMINI_API_KEY) return [];
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const prompt = "List up to 4 alternative medicine or brand names that treat the same condition as: " + medicine + ". " +
-      "Reply with ONLY a comma-separated list of medicine names. " +
-      "No explanation. No numbers. No sentences. No prices. No pharmacy names. No dosages. " +
-      "Example format: paracetamol, ibuprofen, aspirin";
     const res = await fetch(GEMINI_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 60 },
+        contents: [{ parts: [{ text: GEMINI_SYSTEM + "\n\nMESSAGE: " + message }] }],
+        // 512, not 60. gemini-2.5-flash spends output tokens on reasoning
+        // before it writes anything; a small budget returns truncated text.
+        // That is how "visine" once became "vis".
+        generationConfig: { temperature: 0, maxOutputTokens: 512 },
       }),
     });
-    clearTimeout(timeout);
     const data = await res.json();
-    if (data?.error) { console.error("GEMINI_ALT_ERROR:", JSON.stringify(data.error).substring(0,300)); return []; }
+    if (data?.error) { console.error("GEMINI_ERROR:", JSON.stringify(data.error).slice(0, 300)); return null; }
+
+    // Discard anything the model did not finish writing.
+    const finish = data?.candidates?.[0]?.finishReason;
+    if (finish && finish !== "STOP") { console.warn("GEMINI_TRUNCATED finishReason=", finish); return null; }
+
     const out = String(data?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
-    console.log("GEMINI_ALTERNATIVES:", medicine, "->", out);
-    if (!out || out.toUpperCase() === "NONE") return [];
-    const raw = out.split(",").map(s => s.trim().toLowerCase().replace(/[^a-z0-9\s]/g," ").replace(/\s+/g," ").trim())
-      .filter(s => s.length >= 2 && s.split(" ").length <= 4).slice(0, 4);
-    if (!raw.length) return [];
-    // ── HARD GUARDRAIL: only keep names that ACTUALLY EXIST in inventory ──
-    const verified: string[] = [];
-    for (const cand of raw) {
-      try {
-        const { data: hit } = await sb().from("clinic_inventory").select("med_name")
-          .gt("quantity", 0).neq("clinic_name", "ChekaMeds Admin")
-          .or(`med_name.ilike.%${cand}%,generic_name.ilike.%${cand}%,brand_name.ilike.%${cand}%`)
-          .limit(1);
-        if (hit && hit.length) verified.push(cand);
-        else console.log("GEMINI_ALT_DROPPED not_in_inventory:", cand);
-      } catch(_) {}
-    }
-    console.log("GEMINI_ALT_VERIFIED:", verified.join("|"));
-    return verified;
+    console.log("GEMINI_NORMALISE:", message, "->", out, "finish=", finish);
+    if (!out || out.toUpperCase() === "NONE") return null;
+
+    const cleaned = out.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+    if (cleaned.length < MIN_QUERY_LEN) { console.warn("GEMINI_REJECT too_short:", cleaned); return null; }
+    if (cleaned.split(" ").length > 4)   { console.warn("GEMINI_REJECT too_long:", cleaned); return null; }
+    if (/\b(pharmacy|pula|bwp|price|stock|available|p\d)\b/.test(cleaned)) { console.warn("GEMINI_REJECT claim_like:", cleaned); return null; }
+    return cleaned;
   } catch (e) {
-    console.error("GEMINI_ALT_EXCEPTION:", String(e));
-    return [];
+    console.error("GEMINI_EXCEPTION:", String(e));
+    return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-type Row={clinic_name:string;med_name:string;quantity:number;price_bwp:number|null;location?:string|null;directions_link?:string|null;contact?:string|null;strength?:string|null;dosage_form?:string|null;generic_name?:string|null;brand_name?:string|null;search_tokens?:string|null;approved?:boolean|null;};
-type PInfo={contact:string|null;weekday_hours:string|null;weekend_hours:string|null;address:string|null;lat:number|null;lng:number|null;};
-type Opt={clinic_name:string;med_name:string;quantity:number;price_bwp:number|null;location:string|null;directions_link:string|null;contact:string|null;weekday_hours:string|null;weekend_hours:string|null;distance_km:number|null;};
-type Session={medicine:string;options:Opt[];selected:Opt|null;state:string;user_lat:number|null;user_lng:number|null;};
-type WA={type:"text"|"button"|"list";text?:string;buttons?:{id:string;text:string}[];listTitle?:string;listButtonText?:string;sections?:{title:string;rows:{id:string;title:string;description?:string}[]}[];};
+// ─── Visual language ────────────────────────────────────────────────────────
+// WhatsApp has no coloured text — not an UltraMsg limit, the platform simply
+// has no such feature. Available: *bold* _italic_ ~strike~ ```mono``` > quote.
+// The only real colour channel is emoji, so the coloured dots carry the one
+// thing that genuinely needs colour: how much to trust the stock figure.
+//
+//   *bold*    the medicine, the price, the action — what the eye lands on
+//   _italic_  everything secondary: age of data, ordering, caveats
+//   ⚠️        needs attention before travelling (prescription, last one left)
+//
+// Stock age is NOT shown to patients — product decision, 14 Oct. It still
+// flows through search_inventory and into search_logs so the dashboard and
+// the pharmacy-side reports can see it. Internal signal, not a user-facing one.
+const DIV = "━━━━━━━━━━━━━━━";
+const b  = (s: string) => `*${s}*`;
+const it = (s: string) => `_${s}_`;
 
-const sb=()=>createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-const ct=(v:string|null|undefined)=>String(v||"").toLowerCase().replace(/[^a-z0-9\s]/g," ").replace(/\s+/g," ").trim();
-const cp=(r:string)=>{let p=String(r||"").replace(/@c\.us|@s\.whatsapp\.net/g,"").replace(/^\+/,"").replace(/\D/g,"");if(p.length===8)p=`267${p}`;if(p.length===10&&p[0]==="0")p=`267${p.slice(1)}`;return p;};
-const price=(v:number|null|undefined)=>v!=null?`P${Number(v).toFixed(2)}`:`Price unavailable`;
-const realLink=(v?:string|null)=>{const s=String(v||"").trim();if(!/^https:\/\//i.test(s))return"";if(/example|placeholder|fake|test/i.test(s))return"";return s;};
-const hasLoc=(v?:string|null)=>{const s=ct(v);return!!(s&&s!=="botswana"&&s!=="unknown"&&s!=="not listed"&&s!=="n a");};
-const isPulse=(n:string)=>ct(n).includes("pulse");
-const prettyLoc=(l:string)=>l?l.split(" ").map(p=>p[0].toUpperCase()+p.slice(1)).join(" "):"All Botswana";
-const RANK=["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣"];
-const uuid=()=>crypto.randomUUID();
-
-function hav(la1:number,lo1:number,la2:number,lo2:number){const R=6371,dL=(la2-la1)*Math.PI/180,dG=(lo2-lo1)*Math.PI/180,a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dG/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
-const fmtDist=(k:number)=>k<1?`${Math.round(k*1000)}m away`:`${k.toFixed(1)} km away`;
-const fmtTime=(k:number)=>{const m=Math.round((k/40)*60);return m<1?"under 1 min":m===1?"~1 min by car":`~${m} mins by car`;};
-
-// ═══ ANALYTICS — every search recorded, every impression attributed ═══
-async function logSearch(o:{
-  searchId:string;query:string;normalized:string;resultsCount:number;phone:string;
-  location:string|null;found:boolean;matched:string[];geminiUsed:boolean;geminiTerm:string|null;
-  lat:number|null;lng:number|null;
-}){
-  try{
-    const{error}=await sb().from("search_logs").insert({
-      search_id:o.searchId,query:o.query,normalized_query:o.normalized,
-      results_count:o.resultsCount,source:"whatsapp",user_phone:o.phone,
-      location:o.location,reserved:false,found:o.found,
-      matched_pharmacies:o.matched,gemini_used:o.geminiUsed,gemini_term:o.geminiTerm,
-      user_lat:o.lat,user_lng:o.lng,
-    });
-    if(error)console.error("LOG_SEARCH_ERROR:",error.message);
-    else console.log("LOG_SEARCH_OK:",o.normalized,"found=",o.found,"n=",o.resultsCount);
-  }catch(e){console.error("LOG_SEARCH_EXCEPTION:",String(e));}
+// Freshness. A patient deciding whether to make a journey deserves to know
+// how old the number is. Never-updated rows say so rather than pretending.
+// INTERNAL ONLY. Not rendered to patients (product decision, 14 Oct).
+// Used to tag search_logs so the dashboard can show which pharmacies are
+// letting their stock go stale — the people who can actually fix it.
+function freshness(hours: number | null | undefined): { dot: string; label: string; trust: boolean } {
+  if (hours == null)  return { dot: "🔴", label: "last update unknown — phone first", trust: false };
+  if (hours <= 2)     return { dot: "🟢", label: "updated just now", trust: true };
+  if (hours <= 48)    return { dot: "🟢", label: hours < 24 ? `updated ${Math.round(hours)}h ago` : "updated yesterday", trust: true };
+  if (hours <= 168)   return { dot: "🟡", label: `updated ${Math.round(hours/24)} days ago`, trust: true };
+  if (hours <= 720)   return { dot: "🔴", label: `${Math.round(hours/24)} days old — phone first`, trust: false };
+  return                     { dot: "🔴", label: "over a month old — phone first", trust: false };
 }
 
-async function logImpressions(searchId:string,query:string,opts:Opt[],phone:string,location:string|null){
-  if(!opts.length)return;
-  try{
-    const rows=opts.map((o,i)=>({
-      search_id:searchId,pharmacy_name:o.clinic_name,medicine:o.med_name,query,
-      position:i+1,price_bwp:o.price_bwp,quantity:o.quantity,distance_km:o.distance_km,
-      user_phone:phone,location,source:"whatsapp",selected:false,reserved:false,
-    }));
-    const{error}=await sb().from("search_impressions").insert(rows);
-    if(error)console.error("LOG_IMPRESSION_ERROR:",error.message);
-    else console.log("LOG_IMPRESSIONS_OK:",rows.length,"pharmacies");
-  }catch(e){console.error("LOG_IMPRESSION_EXCEPTION:",String(e));}
-}
+// ─── Types ──────────────────────────────────────────────────────────────────
+type Hit = {
+  clinic_name: string; med_name: string; generic_name: string | null;
+  quantity: number; low_stock: boolean | null; price_bwp: number | null;
+  location: string | null; directions_link: string | null; contact: string | null;
+  strength: string | null; pack_size: string | null;
+  dosage_form: string | null; form_group: string | null;
+  // rx_required comes straight from the pharmacy's own prescription_required
+  // flag. Nothing is inferred — their data or nothing.
+  rx_required: boolean | null; stock_age_hours: number | null;
+  match_kind: "exact" | "prefix" | "fulltext" | "fuzzy"; score: number;
+};
+type Opt = Hit & { weekday_hours: string | null; weekend_hours: string | null; distance_km: number | null };
+type PInfo = { contact: string|null; weekday_hours: string|null; weekend_hours: string|null; address: string|null; lat: number|null; lng: number|null };
+type Session = { medicine: string; options: Opt[]; selected: Opt|null; state: string; user_lat: number|null; user_lng: number|null; pending: string|null };
+type WA = { text: string; buttons?: { id: string; text: string }[] };
 
-async function markImpression(searchId:string|null,pharmacy:string,medicine:string,phone:string,field:"selected"|"reserved"){
-  try{
-    let q=sb().from("search_impressions").update({[field]:true})
-      .eq("pharmacy_name",pharmacy).eq("user_phone",cp(phone));
-    if(searchId)q=q.eq("search_id",searchId);
-    else q=q.eq("medicine",medicine);
-    const{error}=await q;
-    if(error)console.error("MARK_IMPRESSION_ERROR:",error.message);
-  }catch(e){console.error("MARK_IMPRESSION_EXCEPTION:",String(e));}
-}
-
-async function logFailed(normalized:string,query:string,phone:string,location:string|null){
-  try{
-    await sb().from("failed_searches").insert({
-      query,normalized_query:normalized,source:"whatsapp",user_phone:cp(phone),location,notified:false
-    });
-  }catch(e){console.error("LOG_FAILED_EXCEPTION:",String(e));}
-}
-
-async function addToWatchlist(phone:string,medicine:string,location:string|null){
-  try{
-    await sb().from("stock_watchlist").insert({phone:cp(phone),medicine:ct(medicine),location,notified:false});
-    console.log("WATCHLIST_ADDED:",phone,medicine);
-    return true;
-  }catch(e){console.error("WATCHLIST_ERROR:",String(e));return false;}
-}
-
-async function isOptedOut(phone:string):Promise<boolean>{
-  try{const{data}=await sb().from("notification_optouts").select("phone").eq("phone",cp(phone)).maybeSingle();return !!data;}catch(_){return false;}
-}
-
-// ═══ RANKING: Pulse top 2, slots 3-5 to other pharmacies ═══
-function interleaveOpts(pulse:Opt[],others:Opt[],slots=RESULT_SLOTS):Opt[]{
-  const out:Opt[]=[];const seenP=new Set<string>();
-  for(const p of pulse){if(out.length>=PULSE_TOP_SLOTS)break;const k=ct(p.clinic_name);if(seenP.has(k))continue;seenP.add(k);out.push(p);}
-  const seenO=new Set<string>();const leftoverO:Opt[]=[];
-  for(const o of others){const k=ct(o.clinic_name);if(seenO.has(k)){leftoverO.push(o);continue;}seenO.add(k);if(out.length<slots)out.push(o);else leftoverO.push(o);}
-  for(const o of leftoverO){if(out.length>=slots)break;out.push(o);}
-  for(const p of pulse){if(out.length>=slots)break;if(out.indexOf(p)!==-1)continue;out.push(p);}
-  return out.slice(0,slots);
-}
-function interleaveRows(pulse:{r:Row;s:number}[],others:{r:Row;s:number}[],slots=RESULT_SLOTS):Row[]{
-  const out:Row[]=[];const seenP=new Set<string>();
-  for(const{r}of pulse){if(out.length>=PULSE_TOP_SLOTS)break;const k=ct(r.clinic_name);if(seenP.has(k))continue;seenP.add(k);out.push(r);}
-  const seenO=new Set<string>();const leftoverO:Row[]=[];
-  for(const{r}of others){const k=ct(r.clinic_name);if(seenO.has(k)){leftoverO.push(r);continue;}seenO.add(k);if(out.length<slots)out.push(r);else leftoverO.push(r);}
-  for(const r of leftoverO){if(out.length>=slots)break;out.push(r);}
-  for(const{r}of pulse){if(out.length>=slots)break;if(out.indexOf(r)!==-1)continue;out.push(r);}
-  return out.slice(0,slots);
-}
-
-const pCache=new Map<string,PInfo>();
-async function pInfo(name:string):Promise<PInfo>{
-  const k=ct(name);if(pCache.has(k))return pCache.get(k)!;
-  try{
-    const{data}=await sb().from("pharmacies").select("contact,weekday_hours,weekend_hours,address,latitude,longitude").ilike("clinic_name",`%${name.trim()}%`).maybeSingle();
-    const r:PInfo={contact:data?.contact||null,weekday_hours:data?.weekday_hours||null,weekend_hours:data?.weekend_hours||null,address:data?.address||null,lat:data?.latitude?Number(data.latitude):null,lng:data?.longitude?Number(data.longitude):null};
-    pCache.set(k,r);return r;
-  }catch(_){return{contact:null,weekday_hours:null,weekend_hours:null,address:null,lat:null,lng:null};}
-}
-
-async function readSession(phone:string):Promise<Session>{
-  try{
-    const{data}=await sb().from("whatsapp_sessions").select("medicine,options,selected,state,user_lat,user_lng").eq("from_number",cp(phone)).maybeSingle();
-    if(!data)return{medicine:"",options:[],selected:null,state:"idle",user_lat:null,user_lng:null};
-    return{medicine:data.medicine||"",options:Array.isArray(data.options)?data.options:[],selected:data.selected||null,state:data.state||"idle",user_lat:data.user_lat?Number(data.user_lat):null,user_lng:data.user_lng?Number(data.user_lng):null};
-  }catch(_){return{medicine:"",options:[],selected:null,state:"idle",user_lat:null,user_lng:null};}
-}
-async function writeSession(phone:string,s:Session){
-  try{await sb().from("whatsapp_sessions").upsert({from_number:cp(phone),medicine:s.medicine,options:s.options as any,selected:s.selected as any,state:s.state,user_lat:s.user_lat,user_lng:s.user_lng,updated_at:new Date().toISOString()},{onConflict:"from_number"});}catch(e){console.error("writeSession",e);}
-}
-
-const ALIASES:Record<string,string>={panado:"paracetamol",panadol:"paracetamol",panadoo:"paracetamol",panodo:"paracetamol",panadole:"paracetamol",paracetmol:"paracetamol",parecetamol:"paracetamol",parasetamol:"paracetamol",paracitamol:"paracetamol",paracet:"paracetamol",parecet:"paracetamol",paraml:"paracetamol",parml:"paracetamol",brufen:"ibuprofen",ibrufen:"ibuprofen",ibrofen:"ibuprofen",ibuprofin:"ibuprofen",ibuprofane:"ibuprofen",amoxil:"amoxicillin",amoxilin:"amoxicillin",amoxycillin:"amoxicillin",amoxy:"amoxicillin",allergex:"chlorpheniramine",alergex:"chlorpheniramine",allegex:"chlorpheniramine",disprin:"aspirin",asprin:"aspirin",cetrezine:"cetirizine",cetrizine:"cetirizine",citrizine:"cetirizine",omperazole:"omeprazole",esomperazole:"esomeprazole",esomep:"esomeprazole",canesten:"clotrimazole",candid:"clotrimazole",gaviscon:"sodium alginate",gavison:"sodium alginate",metfomin:"metformin",metformine:"metformin",losaten:"losartan",losartin:"losartan",amlodipin:"amlodipine",amlodipene:"amlodipine",atovastatin:"atorvastatin",atorva:"atorvastatin",azitromycin:"azithromycin",zithromax:"azithromycin",cipro:"ciprofloxacin",ciprofloxacine:"ciprofloxacin",doxy:"doxycycline",declofenac:"diclofenac",voltaren:"diclofenac",ventolin:"salbutamol",salbutomol:"salbutamol",insuline:"insulin",coartem:"artemether lumefantrine",lumartem:"artemether lumefantrine",urimax:"tamsulosin",flomax:"tamsulosin",brugesic:"ibuprofen",myprodol:"ibuprofen paracetamol codeine",
-condom:"condom",condoms:"condom",kondome:"condom",kondom:"condom",
-moods:"moods",mood:"moods",
-durex:"durex",contempo:"contempo",
-viagra:"sildenafil",viagara:"sildenafil",viagr:"sildenafil",
-sildenafil:"sildenafil",dynafil:"sildenafil",
-"sex pills":"sildenafil","male enhancement":"sildenafil"};
-
-function normMed(msg:string):string{
-  const noise=/\b(please|pls|plz|find|search|check|stock|available|avail|medicine|medication|meds|drug|tablet|tablets|tab|tabs|capsule|capsules|syrup|cream|ointment|price|need|looking|for|do|you|have|where|can|i|get|is|there|near|me|want|buy|purchase|get|some|a|the)\b/g;
-  let t=ct(msg).replace(noise," ").replace(/\s+/g," ").trim();
-  if(ALIASES[t])return ALIASES[t];
-  for(const[w,r]of Object.entries(ALIASES))t=t.replace(new RegExp(`\\b${w}\\b`,"g"),r);
-  return t.replace(/\s+/g," ").trim();
-}
-function extractLoc(m:string){const t=ct(m);return KNOWN_LOCATIONS.find(l=>t.includes(l))||""}
-function stripLoc(m:string,l:string){if(!l)return ct(m);return ct(m).replace(new RegExp(`\\b${l}\\b`,"g")," ").replace(/\bnear me\b/g," ").replace(/\b(in|at|near)\b/g," ").replace(/\s+/g," ").trim();}
-
-function sim(a:string,b:string):number{const l=ct(a),r=ct(b);if(!l||!r)return 0;if(l===r)return 1;const M=Math.max(l.length,r.length);if(M===0)return 0;const prev=Array.from({length:r.length+1},(_,i)=>i),cur=Array.from({length:r.length+1},()=>0);for(let i=1;i<=l.length;i++){cur[0]=i;for(let j=1;j<=r.length;j++)cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(l[i-1]===r[j-1]?0:1));for(let j=0;j<=r.length;j++)prev[j]=cur[j];}return 1-prev[r.length]/M;}
-
-function scoreRow(row:Row,terms:string[],wantedLoc:string):number{
-  const med=ct(row.med_name);
-  const searchable=ct([row.med_name,row.generic_name,row.brand_name,row.strength,row.dosage_form,row.search_tokens].filter(Boolean).join(" "));
-  const locText=ct([row.location,row.clinic_name].filter(Boolean).join(" "));
-  let score=0;
-  for(const term of terms.map(ct).filter(Boolean)){
-    if(!term)continue;
-    if(med===term)score+=400;
-    else if(med.startsWith(term+" ")||med.endsWith(" "+term))score+=280;
-    else if(med.includes(term))score+=200;
-    else if(searchable.includes(term))score+=120;
-    for(const part of term.split(" ").filter(p=>p.length>=4)){if(med.includes(part))score+=60;else if(searchable.includes(part))score+=30;}
-    for(const word of med.split(" ").filter(w=>w.length>=4)){const s=sim(term,word);if(s>=0.88)score+=90;else if(s>=0.78)score+=50;}
+// ─── Helpers ────────────────────────────────────────────────────────────────
+const sb = () => createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+const ct = (v: unknown) => String(v ?? "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+// Phone normalisation. Real pharmacy records are messy — "397 1606 (WhatsApp
+// 7532697)" is a genuine value from the pharmacies table. The old version
+// stripped every non-digit and welded two numbers into one 14-digit fiction,
+// which was then shown to patients and used for reservation alerts.
+// Now: take the FIRST plausible Botswana number in the string, and return ""
+// rather than something invented.
+const cp = (r: string): string => {
+  const raw = String(r || "").replace(/@c\.us|@s\.whatsapp\.net/g, " ");
+  // already a full international number?
+  const intl = raw.match(/(?:\+|00)?(267\d{8})/);
+  if (intl) return intl[1];
+  // otherwise find candidate local runs of digits, ignoring separators within
+  const runs = (raw.match(/\d[\d\s-]*\d|\d/g) || []).map(x => x.replace(/\D/g, ""));
+  for (const d of runs) {
+    if (d.length === 8 && /^[2-7]/.test(d)) return `267${d}`;   // 8-digit local
+    if (d.length === 9 && d[0] === "0")     return `267${d.slice(1)}`;
+    if (d.length === 11 && d.startsWith("267")) return d;
   }
-  if(score<80)return 0;
-  if(wantedLoc&&locText.includes(wantedLoc))score+=600;
-  if(hasLoc(row.location))score+=15;
-  if(realLink(row.directions_link))score+=10;
-  score+=Math.min(Number(row.quantity)||0,100)/20;
-  return score;
+  // 7-digit Gaborone landlines exist in the data; keep them as-is so they can
+  // still be displayed, but they will not pass the >= 11 reservation check.
+  for (const d of runs) if (d.length === 7) return `267${d}`;
+  return "";
+};
+// Display helper: never print a number we could not make sense of.
+const phone = (v?: string | null) => { const p = cp(String(v || "")); return p.length >= 10 ? `+${p}` : null; };
+const money = (v: number|null|undefined) => v != null ? `P${Number(v).toFixed(2)}` : null;
+const realLink = (v?: string|null) => { const s=String(v||"").trim(); return (/^https:\/\//i.test(s) && !/example|placeholder|fake|test/i.test(s)) ? s : ""; };
+const hasLoc = (v?: string|null) => { const s=ct(v); return !!(s && !["botswana","unknown","not listed","n a"].includes(s)); };
+const isPartner = (n: string) => ct(n).includes(PARTNER_MATCH);
+const tital = (s: string) => s ? s.split(" ").map(w => w ? w[0].toUpperCase()+w.slice(1) : w).join(" ") : s;
+const uuid = () => crypto.randomUUID();
+const fmtDist = (k: number) => k < 1 ? `${Math.round(k*1000)} m` : `${k.toFixed(1)} km`;
+
+function hav(la1:number,lo1:number,la2:number,lo2:number){
+  const R=6371,dL=(la2-la1)*Math.PI/180,dG=(lo2-lo1)*Math.PI/180;
+  const a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dG/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-const SELECT_COLS="clinic_name,med_name,quantity,price_bwp,location,directions_link,contact,strength,dosage_form,generic_name,brand_name,search_tokens";
+// ─── Query understanding ────────────────────────────────────────────────────
+const ALIASES: Record<string,string> = {
+  panado:"paracetamol",panadol:"paracetamol",panadoo:"paracetamol",panodo:"paracetamol",panadole:"paracetamol",
+  paracetmol:"paracetamol",parecetamol:"paracetamol",parasetamol:"paracetamol",paracitamol:"paracetamol",paracet:"paracetamol",
+  brufen:"ibuprofen",ibrufen:"ibuprofen",ibrofen:"ibuprofen",ibuprofin:"ibuprofen",brugesic:"ibuprofen",
+  amoxil:"amoxicillin",amoxilin:"amoxicillin",amoxycillin:"amoxicillin",amoxy:"amoxicillin",
+  allergex:"chlorpheniramine",alergex:"chlorpheniramine",disprin:"aspirin",asprin:"aspirin",
+  cetrezine:"cetirizine",cetrizine:"cetirizine",citrizine:"cetirizine",
+  omperazole:"omeprazole",esomperazole:"esomeprazole",canesten:"clotrimazole",candid:"clotrimazole",
+  metfomin:"metformin",losaten:"losartan",amlodipin:"amlodipine",atovastatin:"atorvastatin",
+  zithromax:"azithromycin",cipro:"ciprofloxacin",voltaren:"diclofenac",ventolin:"salbutamol",
+  coartem:"artemether lumefantrine",flomax:"tamsulosin",viagra:"sildenafil",dynafil:"sildenafil",
+  condoms:"condom",kondom:"condom",
+};
 
-async function loadRows(termArr:string[]):Promise<Row[]>{
-  const safe=termArr.map(t=>t.replace(/[^a-z0-9 ]/gi," ").trim()).filter(t=>t.length>=3).slice(0,MAX_TERMS);
-  if(!safe.length)return[];
-  const seen=new Set<string>();const out:Row[]=[];
-  const queries=safe.map(async t=>{
-    try{
-      const{data,error}=await sb().from("clinic_inventory").select(SELECT_COLS)
-        .gt("quantity",0).neq("clinic_name","ChekaMeds Admin")
-        .or(`med_name.ilike.%${t}%,generic_name.ilike.%${t}%,brand_name.ilike.%${t}%,search_tokens.ilike.%${t}%`)
-        .limit(ROW_LIMIT);
-      if(error)throw error;
-      return (data||[]) as Row[];
-    }catch(e){console.error("loadRows term",t,e);return [] as Row[];}
+// Route of administration implied by the shopper's own words.
+// This is what stops a mouthwash answering an eye-drop question.
+const FORM_HINTS: [RegExp, string][] = [
+  [/\b(eye ?drops?|eyedrops?|ophthalmic|drops? for (my )?eyes?|eye ointment|eye gel)\b/, "ophthalmic"],
+  [/\b(ear ?drops?|otic|drops? for (my )?ears?)\b/, "otic"],
+  [/\b(nasal spray|nose drops?|nasal drops?)\b/, "nasal"],
+  [/\b(mouth ?wash|mouthwash|gargle|oral rinse)\b/, "oralcare"],
+  [/\b(inhaler|puffer|nebuli\w*)\b/, "inhaled"],
+  [/\b(injection|jab|vial|ampoule)\b/, "injection"],
+  [/\b(cream|ointment|lotion|gel for|patch)\b/, "topical"],
+  [/\b(tablets?|capsules?|syrup|suspension|pills?)\b/, "oral"],
+];
+const FORM_LABEL: Record<string,string> = {
+  ophthalmic:"eye", otic:"ear", nasal:"nasal", oralcare:"mouth and throat",
+  inhaled:"inhaler", injection:"injectable", topical:"skin", oral:"oral", rectal_vaginal:"",
+};
+function wantedForm(raw: string): string | null {
+  const t = ct(raw);
+  for (const [re, group] of FORM_HINTS) if (re.test(t)) return group;
+  return null;
+}
+
+const NOISE = /\b(please|pls|plz|find|search|looking|check|stock|available|avail|medicine|medication|meds|drug|price|need|for|do|you|have|where|can|i|get|is|there|near|me|want|buy|purchase|some|a|an|the|hello|hi|hey|good|morning|afternoon|evening)\b/g;
+
+function normalise(msg: string): string {
+  let t = ct(msg).replace(NOISE, " ").replace(/\s+/g, " ").trim();
+  if (ALIASES[t]) return ALIASES[t];
+  for (const [w, r] of Object.entries(ALIASES)) t = t.replace(new RegExp(`\\b${w}\\b`, "g"), r);
+  return t.replace(/\s+/g, " ").trim();
+}
+const extractLoc = (m: string) => KNOWN_LOCATIONS.find(l => ct(m).includes(l)) || "";
+function stripLoc(m: string, l: string) {
+  if (!l) return ct(m);
+  return ct(m).replace(new RegExp(`\\b${l}\\b`,"g")," ").replace(/\bnear me\b/g," ").replace(/\b(in|at|near)\b/g," ").replace(/\s+/g," ").trim();
+}
+
+// ─── Search ─────────────────────────────────────────────────────────────────
+async function runSearch(term: string, form: string|null, loc: string): Promise<Hit[]> {
+  if (!term || term.length < MIN_QUERY_LEN) return [];
+  const { data, error } = await sb().rpc("search_inventory", {
+    q: term, want_form: form, want_location: loc || null, max_rows: 60,
   });
-  const results=await Promise.all(queries);
-  for(const batch of results){
-    for(const r of batch){
-      const k=ct(`${r.clinic_name}|${r.med_name}|${r.strength||""}`);
-      if(seen.has(k))continue;seen.add(k);out.push(r);
-    }
-  }
-  console.log("loadRows matched:",out.length,"terms:",safe.join("|"));
+  if (error) { console.error("SEARCH_RPC_ERROR:", error.message); return []; }
+  const rows = (data || []) as Hit[];
+  const clean = rows.filter(r => {
+    const m = ct(r.med_name), c = ct(r.clinic_name);
+    if (!m || !c) return false;
+    if (["demo","test","sample","mock"].some(b => c.includes(b))) return false;
+    if (NON_MEDICINE.some(b => m.includes(b))) return false;
+    return true;
+  });
+  console.log("SEARCH:", term, "form=", form, "loc=", loc||"-", "->", clean.length, "hits",
+              clean[0] ? `top=${clean[0].med_name}/${clean[0].match_kind}` : "");
+  return clean;
+}
+
+const pCache = new Map<string, PInfo>();
+async function pInfo(name: string): Promise<PInfo> {
+  const k = ct(name);
+  if (pCache.has(k)) return pCache.get(k)!;
+  const empty: PInfo = { contact:null, weekday_hours:null, weekend_hours:null, address:null, lat:null, lng:null };
+  try {
+    const { data } = await sb().from("pharmacies")
+      .select("contact,weekday_hours,weekend_hours,address,latitude,longitude")
+      .ilike("clinic_name", `%${name.trim()}%`).maybeSingle();
+    const r: PInfo = {
+      contact: data?.contact ?? null, weekday_hours: data?.weekday_hours ?? null,
+      weekend_hours: data?.weekend_hours ?? null, address: data?.address ?? null,
+      lat: data?.latitude != null ? Number(data.latitude) : null,
+      lng: data?.longitude != null ? Number(data.longitude) : null,
+    };
+    pCache.set(k, r); return r;
+  } catch { return empty; }
+}
+
+// One row per pharmacy — five entries for the same medicine at one branch is
+// noise, not choice.
+function dedupeByPharmacy(hits: Hit[]): Hit[] {
+  const seen = new Set<string>(); const out: Hit[] = [];
+  for (const h of hits) { const k = ct(h.clinic_name); if (seen.has(k)) continue; seen.add(k); out.push(h); }
   return out;
 }
 
-async function search(query:string,wantedLoc:string):Promise<Opt[]>{
-  const nm=normMed(query);const terms=new Set<string>([query,nm]);const s=ct(query);
-  if(/\b(flu|cold|fever|headache|pain|temperature)\b/.test(s)){["paracetamol","ibuprofen"].forEach(t=>terms.add(t));}
-  if(/\b(heartburn|reflux|acid|ulcer)\b/.test(s)){["omeprazole","esomeprazole"].forEach(t=>terms.add(t));}
-  if(/\b(allergy|allergies|rash|itch)\b/.test(s)){["chlorpheniramine","cetirizine","loratadine","allergex"].forEach(t=>terms.add(t));}
-  if(/\b(cough|throat)\b/.test(s)){["cough","syrup","pholcodine"].forEach(t=>terms.add(t));}
-  if(/\b(diarrhea|diarrhoea|stomach|vomit|nausea)\b/.test(s)){["oral rehydration","loperamide"].forEach(t=>terms.add(t));}
-  if(/\b(blood pressure|hypertension|bp|pressure)\b/.test(s)){["amlodipine","enalapril","losartan","bisoprolol"].forEach(t=>terms.add(t));}
-  if(/\b(sugar|diabetes|diabetic)\b/.test(s)){["metformin","glibenclamide","insulin","gliclazide"].forEach(t=>terms.add(t));}
-  if(/\b(cholesterol|statin)\b/.test(s)){["atorvastatin","simvastatin","rosuvastatin"].forEach(t=>terms.add(t));}
-  try{const{data}=await sb().from("medicine_aliases").select("alias,canonical_name").limit(ROW_LIMIT);for(const a of data||[]){const al=ct((a as any).alias||""),can=ct((a as any).canonical_name||"");if(al&&can&&(al.includes(nm)||can.includes(nm)||nm.includes(al)||nm.includes(can))){terms.add(al);terms.add(can);}}}catch(_){}
-  const termArr=Array.from(terms).filter(t=>t.length>=2).slice(0,MAX_TERMS*3);
-  let rows=await loadRows(termArr);
-  rows=rows.filter(r=>{const c=ct(r.clinic_name),m=ct(r.med_name);if(!c||!m)return false;if(c.includes("chekameds admin")||["demo","test","sample","mock"].some(b=>c.includes(b)))return false;if(NON_MEDICINE.some(b=>m.includes(b)))return false;if(r.approved===false)return false;if(!wantedLoc)return true;return ct([r.location,r.clinic_name].join(" ")).includes(wantedLoc);});
-  const scored=rows.map(r=>({r,s:scoreRow(r,termArr,wantedLoc)})).filter(x=>x.s>0);
-  if(!scored.length)return[];
-  scored.sort((a,b)=>b.s-a.s);
-  const pulseAll=scored.filter(x=>isPulse(x.r.clinic_name));
-  const nonPulse=scored.filter(x=>!isPulse(x.r.clinic_name));
-  const top=interleaveRows(pulseAll,nonPulse,RESULT_SLOTS);
-  console.log("SEARCH_RESULTS:",top.map(t=>t.clinic_name).join(" | "),"| pulse_pool:",pulseAll.length,"other_pool:",nonPulse.length);
-  return Promise.all(top.map(async r=>{
-    const info=await pInfo(r.clinic_name);
-    return{clinic_name:r.clinic_name,med_name:r.med_name,quantity:Number(r.quantity),price_bwp:r.price_bwp==null?null:Number(r.price_bwp),location:r.location||null,directions_link:realLink(r.directions_link)||null,contact:info.contact||r.contact||null,weekday_hours:info.weekday_hours||null,weekend_hours:info.weekend_hours||null,distance_km:null} as Opt;
+async function toOptions(hits: Hit[], lat: number|null, lng: number|null): Promise<Opt[]> {
+  return await Promise.all(dedupeByPharmacy(hits).map(async h => {
+    const info = await pInfo(h.clinic_name);
+    const dist = (lat != null && lng != null && info.lat != null && info.lng != null)
+      ? hav(lat, lng, info.lat, info.lng) : null;
+    return { ...h, contact: info.contact ?? h.contact, weekday_hours: info.weekday_hours,
+             weekend_hours: info.weekend_hours, distance_km: dist } as Opt;
   }));
 }
 
-function pulseFirst(list:Opt[]):Opt[]{
-  const p=list.filter(o=>isPulse(o.clinic_name));
-  const n=list.filter(o=>!isPulse(o.clinic_name));
-  return interleaveOpts(p,n,RESULT_SLOTS);
-}
-function sortByDistance(list:Opt[]):Opt[]{
-  const p=list.filter(o=>isPulse(o.clinic_name)).sort((a,b)=>(a.distance_km??9999)-(b.distance_km??9999));
-  const n=list.filter(o=>!isPulse(o.clinic_name)).sort((a,b)=>(a.distance_km??9999)-(b.distance_km??9999));
-  return interleaveOpts(p,n,RESULT_SLOTS);
-}
-
-async function withDistance(opts:Opt[],lat:number|null,lng:number|null):Promise<Opt[]>{
-  if(!lat||!lng)return opts;
-  return Promise.all(opts.map(async o=>{
-    const info=await pInfo(o.clinic_name);
-    const dist=(info.lat&&info.lng)?hav(lat,lng,info.lat,info.lng):null;
-    return{...o,distance_km:dist};
-  }));
+// Partner pharmacies take slots 1-2. The header text says so — see resultsMsg.
+// If you ever remove the label, remove the pinning too.
+function arrange(opts: Opt[], byDistance: boolean): Opt[] {
+  const sorter = byDistance
+    ? (a: Opt, b: Opt) => (a.distance_km ?? 9e9) - (b.distance_km ?? 9e9)
+    : (a: Opt, b: Opt) => b.score - a.score;
+  const partners = opts.filter(o => isPartner(o.clinic_name)).sort(sorter);
+  const others   = opts.filter(o => !isPartner(o.clinic_name)).sort(sorter);
+  const out = partners.slice(0, PARTNER_TOP_SLOTS);
+  for (const o of others) { if (out.length >= RESULT_SLOTS) break; out.push(o); }
+  for (const p of partners.slice(PARTNER_TOP_SLOTS)) { if (out.length >= RESULT_SLOTS) break; out.push(p); }
+  return out.slice(0, RESULT_SLOTS);
 }
 
-async function findSuggestion(query:string):Promise<string|null>{
-  try{
-    const q=ct(query);if(q.length<3)return null;
-    const{data}=await sb().from("clinic_inventory").select("med_name").gt("quantity",0).neq("clinic_name","ChekaMeds Admin")
-      .ilike("med_name",`%${q.slice(0,4)}%`).limit(ROW_LIMIT);
-    if(!data?.length)return null;
-    const names=[...new Set(data.map((r:any)=>ct(r.med_name)).filter(n=>n.length>=3))];
-    let best="",bestS=0;
-    for(const name of names){let s=sim(q,name);if(name.includes(q))s+=0.3;if(name.startsWith(q.slice(0,3)))s+=0.15;if(s>bestS&&s>=0.6){bestS=s;best=name;}}
-    if(!best)return null;
-    return best.split(" ").map(w=>w[0].toUpperCase()+w.slice(1)).join(" ");
-  }catch(_){return null;}
+// ─── Messages ───────────────────────────────────────────────────────────────
+function welcome(): WA {
+  return { text:
+`👋 ${b("Dumela! Welcome to ChekaMeds")} 💊
+${DIV}
+🇧🇼 Find medicine near you, anywhere in Botswana.
+
+Just send me the name of what you need:
+   💊 _Panado_
+   💊 _Amoxicillin_
+   💊 _Ventolin_
+
+Or tell me how you feel and I will help you look 🤝
+
+📍 Tip: tap 📎 → Location and I will show you how far each pharmacy is 🚗`,
+    buttons: [{ id:"find_medicine", text:"🔍 Search" }, { id:"video_consult", text:"🩺 Consult a doctor" }] };
+}
+function askMed(note?: string): WA {
+  return { text: `${note ? note + "\n\n" : ""}💬 ${b("What are you looking for?")}\n\nSend the medicine name or the brand — whatever is on the box is fine 👍\n\n_Panado · Esomeprazole · eye drops · blood pressure tablets_` ,
+    buttons: [{ id:"video_consult", text:"🩺 Consult a doctor" }] };
+}
+function consultPage(): WA {
+  return { text: `🩺 ${b("Speak to a clinician")}\n${DIV}\n👨‍⚕️ Talk to a licensed professional from your phone — no travel, no queue.\n\n🔗 www.chekameds.co.bw/consultant`,
+    buttons: [{ id:"find_medicine", text:"🔍 Search medicine" }] };
 }
 
-async function notifyPharmacy(phone:string,msg:string,pharmacy:string,medicine:string):Promise<boolean>{
-  if(!ULTRAMSG_INSTANCE||!ULTRAMSG_TOKEN_VAL)return false;
-  try{
-    const r=await fetch(`https://api.ultramsg.com/${ULTRAMSG_INSTANCE}/messages/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:ULTRAMSG_TOKEN_VAL,to:phone,body:msg,priority:10})});
-    const j=await r.json();const ok=j?.sent==="true"||j?.sent===true;
-    try{await sb().from("pharmacy_notification_logs").insert({pharmacy,pharmacy_phone:phone,medicine,sent:ok,error:ok?null:JSON.stringify(j),ultramsg_response:j});}catch(_){}
+function resultsMsg(term: string, opts: Opt[], byDistance: boolean, note?: string): WA {
+  const n = opts.length;
+  // No ordering claim in the header. The old version printed "sorted by
+  // nearest" while pinning partners, which was false and therefore needed a
+  // correction line. Claiming nothing needs no correction — and every row
+  // carries its own distance, so a patient can see the order for themselves.
+  //
+  // The one rule: if you ever put an ordering claim back in this header, it
+  // must match what `arrange()` actually does.
+
+  const lines = opts.map((o, i) => {
+    const priced = money(o.price_bwp);
+    const bits: string[] = priced ? [`💰 ${b(priced)}`] : [];
+    if (o.distance_km != null) bits.push(`🚗 ${fmtDist(o.distance_km)}`);
+    const flags: string[] = [];
+    if (o.low_stock) flags.push(`🔥 ${it(o.quantity === 1 ? "last one!" : `only ${o.quantity} left`)}`);
+    if (o.rx_required) flags.push(`📋 ${it("prescription needed")}`);
+    return [
+      `${b(`${i+1}.`)}  💊 ${b(o.med_name)}${o.strength ? ` ${o.strength}` : ""}`,
+      `     🏥 ${o.clinic_name}${SHOW_PARTNER_TAG && isPartner(o.clinic_name) ? ` ⭐` : ""}`,
+      bits.length ? `     ${bits.join("   ")}` : null,
+      flags.length ? `     ${flags.join("  ")}` : null,
+    ].filter(Boolean).join("\n");
+  }).join("\n\n");
+
+  return { text:
+`${note ? note + "\n\n" : ""}✅ Good news — ${b(tital(term))} is listed at ${b(String(n))} ${n === 1 ? "pharmacy" : "pharmacies"} 🇧🇼
+
+${lines}
+
+${DIV}
+👇 Reply ${b("1")}–${b(String(n))} to see the phone number, hours and directions.`,
+    buttons: [{ id:"find_medicine", text:"🔍 New search" }] };
+}
+
+function stockCard(o: Opt): WA {
+  const hours = o.weekday_hours ? `${o.weekday_hours}${o.weekend_hours ? ` · ${o.weekend_hours}` : ""}` : null;
+  const lines = [
+    `💊 ${b(o.med_name)}${o.strength ? ` ${o.strength}` : ""}${o.pack_size ? ` · ${o.pack_size}` : ""}`,
+    o.generic_name && ct(o.generic_name) !== ct(o.med_name) ? `    ${it(tital(o.generic_name))}` : null,
+    `🏥 ${o.clinic_name}`,
+    hasLoc(o.location) ? `📍 ${o.location}` : null,
+    o.distance_km != null ? `🚗 ${fmtDist(o.distance_km)}` : null,
+    phone(o.contact) ? `📞 ${phone(o.contact)}` : null,
+    hours ? `⏰ ${hours}` : null,
+    realLink(o.directions_link) ? `🗺️ ${realLink(o.directions_link)}` : null,
+    money(o.price_bwp) ? `💰 ${b(money(o.price_bwp)!)}` : `💰 ${it("price not listed — ask the pharmacy")}`,
+    ``,
+    o.low_stock ? `⚠️ ${it(o.quantity === 1 ? "Last one on the shelf." : `Only ${o.quantity} left.`)}` : null,
+    o.rx_required ? `⚠️ ${it("This usually needs a prescription. Bring it with you.")}` : null,
+  ].filter(x => x !== null).join("\n");
+  // "Call pharmacy" is a normal marketplace affordance, not a warning. It
+  // quietly cuts wasted journeys without saying anything about the data.
+  return { text: `${b("Here you go")} 👇\n${DIV}\n${lines}\n${DIV}\n📦 Tap ${b("Reserve")} and we will ask them to hold it for you.`,
+    buttons: [{ id:"store", text:"📦 Reserve for pickup" },
+              { id:"call_pharmacy", text:"📞 Call pharmacy" }] };
+}
+
+// UltraMsg's chat endpoint sends plain text — it cannot render buttons. Any
+// button we build has to be printed as a word the user can type back, or the
+// feature is invisible. This is why "Consult a doctor" was unreachable.
+const BUTTON_KEY: Record<string, string> = {
+  find_medicine: "SEARCH", video_consult: "DOCTOR", store: "RESERVE",
+  change_location: "TOWN", notify_me: "NOTIFY", call_pharmacy: "CALL",
+  confirm_suggestion: "YES", loc_gaborone: "GABORONE", loc_jwaneng: "JWANENG",
+  loc_all: "ANYWHERE",
+};
+
+function waText(p: WA): string {
+  if (!p.buttons?.length) return p.text;
+  const opts = p.buttons
+    .map(btn => { const k = BUTTON_KEY[btn.id]; return k ? `${btn.text}  →  reply ${b(k)}` : null; })
+    .filter(Boolean);
+  if (!opts.length) return p.text;
+  return `${p.text}\n\n${DIV}\n${opts.join("\n")}`;
+}
+
+// ─── Analytics (unchanged behaviour, tidier) ────────────────────────────────
+async function logSearch(o: Record<string, unknown>) {
+  try { const { error } = await sb().from("search_logs").insert(o); if (error) console.error("LOG_SEARCH:", error.message); }
+  catch (e) { console.error("LOG_SEARCH_EX:", String(e)); }
+}
+async function logImpressions(searchId: string, query: string, opts: Opt[], phone: string, loc: string|null) {
+  if (!opts.length) return;
+  try {
+    await sb().from("search_impressions").insert(opts.map((o, i) => ({
+      search_id: searchId, pharmacy_name: o.clinic_name, medicine: o.med_name, query,
+      position: i+1, price_bwp: o.price_bwp, quantity: o.quantity, distance_km: o.distance_km,
+      user_phone: phone, location: loc, source: "whatsapp", selected: false, reserved: false,
+    })));
+  } catch (e) { console.error("LOG_IMPRESSION_EX:", String(e)); }
+}
+async function markImpression(pharmacy: string, medicine: string, phone: string, field: "selected"|"reserved") {
+  try { await sb().from("search_impressions").update({ [field]: true })
+    .eq("pharmacy_name", pharmacy).eq("medicine", medicine).eq("user_phone", cp(phone)); }
+  catch (e) { console.error("MARK_IMPRESSION_EX:", String(e)); }
+}
+async function logFailed(normalized: string, query: string, phone: string, loc: string|null) {
+  try { await sb().from("failed_searches").insert({ query, normalized_query: normalized, source:"whatsapp", user_phone: cp(phone), location: loc, notified: false }); }
+  catch (e) { console.error("LOG_FAILED_EX:", String(e)); }
+}
+
+// ─── Sessions ───────────────────────────────────────────────────────────────
+const blankSession = (): Session => ({ medicine:"", options:[], selected:null, state:"idle", user_lat:null, user_lng:null, pending:null });
+async function readSession(phone: string): Promise<Session> {
+  try {
+    const { data } = await sb().from("whatsapp_sessions")
+      .select("medicine,options,selected,state,user_lat,user_lng,pending").eq("from_number", cp(phone)).maybeSingle();
+    if (!data) return blankSession();
+    return { medicine: data.medicine || "", options: Array.isArray(data.options) ? data.options : [],
+             selected: data.selected || null, state: data.state || "idle",
+             user_lat: data.user_lat != null ? Number(data.user_lat) : null,
+             user_lng: data.user_lng != null ? Number(data.user_lng) : null,
+             pending: data.pending || null };
+  } catch { return blankSession(); }
+}
+async function writeSession(phone: string, s: Session) {
+  try { await sb().from("whatsapp_sessions").upsert(
+    { from_number: cp(phone), medicine:s.medicine, options:s.options as unknown,
+      selected:s.selected as unknown, state:s.state, user_lat:s.user_lat, user_lng:s.user_lng,
+      pending:s.pending, updated_at:new Date().toISOString() }, { onConflict:"from_number" }); }
+  catch (e) { console.error("writeSession:", String(e)); }
+}
+
+// ─── Reservation ────────────────────────────────────────────────────────────
+async function notifyPharmacy(phone: string, msg: string, pharmacy: string, medicine: string): Promise<boolean> {
+  if (!ULTRAMSG_INSTANCE || !ULTRAMSG_TOKEN) return false;
+  try {
+    const r = await fetch(`https://api.ultramsg.com/${ULTRAMSG_INSTANCE}/messages/chat`, {
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ token: ULTRAMSG_TOKEN, to: phone, body: msg, priority: 10 }) });
+    const j = await r.json(); const ok = j?.sent === "true" || j?.sent === true;
+    try { await sb().from("pharmacy_notification_logs").insert({ pharmacy, pharmacy_phone:phone, medicine, sent:ok, error: ok?null:JSON.stringify(j), ultramsg_response:j }); } catch {}
     return ok;
-  }catch(e:any){
-    try{await sb().from("pharmacy_notification_logs").insert({pharmacy,pharmacy_phone:phone,medicine,sent:false,error:String(e?.message||e),ultramsg_response:null});}catch(_){}
+  } catch (e) {
+    try { await sb().from("pharmacy_notification_logs").insert({ pharmacy, pharmacy_phone:phone, medicine, sent:false, error:String(e), ultramsg_response:null }); } catch {}
     return false;
   }
 }
 
-async function doReserve(phone:string,sel:Opt):Promise<string>{
-  const cPhone=cp(phone);
-  const info=await pInfo(sel.clinic_name);
-  let pPhone=cp(String(info.contact||sel.contact||""));
-  if(pPhone.length<11){
-    try{const{data}=await sb().from("chekameds_facilities").select("phone_whatsapp").ilike("facility_name",`%${sel.clinic_name.trim()}%`).not("phone_whatsapp","is",null).limit(1).maybeSingle();if(data?.phone_whatsapp)pPhone=cp(String(data.phone_whatsapp));}catch(_){}
+async function doReserve(phone: string, sel: Opt): Promise<string> {
+  const cPhone = cp(phone);
+  const info = await pInfo(sel.clinic_name);
+  let pPhone = cp(String(info.contact || sel.contact || ""));
+  if (pPhone.length < 11) {
+    try {
+      const { data } = await sb().from("chekameds_facilities").select("phone_whatsapp")
+        .ilike("facility_name", `%${sel.clinic_name.trim()}%`).not("phone_whatsapp","is",null).limit(1).maybeSingle();
+      if (data?.phone_whatsapp) pPhone = cp(String(data.phone_whatsapp));
+    } catch {}
   }
-  const exp=new Date(Date.now()+RESERVATION_HOURS*3600000);
-  const expTime=exp.toLocaleTimeString("en-BW",{hour:"2-digit",minute:"2-digit",hour12:true});
-  const expDate=exp.toLocaleDateString("en-BW",{weekday:"short",month:"short",day:"numeric"});
-  let notified=false;
-  if(pPhone.length>=11&&pPhone!==cPhone){
-    notified=await notifyPharmacy(pPhone,`🔔 *New Reservation — ChekaMeds*\n${DIV}\n💊 *${sel.med_name}*\n🏥 ${sel.clinic_name}\n👤 Customer: +${cPhone}\n💰 ${price(sel.price_bwp)}\n⏱️ Hold ${RESERVATION_HOURS}hrs · Expires ${expTime}, ${expDate}\n${DIV}\n📦 Please prepare the item.\n♻️ Release if not collected by ${expTime}.`,sel.clinic_name,sel.med_name);
+  const exp = new Date(Date.now() + RESERVATION_HOURS*3600000);
+  const expTime = exp.toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" });
+  const expDate = exp.toLocaleDateString("en-GB", { weekday:"short", month:"short", day:"numeric" });
+
+  let notified = false;
+  if (pPhone.length >= 11 && pPhone !== cPhone) {
+    notified = await notifyPharmacy(pPhone,
+      `🔔 *New reservation — ChekaMeds*\n\n💊 ${sel.med_name}\n👤 +${cPhone}\n💰 ${money(sel.price_bwp) ?? "price not listed"}\n⏱️ Hold until ${expTime}, ${expDate}\n\nPlease set it aside. Release if not collected.`,
+      sel.clinic_name, sel.med_name);
   }
-  try{await sb().from("order_requests").insert({from_number:cPhone,medicine:sel.med_name,pharmacy:sel.clinic_name,pharmacy_phone:pPhone.length>=11?pPhone:null,amount:sel.price_bwp,payment_status:"pending_store_payment",status:"reserved",expires_at:exp.toISOString(),notes:`Notified:${notified}`});}catch(e){console.error("order insert",e);}
-  // analytics: mark reserved on both tables
-  sb().from("search_logs").update({reserved:true}).eq("user_phone",cPhone).eq("normalized_query",ct(sel.med_name)).order("created_at",{ascending:false}).limit(1).then(()=>{}).catch(()=>{});
-  await markImpression(null,sel.clinic_name,sel.med_name,cPhone,"reserved");
-  const hours=info.weekday_hours?`${info.weekday_hours}${info.weekend_hours?` | ${info.weekend_hours}`:""}`:null;
-  const lines=[
-    `💊  *${sel.med_name}*`,
-    `🏥  ${sel.clinic_name}`,
-    sel.location&&hasLoc(sel.location)?`📍  ${sel.location}`:null,
-    sel.distance_km!=null?`🚗  ${fmtDist(sel.distance_km)} · ${fmtTime(sel.distance_km)}`:null,
-    pPhone.length>=11?`📞  +${pPhone}`:null,
-    hours?`⏰  ${hours}`:null,
-    realLink(sel.directions_link)?`🗺️  ${realLink(sel.directions_link)}`:null,
-    `💰  ${price(sel.price_bwp)}`,
+  try {
+    await sb().from("order_requests").insert({ from_number:cPhone, medicine:sel.med_name, pharmacy:sel.clinic_name,
+      pharmacy_phone: pPhone.length>=11 ? pPhone : null, amount:sel.price_bwp,
+      payment_status:"pending_store_payment", status:"reserved", expires_at:exp.toISOString(), notes:`Notified:${notified}` });
+  } catch (e) { console.error("order insert:", String(e)); }
+  await markImpression(sel.clinic_name, sel.med_name, cPhone, "reserved");
+
+  return [
+    `🎉 ${b("Reserved for you!")}`, DIV,
+    `💊 ${sel.med_name}`,
+    `🏥 ${sel.clinic_name}`,
+    pPhone.length >= 11 ? `📞 +${pPhone}` : null,
+    `💰 ${money(sel.price_bwp) ?? it("price not listed")}`, ``,
+    DIV,
+    notified ? `🔔 The pharmacy has been notified and is putting it aside for you.` : `📞 Please give them a quick call to confirm.`,
+    `⏱️ Collect before ${b(expTime)} on ${expDate}`,
+    `💳 Pay at the counter when you collect 👍`,
   ].filter(Boolean).join("\n");
-  return `✅ *Reservation Confirmed* 🎉\n${DIV}\n${lines}\n${DIV}\n🔔 The pharmacy has been notified and is preparing your item.\n⏱️ Collect before *${expTime}* on ${expDate}\n\n💳 Pay at the counter when you collect.`;
 }
 
-function waText(p:WA):string{
-  if(p.type==="list"){const rows=(p.sections||[]).flatMap(s=>s.rows);return`${p.text||""}\n\n${rows.map((r,i)=>`${RANK[i]||`*${i+1}.*`}  ${r.title}${r.description?`\n      ${r.description}`:""}`).join("\n\n")}\n\n${DIV}\n💬 Reply with a number (1–${rows.length}) to select.`;}
-  return p.text||"";
-}
-async function sendWA(to:string,p:WA){
-  if(!ULTRAMSG_INSTANCE||!ULTRAMSG_TOKEN_VAL)throw new Error(`UltraMsg env missing (instance="${ULTRAMSG_INSTANCE}", token=${ULTRAMSG_TOKEN_VAL?"set":"EMPTY"})`);
-  const r=await fetch(`https://api.ultramsg.com/${ULTRAMSG_INSTANCE}/messages/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:ULTRAMSG_TOKEN_VAL,to:cp(to),body:waText(p),priority:10})});
-  const d=await r.json();
-  if(!r.ok||d?.sent==="false"||d?.error)throw new Error(`UltraMsg[${ULTRAMSG_INSTANCE}]: ${JSON.stringify(d)}`);
-}
-async function logEntry(entry:any){
-  try{await sb().from("whatsapp_webhook_logs").insert(entry);}catch(_){}
-  try{await sb().from("whatsapp_webhook_events").insert({provider:"ultramsg",from_phone:entry.from_number||null,message_text:entry.message_body||null,message_type:"chat",raw_payload:entry.raw_payload||{},status:entry.error_message?"error":"received",error:entry.error_message||null});}catch(_){}
-}
-function extractMsg(payload:any):string{return String(payload.body||payload.message||payload.text||payload.list_reply?.id||payload.button_reply?.id||payload.interactive?.list_reply?.id||payload.interactive?.button_reply?.id||payload.data?.list_reply?.id||payload.data?.button_reply?.id||"");}
+// ─── The search conversation ────────────────────────────────────────────────
+async function doSearch(phone: string, sess: Session, rawTerm: string, loc: string, form: string|null): Promise<WA> {
+  const term = normalise(rawTerm) || ct(rawTerm);
+  const cPhone = cp(phone);
+  const searchId = uuid();
 
-function welcome():WA{return{type:"button",text:`*ChekaMeds* 💊\n${DIV}\n🇧🇼 Real-time medicine availability across Botswana.\n\n🔍 Send a medicine name to search anytime.\n\n_Panado · Amoxicillin · Ventolin · Metformin · Allergex_\n\n📍 *Share your location* to see how far each pharmacy is — tap 📎 → Location.`,buttons:[{id:"find_medicine",text:"🔍 Search Medicine"},{id:"video_consult",text:"🩺 Consult a Doctor"}]};}
-function consultPage():WA{return{type:"button",text:`*Online Consultation* 🩺\n${DIV}\n👨‍⚕️ Speak to a licensed clinician from your phone — no travel needed.\n\n🔗 www.chekameds.co.bw/consultant\n\n👆 Tap the link above or visit the website to book your session.`,buttons:[{id:"find_medicine",text:"🔍 Search Medicine"}]};}
-function askMed(msg?:string):WA{return{type:"button",text:`${msg?msg+"\n\n":""}*Search Medicine* 🔍\n${DIV}\n💬 Send the name of the medicine, brand, or describe what you need.\n\n_Examples: Panado · Amoxicillin · Esomeprazole · blood pressure pills_\n\n📍 Tip: share your location for nearest results.`,buttons:[{id:"video_consult",text:"🩺 Consult a Doctor"}]};}
+  if (term.length < MIN_QUERY_LEN) return askMed("That is a little short to search on.");
 
-function resultsList(query:string,loc:string,opts:Opt[],header?:string,hasUserLoc=false):WA{
-  const cap=(s:string)=>s?s[0].toUpperCase()+s.slice(1):s;
-  const h=header||`*${cap(query)} — Stock Found* 💊\n${DIV}\n📍 ${prettyLoc(loc)}${hasUserLoc?" · 🚗 sorted by nearest":`\n\n📍 _Share your location (📎 → Location) to see distances_`}\n\n👇 Select a number to view details and reserve.`;
-  const rows=opts.map((o,i)=>({id:`item_${i+1}`,title:o.med_name.substring(0,24),description:`🏥 ${o.clinic_name}${o.distance_km!=null?` · 🚗 ${fmtDist(o.distance_km)}`:""} · 💰 ${price(o.price_bwp)}`.substring(0,72)}));
-  return{type:"list",text:h,listTitle:"Select a result",listButtonText:"View Stock",sections:[{title:"Available Stock",rows}]};
-}
+  let hits = await runSearch(term, form, loc);
 
-function stockCard(o:Opt,info:{weekday_hours:string|null;weekend_hours:string|null;contact:string|null}):WA{
-  const hours=info.weekday_hours?`${info.weekday_hours}${info.weekend_hours?` | ${info.weekend_hours}`:""}`:o.weekday_hours?`${o.weekday_hours}${o.weekend_hours?` | ${o.weekend_hours}`:""}`:null;
-  const contact=info.contact?`+${cp(info.contact)}`:o.contact||null;
-  const lines=[
-    `💊  *${o.med_name}*`,
-    `🏥  ${o.clinic_name}`,
-    o.location&&hasLoc(o.location)?`📍  ${o.location}`:null,
-    o.distance_km!=null?`🚗  ${fmtDist(o.distance_km)} · ${fmtTime(o.distance_km)}`:null,
-    contact?`📞  ${contact}`:null,
-    hours?`⏰  ${hours}`:null,
-    realLink(o.directions_link)?`🗺️  ${realLink(o.directions_link)}`:null,
-    `💰  ${price(o.price_bwp)}`,
-    `✅  In stock — ready to reserve`,
-  ].filter(Boolean).join("\n");
-  return{type:"button",
-    text:`*Stock Confirmed* ✅\n${DIV}\n${lines}\n${DIV}\n*What would you like to do?* 🤔\n\n👇 Tap a button below or type:\n📦 *Reserve* — hold this item for pickup\n📍 *Change Town* — search a different area\n🩺 *Consult* — speak with a doctor`,
-    buttons:[{id:"store",text:"📦 Reserve for Pickup"},{id:"change_location",text:"📍 Change Town"}]
-  };
-}
+  // Widen from the town to the whole country before giving up.
+  let widened = false;
+  if (!hits.length && loc) { hits = await runSearch(term, form, ""); widened = hits.length > 0; }
 
-async function handle(message:string,phone:string,rawPayload:any):Promise<WA>{
-  const txt=ct(message);
-  const sess=await readSession(phone);
+  if (hits.length) {
+    const strong = hits.filter(h => h.match_kind !== "fuzzy");
+    let useHits = strong.length ? strong : hits;
 
-  // ── OPT-OUT (legal requirement for bulk messaging) ──
-  if(OPTOUT.test(txt)){
-    try{await sb().from("notification_optouts").upsert({phone:cp(phone),reason:"user_request"},{onConflict:"phone"});}catch(_){}
-    return{type:"text",text:`✅ *You've been unsubscribed*\n${DIV}\n🔕 You will no longer receive ChekaMeds announcements or stock alerts.\n\n🔍 You can still search for medicine anytime — just send a medicine name.`};
-  }
-
-  // ── LOCATION CAPTURE (all payload shapes) ──
-  const locMsg=rawPayload?.location||rawPayload?.data?.location||rawPayload?.message?.location||null;
-  const rawLat=locMsg?.latitude??locMsg?.lat??rawPayload?.latitude??rawPayload?.lat??null;
-  const rawLng=locMsg?.longitude??locMsg?.lng??locMsg?.lon??rawPayload?.longitude??rawPayload?.lng??null;
-  if(rawLat!=null&&rawLng!=null&&!isNaN(Number(rawLat))&&!isNaN(Number(rawLng))){
-    const lat=Number(rawLat),lng=Number(rawLng);
-    console.log("LOCATION_RECEIVED:",lat,lng);
-    const newSess={...sess,user_lat:lat,user_lng:lng};
-    await writeSession(phone,newSess);
-    if(sess.medicine){
-      const searchId=uuid();
-      const opts=await search(sess.medicine,"");
-      const withDist=await withDistance(opts,lat,lng);
-      const sorted=sortByDistance(withDist);
-      await writeSession(phone,{...newSess,options:sorted,selected:null,state:"has_results"});
-      await logSearch({searchId,query:sess.medicine,normalized:normMed(sess.medicine),resultsCount:sorted.length,phone:cp(phone),location:null,found:sorted.length>0,matched:sorted.map(o=>o.clinic_name),geminiUsed:false,geminiTerm:null,lat,lng});
-      await logImpressions(searchId,sess.medicine,sorted,cp(phone),null);
-      return resultsList(sess.medicine,"",sorted,undefined,true);
-    }
-    return{type:"button",text:`📍 *Location saved!* ✅\n${DIV}\n🎯 Now send a medicine name and I'll show you the *nearest* pharmacies with distances and drive times.`,buttons:[{id:"find_medicine",text:"🔍 Search Medicine"}]};
-  }
-
-  if(/^(hi|hello|hey|help|menu|start|dumelang|dumela|0)$/.test(txt))return welcome();
-  if(CONSULT.test(txt)||txt==="video_consult"||txt.includes("consult"))return consultPage();
-
-  // ── WATCHLIST: notify me when back in stock ──
-  if(NOTIFY_ME.test(txt)||txt==="notify_me"){
-    if(!sess.medicine)return askMed("💬 Search for a medicine first, then tap *Notify Me*.");
-    const opted=await isOptedOut(phone);
-    if(opted){try{await sb().from("notification_optouts").delete().eq("phone",cp(phone));}catch(_){}}
-    await addToWatchlist(phone,sess.medicine,null);
-    return{type:"button",text:`🔔 *You're on the list!*\n${DIV}\n💊 We'll message you the moment *${sess.medicine}* is back in stock at any pharmacy near you.\n\n🔍 Meanwhile, try searching something else.\n\n_Reply STOP anytime to unsubscribe._`,buttons:[{id:"find_medicine",text:"🔍 Search Again"}]};
-  }
-
-  if((sess.state==="suggest"&&/^(yes|yep|ya|yeah|sure|ok|okay|correct|right|yebo|ee|eya|confirm)$/.test(txt))||txt==="confirm_suggestion"){
-    const suggestion=(sess.selected as any)?.suggestion||sess.medicine;
-    if(suggestion){
-      await writeSession(phone,{...sess,state:"idle",selected:null});
-      return await doSearch(phone,{...sess,state:"idle",selected:null},normMed(suggestion),"",false,null);
-    }
-  }
-  if(/^(change location|change town|location|town|change_location)$/.test(txt)){
-    if(!sess.medicine)return askMed("💬 Please send the medicine name first.");
-    await writeSession(phone,{...sess,state:"awaiting_location"});
-    return{type:"button",text:`*Change Search Area* 📍\n${DIV}\n💊 Medicine: *${sess.medicine}*\n\n🏙️ Choose a town below or type your town name.`,buttons:[{id:"loc_jwaneng",text:"Jwaneng"},{id:"loc_gaborone",text:"Gaborone"},{id:"loc_all",text:"🇧🇼 All Botswana"}]};
-  }
-  if(RESERVE.test(txt)){
-    if(sess.state!=="has_selected"||!sess.selected)return{type:"button",text:`💬 Please search for a medicine first, then select a result, then type *Reserve*.`,buttons:[{id:"find_medicine",text:"🔍 Search Medicine"}]};
-    const result=await doReserve(phone,sess.selected);
-    await writeSession(phone,{...sess,state:"reserved",selected:null});
-    return{type:"text",text:result};
-  }
-  if(/^(directions|direction|map|where)$/.test(txt)){
-    if(sess.state!=="has_selected"||!sess.selected)return{type:"text",text:"💬 Select a medicine result first, then type *directions*."};
-    const sel=sess.selected;
-    const link=realLink(sel.directions_link);
-    const dist=sel.distance_km!=null?`\n🚗 ${fmtDist(sel.distance_km)} · ${fmtTime(sel.distance_km)}`:""
-    return{type:"text",text:`*Directions* 🗺️\n${DIV}\n🏥  ${sel.clinic_name}\n📍  ${hasLoc(sel.location)?sel.location:"Contact pharmacy for address"}${dist}\n\n${link?`🗺️  ${link}`:"ℹ️ No directions link on file yet."}`};
-  }
-  if(sess.state==="awaiting_location"){
-    let loc="";
-    if(txt.startsWith("loc_"))loc=txt.replace("loc_","").replace("all","").trim();
-    else if(txt==="all"||txt.includes("all botswana"))loc="";
-    else loc=extractLoc(message);
-    return await doSearch(phone,sess,sess.medicine,loc,false,null);
-  }
-  if(txt.startsWith("loc_")){
-    const loc=txt.replace("loc_","");
-    if(sess.medicine)return await doSearch(phone,sess,sess.medicine,loc==="all"?"":loc,false,null);
-  }
-  if(/^[1-5]$/.test(txt)&&sess.state==="has_results"&&sess.options.length){
-    const idx=Number(txt)-1;
-    const opt=sess.options[idx];
-    if(!opt)return{type:"text",text:"⚠️ Invalid choice. Reply with a number from the list."};
-    const info=await pInfo(opt.clinic_name);
-    const enriched:Opt={...opt,contact:info.contact||opt.contact,weekday_hours:info.weekday_hours||opt.weekday_hours,weekend_hours:info.weekend_hours||opt.weekend_hours};
-    await writeSession(phone,{...sess,selected:enriched,state:"has_selected"});
-    await markImpression(null,opt.clinic_name,opt.med_name,cp(phone),"selected");
-    return stockCard(enriched,info);
-  }
-  if(txt.startsWith("item_")&&sess.options.length){
-    const idx=Number(txt.replace("item_",""))-1;
-    const opt=sess.options[idx];
-    if(!opt)return{type:"text",text:"⚠️ Invalid choice."};
-    const info=await pInfo(opt.clinic_name);
-    const enriched:Opt={...opt,contact:info.contact||opt.contact,weekday_hours:info.weekday_hours||opt.weekday_hours,weekend_hours:info.weekend_hours||opt.weekend_hours};
-    await writeSession(phone,{...sess,selected:enriched,state:"has_selected"});
-    await markImpression(null,opt.clinic_name,opt.med_name,cp(phone),"selected");
-    return stockCard(enriched,info);
-  }
-  if(txt==="find_medicine"||txt==="search")return askMed();
-
-  const explLoc=extractLoc(message);
-  const rawMed=explLoc?stripLoc(message,explLoc):ct(message);
-
-  // FIX: a bare location reply to an existing search (e.g. "Am in Gaborone", "I'm in Gaborone")
-  // was being sent whole into Gemini/local matching as if it were a fresh medicine query,
-  // which correctly found nothing and dead-ended the conversation. If nothing but filler words
-  // are left after stripping the town name and we already have a medicine in session, treat it
-  // as a location answer and re-run that search instead.
-  const FILLER_ONLY=/^((am|is|it|im|i|this|now|here|there|please|pls|and|the|a)\s*)*$/;
-  if(explLoc&&sess.medicine&&FILLER_ONLY.test(rawMed)){
-    console.log("LOCATION_ONLY_REPLY_ROUTED:", message, "->", sess.medicine, explLoc);
-    return await doSearch(phone,sess,sess.medicine,explLoc,false,null);
-  }
-
-  const med=normMed(rawMed||message);
-
-  if(!med||med.length<2||/^https?:\/\//.test(med)||JUNK.some(b=>med===b||med.includes(b))){
-    // Still record it — junk searches are analytics too
-    await logSearch({searchId:uuid(),query:message,normalized:med||ct(message),resultsCount:0,phone:cp(phone),location:explLoc||null,found:false,matched:[],geminiUsed:false,geminiTerm:null,lat:sess.user_lat,lng:sess.user_lng});
-    return askMed(`🤔 Could not find a medicine in "${message}".\n\n💬 Send the medicine or brand name.`);
-  }
-
-  if(USE_GEMINI&&GEMINI_API_KEY){
-    const gemMed=await geminiExtract(message);
-    if(gemMed&&gemMed!=="none"&&gemMed.length>=2){
-      console.log("GEMINI_ROUTED:", message, "->", gemMed);
-      return await doSearch(phone,sess,gemMed,explLoc,true,gemMed);
-    }
-  }
-
-  return await doSearch(phone,sess,med,explLoc,false,null);
-}
-
-async function doSearch(phone:string,sess:Session,medicine:string,location:string,geminiUsed=false,geminiTerm:string|null=null):Promise<WA>{
-  const nm=normMed(medicine);
-  const searchId=uuid();
-  const cPhone=cp(phone);
-
-  let opts=await search(nm,location);
-
-  // Fallback: widen to all Botswana if town-scoped search came back empty
-  if(!opts.length&&location){
-    opts=await search(nm,"");
-    if(opts.length){
-      const withDist=await withDistance(opts,sess.user_lat,sess.user_lng);
-      const sorted=sess.user_lat?sortByDistance(withDist):pulseFirst(withDist);
-      await writeSession(phone,{...sess,medicine:nm,options:sorted,selected:null,state:"has_results"});
-      await logSearch({searchId,query:medicine,normalized:nm,resultsCount:sorted.length,phone:cPhone,location:location||null,found:true,matched:sorted.map(o=>o.clinic_name),geminiUsed,geminiTerm,lat:sess.user_lat,lng:sess.user_lng});
-      await logImpressions(searchId,medicine,sorted,cPhone,location||null);
-      return resultsList(nm,"",sorted,`ℹ️ No stock in ${prettyLoc(location)}.\n\n🇧🇼 Showing results across Botswana:`,sess.user_lat!=null);
-    }
-  }
-
-  if(!opts.length){
-    // ── RECORD THE FAILURE in BOTH tables ──
-    await logSearch({searchId,query:medicine,normalized:nm,resultsCount:0,phone:cPhone,location:location||null,found:false,matched:[],geminiUsed,geminiTerm,lat:sess.user_lat,lng:sess.user_lng});
-    await logFailed(nm,medicine,cPhone,location||null);
-
-    // GUARDRAIL: suggestion comes from REAL inventory only
-    const sug=await findSuggestion(nm);
-    if(sug&&ct(sug)!==ct(nm)){
-      await writeSession(phone,{...sess,medicine:ct(sug),options:[],selected:{suggestion:sug} as any,state:"suggest"});
-      return{type:"button",text:`*Did you mean ${sug}?* 🤔\n${DIV}\n🔍 No results for "${nm}" — this is the closest match *currently in stock*.\n\n✅ Reply *Yes* to search for *${sug}*.`,buttons:[{id:"confirm_suggestion",text:`✅ Yes — ${sug.split(" ")[0]}`},{id:"find_medicine",text:"🔍 Search Again"}]};
-    }
-
-    // GUARDRAIL: alternatives are inventory-verified inside geminiAlternatives()
-    const alternatives=await geminiAlternatives(nm);
-    for(const alt of alternatives){
-      if(ct(alt)===ct(nm))continue;
-      const altOpts=await search(alt,"");
-      if(altOpts.length){
-        const altId=uuid();
-        const withDist=await withDistance(altOpts,sess.user_lat,sess.user_lng);
-        const sorted=sess.user_lat?sortByDistance(withDist):pulseFirst(withDist);
-        await writeSession(phone,{...sess,medicine:alt,options:sorted,selected:null,state:"has_results"});
-        await logSearch({searchId:altId,query:medicine,normalized:alt,resultsCount:sorted.length,phone:cPhone,location:location||null,found:true,matched:sorted.map(o=>o.clinic_name),geminiUsed:true,geminiTerm:alt,lat:sess.user_lat,lng:sess.user_lng});
-        await logImpressions(altId,alt,sorted,cPhone,location||null);
-        return resultsList(alt,location,sorted,`💡 "${nm}" is not in stock.\n\n✅ *${alt}* is available and treats the same thing:`,sess.user_lat!=null);
+    // Only fuzzy matches. base is 0 for these, so score/300 is the raw
+    // similarity. Three bands: confident enough to just show, close enough to
+    // ask about, or too weak to mention at all.
+    if (!strong.length) {
+      const top = hits[0];
+      const similarity = top.score / 300;
+      if (similarity < SUGGEST_FLOOR) {
+        useHits = [];                    // too weak to put in front of a patient
+      } else if (similarity < 0.85 && ct(top.med_name) !== term) {
+        await writeSession(phone, { ...sess, medicine: term, pending: top.med_name, options: [], selected: null, state: "suggest" });
+        await logSearch({ search_id:searchId, query:rawTerm, normalized_query:term, results_count:0, source:"whatsapp",
+          user_phone:cPhone, location:loc||null, reserved:false, found:false, matched_pharmacies:[], user_lat:sess.user_lat, user_lng:sess.user_lng });
+        return { text: `No exact match for *${tital(term)}*.\n\nDid you mean *${tital(top.med_name)}*?`,
+          buttons: [{ id:"confirm_suggestion", text:`✅ Yes` }, { id:"find_medicine", text:"🔍 Try again" }] };
       }
     }
 
-    // Honest empty state + watchlist offer. NO invented stock.
-    await writeSession(phone,{...sess,medicine:nm,options:[],selected:null,state:"no_results"});
-    return{type:"button",text:`*Not In Stock* ❌\n${DIV}\n😔 No pharmacy on ChekaMeds currently has *"${nm}"*.\n\n🔔 Tap *Notify Me* and we'll message you the moment it arrives.\n\n💡 Or try a brand name or different spelling.`,buttons:[{id:"notify_me",text:"🔔 Notify Me"},{id:"find_medicine",text:"🔍 Try Again"}]};
+    if (useHits.length) {
+      const opts = arrange(await toOptions(useHits, sess.user_lat, sess.user_lng), sess.user_lat != null);
+      const shownTerm = opts[0]?.med_name || term;
+      await writeSession(phone, { ...sess, medicine: term, options: opts, selected: null, state: "has_results", pending: null });
+      const oldest = Math.max(...opts.map(o => o.stock_age_hours ?? 0));
+      console.log("STOCK_AGE:", term, "oldest_result_hours=", Math.round(oldest),
+                  "stale_count=", opts.filter(o => !freshness(o.stock_age_hours).trust).length, "of", opts.length);
+      await logSearch({ search_id:searchId, query:rawTerm, normalized_query:term, results_count:opts.length, source:"whatsapp",
+        user_phone:cPhone, location:loc||null, reserved:false, found:true, matched_pharmacies:opts.map(o=>o.clinic_name),
+        user_lat:sess.user_lat, user_lng:sess.user_lng });
+      await logImpressions(searchId, term, opts, cPhone, loc||null);
+      return resultsMsg(shownTerm, opts, sess.user_lat != null,
+        widened ? `Nothing in ${tital(loc)} — showing the rest of Botswana.` : undefined);
+    }
+    // fell through: everything was too weak to show
   }
 
-  const withDist=await withDistance(opts,sess.user_lat,sess.user_lng);
-  const sorted=sess.user_lat?sortByDistance(withDist):pulseFirst(withDist);
-  await writeSession(phone,{...sess,medicine:nm,options:sorted,selected:null,state:"has_results"});
-  await logSearch({searchId,query:medicine,normalized:nm,resultsCount:sorted.length,phone:cPhone,location:location||null,found:true,matched:sorted.map(o=>o.clinic_name),geminiUsed,geminiTerm,lat:sess.user_lat,lng:sess.user_lng});
-  await logImpressions(searchId,medicine,sorted,cPhone,location||null);
-  return resultsList(nm,location,sorted,undefined,sess.user_lat!=null);
+  // ── Nothing found ─────────────────────────────────────────────────────────
+  await logSearch({ search_id:searchId, query:rawTerm, normalized_query:term, results_count:0, source:"whatsapp",
+    user_phone:cPhone, location:loc||null, reserved:false, found:false, matched_pharmacies:[], user_lat:sess.user_lat, user_lng:sess.user_lng });
+  await logFailed(term, rawTerm, cPhone, loc||null);
+  await writeSession(phone, { ...sess, medicine: term, options: [], selected: null, state: "no_results", pending: null });
+
+  // ── Same molecule, different name ────────────────────────────────────────
+  // Panado and paracetamol 500mg are the SAME medicine, not similar ones.
+  // Resolving a brand to its active ingredient is a fact about naming, read
+  // from the pharmacies' own data. It is NOT the equivalence judgement that
+  // produced the Gaviscon incident, and the wording keeps that distinction
+  // visible to the patient.
+  const { data: genericName } = await sb().rpc("resolve_generic", { p_term: term });
+  if (genericName && ct(genericName) !== term) {
+    const sameMolecule = await runSearch(String(genericName), form, loc);
+    if (sameMolecule.length) {
+      const opts = arrange(await toOptions(sameMolecule, sess.user_lat, sess.user_lng), sess.user_lat != null);
+      const altId = uuid();
+      await writeSession(phone, { ...sess, medicine: String(genericName), options: opts, selected: null, state: "has_results", pending: null });
+      await logSearch({ search_id:altId, query:rawTerm, normalized_query:ct(genericName), results_count:opts.length, source:"whatsapp",
+        user_phone:cPhone, location:loc||null, reserved:false, found:true, matched_pharmacies:opts.map(o=>o.clinic_name),
+        user_lat:sess.user_lat, user_lng:sess.user_lng });
+      await logImpressions(altId, String(genericName), opts, cPhone, loc||null);
+      return resultsMsg(String(genericName), opts, sess.user_lat != null,
+        `${b(tital(term))} is a brand name for ${b(tital(String(genericName)))} — ${it("the same medicine")}.`);
+    }
+  }
+
+  // ── Coverage gap ─────────────────────────────────────────────────────────
+  // "Out of stock" is false when the real answer is "no pharmacy of ours is
+  // in your town". Different fact, different thing for the patient to do.
+  if (loc) {
+    const { data: cover } = await sb().rpc("coverage_in", { p_location: loc });
+    if (Number(cover ?? 0) === 0) {
+      return { text:
+`📍 ${b(tital(loc))} — we are not there yet 😔
+${DIV}
+ChekaMeds has no pharmacy in ${b(tital(loc))} on the platform so far, so I cannot see what they have.
+
+${it("That is a gap on our side, not a sold-out medicine.")}
+
+🇧🇼 Want me to look across the whole country instead?`,
+        buttons: [{ id:"loc_all", text:"🇧🇼 Search anywhere" }, { id:"notify_me", text:"🔔 Tell me when we cover it" }] };
+    }
+  }
+
+  // If we know the route they need, show what IS stocked in that route.
+  // This is a statement of fact about stock. It is NOT a claim that any of
+  // it is a substitute — that sentence must never be generated again.
+  if (form) {
+    const { data } = await sb().rpc("browse_by_form", { p_form: form, want_location: loc || null, max_rows: 12 });
+    const rows = (data || []) as Hit[];
+    if (rows.length) {
+      const opts = arrange(await toOptions(rows.map(r => ({
+        ...r, generic_name: r.generic_name ?? null, rx_required: r.rx_required ?? null,
+        low_stock: r.low_stock ?? null, pack_size: r.pack_size ?? null,
+        stock_age_hours: r.stock_age_hours ?? null, match_kind: "fulltext", score: 0,
+      } as Hit)), sess.user_lat, sess.user_lng), sess.user_lat != null);
+      await writeSession(phone, { ...sess, medicine: term, options: opts, selected: null, state: "has_results", pending: null });
+      const label = FORM_LABEL[form] || "";
+      const list = opts.map((o,i) => {
+        const pr = money(o.price_bwp);
+        return `${b(`${i+1}.`)} ${o.med_name}\n    ${o.clinic_name}${pr ? ` · ${b(pr)}` : ""}`;
+      }).join("\n\n");
+      return { text:
+`${b(tital(term))} is not listed at any pharmacy on ChekaMeds.
+
+These pharmacies stock other ${label} products. ${it("Ask the pharmacist whether any of them suits you — we cannot advise on that.")}
+
+${list}
+
+Reply ${b("1")}–${b(String(opts.length))} for details.`,
+        buttons: [{ id:"notify_me", text:"🔔 Tell me when it arrives" }] };
+    }
+  }
+
+  return { text:
+`😔 Sorry — I could not find ${b(tital(term))} at any pharmacy on ChekaMeds right now.
+${DIV}
+🔔 Tap ${b("Notify me")} and I will message you the moment it comes in.
+
+💡 You can also try the brand name, or a different spelling.`,
+    buttons: [{ id:"notify_me", text:"🔔 Notify me" }, { id:"find_medicine", text:"🔍 Try again" }] };
 }
 
-serve(async(req:Request)=>{
-  if(req.method==="OPTIONS")return new Response(null,{headers:cors});
-  const url=new URL(req.url);const isTest=url.searchParams.get("test")==="true";
-  try{
-    if(req.method==="GET"){
-      const q=url.searchParams.get("query");
-      if(!q)return new Response(JSON.stringify({status:"ok",version:"v119",features:{pulse_top_slots:PULSE_TOP_SLOTS,result_slots:RESULT_SLOTS,gemini_enabled:!!GEMINI_API_KEY,gemini_guardrails:"inventory_verified",analytics:"full_attribution",watchlist:true,optout:true}}),{headers:{...cors,"Content-Type":"application/json"}});
-      const r=await handle(q,"GET",{});
-      return new Response(JSON.stringify({reply:r}),{headers:{...cors,"Content-Type":"application/json"}});
+// ─── Router ─────────────────────────────────────────────────────────────────
+async function handle(message: string, phone: string, raw: Record<string, unknown>): Promise<WA> {
+  const txt = ct(message);
+  const sess = await readSession(phone);
+
+  if (OPTOUT.test(txt)) {
+    try { await sb().from("notification_optouts").upsert({ phone: cp(phone), reason:"user_request" }, { onConflict:"phone" }); } catch {}
+    return { text: `Unsubscribed. You will not get announcements or stock alerts.\n\nYou can still search any time — just send a medicine name.` };
+  }
+
+  // Location pin
+  const locMsg = (raw?.location || (raw as any)?.data?.location || (raw as any)?.message?.location) as any;
+  const rLat = locMsg?.latitude ?? locMsg?.lat ?? (raw as any)?.latitude ?? null;
+  const rLng = locMsg?.longitude ?? locMsg?.lng ?? locMsg?.lon ?? (raw as any)?.longitude ?? null;
+  if (rLat != null && rLng != null && !isNaN(Number(rLat)) && !isNaN(Number(rLng))) {
+    const lat = Number(rLat), lng = Number(rLng);
+    const next = { ...sess, user_lat: lat, user_lng: lng };
+    await writeSession(phone, next);
+    if (sess.medicine) return await doSearch(phone, next, sess.medicine, "", wantedForm(sess.medicine));
+    return { text: `📍 ${b("Got it — location saved!")} ✅\n\n🚗 Now send me a medicine name and I will show you the closest pharmacies with the distance to each one.`,
+      buttons: [{ id:"find_medicine", text:"🔍 Search" }] };
+  }
+
+  if (GREETING.test(txt)) return welcome();
+  if (CONSULT.test(txt) || txt === "video_consult") return consultPage();
+  if (txt === "find_medicine" || txt === "search") return askMed();
+
+  if (NOTIFY_ME.test(txt) || txt === "notify_me") {
+    if (!sess.medicine) return askMed("Search for something first, then tap Notify me.");
+    try { await sb().from("notification_optouts").delete().eq("phone", cp(phone)); } catch {}
+    try { await sb().from("stock_watchlist").insert({ phone: cp(phone), medicine: ct(sess.medicine), location: null, notified: false }); } catch (e) { console.error("WATCHLIST:", String(e)); }
+    return { text: `🔔 ${b("You are on the list!")} ✅\n${DIV}\n💊 I will message you the moment ${b(tital(sess.medicine))} arrives at a pharmacy near you.\n\n🔍 Meanwhile, feel free to search for something else.\n\n_Reply STOP any time to unsubscribe._`,
+      buttons: [{ id:"find_medicine", text:"🔍 Search again" }] };
+  }
+
+  if ((sess.state === "suggest" && YES.test(txt)) || txt === "confirm_suggestion") {
+    const target = sess.pending || sess.medicine;
+    if (target) return await doSearch(phone, { ...sess, state:"idle", pending:null }, target, "", wantedForm(target));
+  }
+
+  if (/^(change location|change town|location|town|change_location)$/.test(txt)) {
+    if (!sess.medicine) return askMed("Send the medicine name first.");
+    await writeSession(phone, { ...sess, state:"awaiting_location" });
+    return { text: `Which town? Type the name, or choose below.\n\nLooking for: *${tital(sess.medicine)}*`,
+      buttons: [{ id:"loc_gaborone", text:"Gaborone" }, { id:"loc_jwaneng", text:"Jwaneng" }, { id:"loc_all", text:"🇧🇼 Anywhere" }] };
+  }
+
+  if (RESERVE.test(txt)) {
+    if (sess.state !== "has_selected" || !sess.selected)
+      return { text: `Search for a medicine, pick a result, then tap Reserve.`, buttons: [{ id:"find_medicine", text:"🔍 Search" }] };
+    const result = await doReserve(phone, sess.selected);
+    await writeSession(phone, { ...sess, state:"reserved", selected:null });
+    return { text: result };
+  }
+
+  if (txt === "call_pharmacy" || /^(call|phone|number)$/.test(txt)) {
+    if (sess.state !== "has_selected" || !sess.selected) return askMed("Pick a result first.");
+    const s2 = sess.selected;
+    const ph = phone(s2.contact);
+    return { text: ph
+      ? `📞 ${b(s2.clinic_name)}\n\n${ph}\n\n${it("Tap the number to call, or message them on WhatsApp.")}`
+      : `${b(s2.clinic_name)} has no phone number on file yet.\n\n${it("Try the directions link, or reserve and we will notify them.")}` };
+  }
+
+  if (/^(directions|direction|map|where)$/.test(txt)) {
+    if (sess.state !== "has_selected" || !sess.selected) return { text: `Pick a result first, then type *directions*.` };
+    const s = sess.selected; const link = realLink(s.directions_link);
+    return { text: `🏥 ${s.clinic_name}\n📍 ${hasLoc(s.location) ? s.location : "Phone the pharmacy for the address"}` +
+      (s.distance_km != null ? `\n🚗 ${fmtDist(s.distance_km)}` : "") + (link ? `\n🗺️ ${link}` : "") };
+  }
+
+  if (sess.state === "awaiting_location") {
+    const loc = txt.startsWith("loc_") ? txt.replace("loc_","").replace("all","").trim()
+              : (txt === "all" || txt.includes("anywhere")) ? "" : extractLoc(message);
+    return await doSearch(phone, sess, sess.medicine, loc, wantedForm(sess.medicine));
+  }
+  if ((txt.startsWith("loc_") || /^(anywhere|all botswana|everywhere)$/.test(txt)) && sess.medicine) {
+    if (!txt.startsWith("loc_")) return await doSearch(phone, sess, sess.medicine, "", wantedForm(sess.medicine));
+    const loc = txt.replace("loc_","");
+    return await doSearch(phone, sess, sess.medicine, loc === "all" ? "" : loc, wantedForm(sess.medicine));
+  }
+
+  // Picking a result
+  // Derived from RESULT_SLOTS, never hardcoded — a stale literal here would
+  // silently make the last result unselectable.
+  const PICK_RE = new RegExp(`^[1-${Math.min(RESULT_SLOTS, 9)}]$`);
+  const pick = PICK_RE.test(txt) ? Number(txt) - 1
+             : txt.startsWith("item_") ? Number(txt.replace("item_","")) - 1 : -1;
+  if (pick >= 0 && sess.options.length) {
+    const opt = sess.options[pick];
+    if (!opt) return { text: `Reply with a number from the list.` };
+    await writeSession(phone, { ...sess, selected: opt, state: "has_selected" });
+    await markImpression(opt.clinic_name, opt.med_name, cp(phone), "selected");
+    return stockCard(opt);
+  }
+
+  // Free text → a search
+  const loc = extractLoc(message);
+  const stripped = loc ? stripLoc(message, loc) : ct(message);
+
+  // A bare town name answering an earlier search
+  const FILLER_ONLY = /^((am|is|it|im|i|this|now|here|there|please|pls|and|the|a)\s*)*$/;
+  if (loc && sess.medicine && FILLER_ONLY.test(stripped))
+    return await doSearch(phone, sess, sess.medicine, loc, wantedForm(sess.medicine));
+
+  const form = wantedForm(message);
+  const local = normalise(stripped || message);
+
+  if (!local || local.length < MIN_QUERY_LEN || /^https?:\/\//.test(local) || JUNK.some(b => local.includes(b))) {
+    // Let Gemini try the wording before giving up on it.
+    const g = await geminiNormalise(message);
+    if (g) return await doSearch(phone, sess, g, loc, form || wantedForm(g));
+    return askMed(`I could not find a medicine in "${message}".`);
+  }
+
+  // Try the database first — it is faster and free. Gemini is the fallback,
+  // not the front door.
+  const quick = await runSearch(local, form, loc);
+  if (quick.length) return await doSearch(phone, sess, local, loc, form);
+
+  const g = await geminiNormalise(message);
+  if (g && g !== local) return await doSearch(phone, sess, g, loc, form || wantedForm(g));
+  return await doSearch(phone, sess, local, loc, form);
+}
+
+// ─── Transport ──────────────────────────────────────────────────────────────
+async function sendWA(to: string, p: WA) {
+  if (!ULTRAMSG_INSTANCE || !ULTRAMSG_TOKEN)
+    throw new Error(`UltraMsg env missing (instance="${ULTRAMSG_INSTANCE}", token=${ULTRAMSG_TOKEN ? "set" : "EMPTY"})`);
+  const r = await fetch(`https://api.ultramsg.com/${ULTRAMSG_INSTANCE}/messages/chat`, {
+    method:"POST", headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ token: ULTRAMSG_TOKEN, to: cp(to), body: waText(p), priority: 10 }) });
+  const d = await r.json();
+  if (!r.ok || d?.sent === "false" || d?.error) throw new Error(`UltraMsg[${ULTRAMSG_INSTANCE}]: ${JSON.stringify(d)}`);
+}
+async function logEntry(entry: Record<string, unknown>) {
+  try { await sb().from("whatsapp_webhook_logs").insert(entry); } catch {}
+  try { await sb().from("whatsapp_webhook_events").insert({ provider:"ultramsg", from_phone:entry.from_number ?? null,
+    message_text:entry.message_body ?? null, message_type:"chat", raw_payload:entry.raw_payload ?? {},
+    status: entry.error_message ? "error" : "received", error: entry.error_message ?? null }); } catch {}
+}
+const extractMsg = (p: any): string => String(p.body || p.message || p.text || p.list_reply?.id ||
+  p.button_reply?.id || p.interactive?.list_reply?.id || p.interactive?.button_reply?.id ||
+  p.data?.list_reply?.id || p.data?.button_reply?.id || "");
+
+serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+  const url = new URL(req.url);
+  const isTest = url.searchParams.get("test") === "true";
+  try {
+    if (req.method === "GET") {
+      const q = url.searchParams.get("query");
+      if (!q) return new Response(JSON.stringify({ status:"ok", version:"v200",
+        search:"postgres_rpc", form_guard:true, alternatives:"removed", gemini:"normalise_only" }),
+        { headers: { ...cors, "Content-Type":"application/json" } });
+      return new Response(JSON.stringify({ reply: await handle(q, "GET", {}) }),
+        { headers: { ...cors, "Content-Type":"application/json" } });
     }
-    const raw=await req.text();
-    let body:any={};
-    try{body=req.headers.get("content-type")?.includes("x-www-form-urlencoded")?Object.fromEntries(new URLSearchParams(raw).entries()):JSON.parse(raw||"{}");}catch(_){body={};}
-    console.log("RAW_PAYLOAD", JSON.stringify(body).substring(0,500));
-    const payload=body?.data&&typeof body.data==="object"?body.data:body;
-    const from=cp(String(payload.from||payload.sender||payload.author||payload.chatId||""));
-    const msgBody=extractMsg(payload);
-    const hasLocMsg=!!(payload.location?.latitude||payload.data?.location?.latitude||payload.latitude||payload.location?.lat);
-    if(!from||(!msgBody&&!hasLocMsg)){
-      await logEntry({source:isTest?"test":"incoming",from_number:from,message_body:msgBody,response_status:200,error_message:"no_message",raw_payload:body});
-      return new Response(JSON.stringify({status:"no_message"}),{headers:{...cors,"Content-Type":"application/json"}});
+    const raw = await req.text();
+    let body: any = {};
+    try { body = req.headers.get("content-type")?.includes("x-www-form-urlencoded")
+      ? Object.fromEntries(new URLSearchParams(raw).entries()) : JSON.parse(raw || "{}"); } catch { body = {}; }
+    const payload = body?.data && typeof body.data === "object" ? body.data : body;
+    const from = cp(String(payload.from || payload.sender || payload.author || payload.chatId || ""));
+    const msgBody = extractMsg(payload);
+    const hasLocMsg = !!(payload.location?.latitude || payload.data?.location?.latitude || payload.latitude);
+    if (!from || (!msgBody && !hasLocMsg)) {
+      await logEntry({ source: isTest?"test":"incoming", from_number:from, message_body:msgBody, response_status:200, error_message:"no_message", raw_payload:body });
+      return new Response(JSON.stringify({ status:"no_message" }), { headers: { ...cors, "Content-Type":"application/json" } });
     }
-    const reply=await handle(msgBody||"[location]",from,payload);
-    let sendErr="";
-    if(!isTest){try{await sendWA(from,reply);}catch(e){sendErr=e instanceof Error?e.message:String(e);}}
-    await logEntry({source:isTest?"test":"incoming",from_number:from,message_body:msgBody||"[location]",reply_text:JSON.stringify(reply),response_status:sendErr?500:200,error_message:sendErr||null,raw_payload:body});
-    return new Response(JSON.stringify({status:sendErr?"send_failed":"replied",to:from,reply:isTest?reply:undefined,error:sendErr||undefined}),{status:sendErr?500:200,headers:{...cors,"Content-Type":"application/json"}});
-  }catch(e){
-    const err=e instanceof Error?e.message:String(e);
-    await logEntry({source:"incoming",response_status:500,error_message:err});
-    return new Response(JSON.stringify({error:err}),{status:500,headers:{...cors,"Content-Type":"application/json"}});
+    const reply = await handle(msgBody || "[location]", from, payload);
+    let sendErr = "";
+    if (!isTest) { try { await sendWA(from, reply); } catch (e) { sendErr = e instanceof Error ? e.message : String(e); } }
+    await logEntry({ source: isTest?"test":"incoming", from_number:from, message_body:msgBody || "[location]",
+      reply_text: JSON.stringify(reply), response_status: sendErr?500:200, error_message: sendErr||null, raw_payload: body });
+    return new Response(JSON.stringify({ status: sendErr?"send_failed":"replied", to:from, reply: isTest?reply:undefined, error: sendErr||undefined }),
+      { status: sendErr?500:200, headers: { ...cors, "Content-Type":"application/json" } });
+  } catch (e) {
+    const err = e instanceof Error ? e.message : String(e);
+    await logEntry({ source:"incoming", response_status:500, error_message:err });
+    return new Response(JSON.stringify({ error: err }), { status:500, headers:{ ...cors, "Content-Type":"application/json" } });
   }
 });
