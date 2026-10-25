@@ -118,7 +118,7 @@ const FacilitiesPage = () => {
         .cm-facs-tools .wrap input{padding-left:42px}
         .cm-facs-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}
         .cm-fac{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:16px 18px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line)}
-        .cm-fac.live{border-color:var(--g-line);background:radial-gradient(circle at 100% 0,rgba(41,242,154,.08),transparent 55%),var(--surface)}
+        .cm-fac.live{border-color:var(--g-line);background:rgba(17,16,15,.35)}
         .cm-fac-main{min-width:0}
         .cm-fac-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
         .cm-fac h3{font-size:1rem;line-height:1.3}

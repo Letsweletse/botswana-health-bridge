@@ -127,8 +127,8 @@ const ConsultantRequestForm = () => {
 
   if (submitted) {
     return (
-      <div className="border border-emerald-400/25 bg-emerald-500/10 p-6 text-white rounded-xl">
-        <CheckCircle2 className="mb-4 h-9 w-9 text-emerald-300" />
+      <div className="border border-white/15 bg-white/[0.06] p-6 text-white rounded-xl">
+        <CheckCircle2 className="mb-4 h-9 w-9 text-white/80" />
         <h2 className="text-2xl font-bold">Request received</h2>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-emerald-50/80">
           A participating healthcare provider may contact you shortly. If this is an emergency, visit the nearest clinic or hospital immediately.
@@ -159,7 +159,7 @@ const ConsultantRequestForm = () => {
           <button
             type="button"
             onClick={() => setForm((current) => ({ ...current, consultation_mode: 'home', preferred_facility_name: '' }))}
-            className={`border p-4 text-left transition ${form.consultation_mode === 'home' ? 'border-emerald-400 bg-emerald-400/10 text-white' : 'border-white/10 bg-white/[0.03] text-white/70'} rounded-xl`}
+            className={`border p-4 text-left transition ${form.consultation_mode === 'home' ? 'border-white/60 bg-white/10 text-white' : 'border-white/10 bg-white/[0.03] text-white/70'} rounded-xl`}
           >
             <p className="font-bold">Consult from home</p>
             <p className="mt-1 text-xs leading-5 text-white/55">Use your own phone/device. The ChekaMeds review team routes the request.</p>
@@ -167,7 +167,7 @@ const ConsultantRequestForm = () => {
           <button
             type="button"
             onClick={() => setForm((current) => ({ ...current, consultation_mode: 'facility' }))}
-            className={`border p-4 text-left transition ${form.consultation_mode === 'facility' ? 'border-emerald-400 bg-emerald-400/10 text-white' : 'border-white/10 bg-white/[0.03] text-white/70'} rounded-xl`}
+            className={`border p-4 text-left transition ${form.consultation_mode === 'facility' ? 'border-white/60 bg-white/10 text-white' : 'border-white/10 bg-white/[0.03] text-white/70'} rounded-xl`}
           >
             <p className="font-bold">Assisted at partner facility</p>
             <p className="mt-1 text-xs leading-5 text-white/55">A pharmacy/clinic assists with capture, video setup, and medicine collection where applicable.</p>
@@ -241,7 +241,7 @@ const ConsultantRequestForm = () => {
         <label className="cms-label-wrap mt-4">
           Prescription upload link, if available
           <div className="flex items-center gap-2 border border-dashed border-white/15 bg-white/[0.03] px-3 py-2.5">
-            <Upload className="h-4 w-4 text-emerald-300" />
+            <Upload className="h-4 w-4 text-white/80" />
             <input value={form.prescription_url} onChange={(e) => updateField('prescription_url', e.target.value)} className="w-full bg-transparent text-sm text-white outline-none" placeholder="Paste file/image link" />
           </div>
         </label>
@@ -271,7 +271,7 @@ const ConsultantRequestForm = () => {
         </div>
 
         <div className="border border-white/10 bg-white/[0.04] p-5 text-white rounded-xl">
-          <Shield className="mb-3 h-6 w-6 text-emerald-300" />
+          <Shield className="mb-3 h-6 w-6 text-white/80" />
           <h2 className="font-bold">How it works</h2>
           <div className="mt-3 space-y-3 text-sm leading-6 text-white/65">
             <p className="border border-white/10 bg-white/[0.03] p-3 rounded-xl">1. Patient chooses home or partner-facility assisted care.</p>

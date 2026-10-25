@@ -133,7 +133,7 @@ const Delivery = () => {
           <div className="cms-card" style={{ padding: 28 }}>
             {success ? (
               <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                <CheckCircle2 size={52} color="#29f29a" style={{ margin: '0 auto' }} />
+                <CheckCircle2 size={52} color="#5eeaa8" style={{ margin: '0 auto' }} />
                 <h2 className="cms-h2" style={{ fontSize: '1.7rem', marginTop: 14 }}>Request received</h2>
                 <p className="cms-sub" style={{ margin: '10px auto 0' }}>The pharmacy will review it and contact you. Keep this PIN for the hand-over.</p>
                 <div className="cm-pin"><span className="cms-small">Delivery PIN</span><b>{success.pin}</b></div>

@@ -317,7 +317,7 @@ const SearchPage = () => {
         .cm-search-hero{padding:56px 0 28px;text-align:center;display:grid;justify-items:center;gap:14px}
         .cm-search-box{position:relative;width:min(680px,100%);margin-top:14px}
         .cm-search-box svg.lead{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:var(--muted)}
-        .cm-search-box input{height:62px!important;padding-left:52px;padding-right:52px;font-size:1.08rem;border-radius:14px;background:#08110d}
+        .cm-search-box input{height:62px!important;padding-left:52px;padding-right:52px;font-size:1.08rem;border-radius:16px;background:rgba(17,16,15,.35)!important;backdrop-filter:blur(20px)}
         .cm-search-box .spin{position:absolute;right:18px;top:50%;margin-top:-10px;color:var(--g)}
         .cm-try{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;align-items:center;margin-top:4px}
         .cm-try span{font-size:.84rem;color:var(--dim);margin-right:2px}
