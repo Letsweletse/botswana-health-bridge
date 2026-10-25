@@ -170,6 +170,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     }
     liveAlerts.sort((a, b) => (a.level === b.level ? b.score - a.score : a.level === 'alert' ? -1 : 1));
 
+    // Officer acknowledgements (pulse_alerts), if the alerting tables exist.
+    try {
+      const { data: acks, error: ackErr } = await sb.from('pulse_alerts').select('town,grp,status,status_at,notified_at').eq('week', weeks[t]);
+      if (!ackErr && acks) {
+        const byKey = new Map(acks.map((r: any) => [`${r.town}|${r.grp}`, r]));
+        for (const a of liveAlerts) {
+          const r: any = byKey.get(`${a.town}|${a.group}`);
+          a.ack = r ? { status: r.status, at: r.status_at, notified: !!r.notified_at } : null;
+        }
+      }
+    } catch { /* alerting tables not created yet */ }
+
     const live = {
       alerts: liveAlerts, townStatus: liveTownStatus,
       weeks, weekly,
@@ -270,7 +282,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         ],
       },
     };
-    res.setHeader('Cache-Control', 'public, s-maxage=21600, stale-while-revalidate=86400');
+    res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=86400');
     return res.status(200).json(body);
   } catch (e) {
     return res.status(500).json({ error: String((e as Error).message || e) });

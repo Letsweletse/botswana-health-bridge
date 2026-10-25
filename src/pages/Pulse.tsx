@@ -15,6 +15,7 @@ type Alert = {
   score: number; count: number; expected: number; ratio: number; unfilledShare: number; unfilledBase: number;
   contributions: { demand: number; unfilled: number; climate: number }; reasons: string[];
   signal: string; action: string; owner: string; series: number[]; unfilledSeries: number[]; climateSeries: number[] | null;
+  ack?: { status: 'new' | 'checked' | 'confirmed' | 'false_alarm'; at: string | null; notified: boolean } | null;
 };
 type Pulse = {
   generated_at: string; week: string;
@@ -166,6 +167,7 @@ export default function Pulse() {
                       <div className="top"><Badge level={a.level} kind={a.kind} /><span className="pl-dim">{a.kind === 'supply' ? `${Math.round(a.unfilledShare * 100)}% unfilled` : `score ${a.score.toFixed(1)}`}</span></div>
                       <b>{a.label} · {a.townName}</b>
                       <span>{a.reasons[0]}</span>
+                      {a.ack && <em className={`pl-ack ${a.ack.status}`}>{a.ack.status === 'new' ? (a.ack.notified ? 'Sent to officers · awaiting review' : 'Awaiting review') : a.ack.status === 'checked' ? 'Checked by an officer' : a.ack.status === 'confirmed' ? 'Confirmed by an officer' : 'Marked false alarm'}</em>}
                     </button>
                   ))}
                 </div>
@@ -206,6 +208,7 @@ export default function Pulse() {
             <button role="tab" aria-selected={mode === 'live'} className={mode === 'live' ? 'on' : ''} onClick={() => setMode('live')}>Live</button>
             <button role="tab" aria-selected={mode === 'sim'} className={mode === 'sim' ? 'on' : ''} onClick={() => setMode('sim')}>Scenario test</button>
           </div>
+          <Link to="/pulse/bulletin" className="pl-bulletin">Weekly bulletin ↗</Link>
         </section>
 
         {error && <div className="cms-card pl-note">Pulse could not load right now ({error}). Please refresh in a minute.</div>}
@@ -391,6 +394,10 @@ const CSS = `
 .pl-tabs{display:inline-flex;gap:4px;margin-top:26px;padding:4px;border-radius:999px;background:rgba(17,16,15,.35);border:1px solid var(--line);backdrop-filter:blur(20px)}
 .pl-tabs button{padding:10px 18px;border-radius:999px;color:var(--ink-2);font:500 .92rem var(--body);background:none;border:0;cursor:pointer}
 .pl-tabs button.on{background:#e9e9e9;color:#0a0707}
+.pl .pl-bulletin{display:inline-flex;margin:26px 0 0 12px;padding:11px 16px;border-radius:999px;border:1px solid var(--line-2);color:#fff;font-size:.9rem;vertical-align:top}
+.pl .pl-bulletin:hover{background:rgba(255,255,255,.06)}
+.pl-ack{font-style:normal;font-size:.76rem;color:var(--muted)}
+.pl-ack.confirmed{color:#fca5a5}.pl-ack.checked{color:#fbbf5a}.pl-ack.false_alarm{color:#5eeaa8}
 .pl-banner{margin:6px 0 18px;padding:14px 18px;border-radius:14px;border:1px solid rgba(124,196,255,.28);background:rgba(124,196,255,.07);color:var(--ink-2);font-size:.92rem;line-height:1.55}
 .pl-banner.live{border-color:var(--g-line);background:var(--g-soft)}
 .pl-banner b{color:#fff}
