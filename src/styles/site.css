@@ -144,7 +144,7 @@
 .cms-stat { padding: 24px 26px; border-right: 1px solid var(--line); }
 .cms-stat:last-child { border-right: 0; }
 .cms-stat b { display: block; font: 400 clamp(1.7rem, 3vw, 2.5rem)/1 var(--head); color: #ffffff; letter-spacing: -0.02em; }
-.cms-stat span { display: block; margin-top: 8px; font-size: 0.88rem; color: var(--muted); }
+.cms-stat > span { display: block; margin-top: 8px; font-size: 0.88rem; color: var(--muted); }
 @media (max-width: 680px) {
   .cms-stats { grid-template-columns: 1fr 1fr; }
   .cms-stat:nth-child(2n) { border-right: 0; }

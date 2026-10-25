@@ -52,6 +52,10 @@ export default function Landing() {
         .cm-home .cm-demo-cta,.cm-home .cm-demo-go{background:#e9e9e9!important;color:#0a0707!important;border-radius:12px!important;font-weight:450!important;box-shadow:none!important}
         .cm-home .cm-moment{border-color:rgba(255,255,255,.1)!important;box-shadow:none!important;border-radius:33px!important}
         .cm-home .cm-moment-cap span{color:rgba(255,255,255,.7)!important}
+        .cm-home .cms-stat{padding:30px 28px}
+        .cm-home .cms-stat b{font-size:clamp(2.4rem,4.4vw,3.6rem);font-weight:700;letter-spacing:-.035em;color:#e8b10b;line-height:1}
+        .cm-home .cms-stat > span{font-size:.95rem;margin-top:10px}
+        @media(max-width:680px){.cm-home .cms-stat{padding:22px 18px}.cm-home .cms-stat b{font-size:2.1rem}}
         .cm-ghero{position:relative;isolation:isolate;min-height:100vh;min-height:100svh;display:flex;flex-direction:column;overflow:hidden;background:#080a19}
         .cm-ghero-bg{position:absolute;inset:0;z-index:-1}
         .cm-ghero-bg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:68% 30%}
