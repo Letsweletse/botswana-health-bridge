@@ -83,7 +83,7 @@ export const isSensitive = (q: string) => SENSITIVE.test((q || '').toLowerCase()
 
 /* ---------- 2. weekly aggregation ---------- */
 
-export type Cell = { c: number; u: number }; // searches, unfilled
+export type Cell = { c: number; u: number; m?: number }; // searches, unfilled, true multiplier (simulation only)
 export type SeriesMap = Record<string, Record<string, Cell[]>>; // town -> group -> weeks
 
 export function emptySeries(towns: string[], groups: string[], n: number): SeriesMap {
@@ -225,13 +225,20 @@ export async function fetchWeather(weeks: string[]): Promise<Weather> {
 /** Weekly anomaly (SD units) per town for each climate driver. */
 export function climateAnomalies(w: Weather): Record<string, Record<'rain' | 'heat' | 'cold', number[]>> {
   const out: Record<string, Record<'rain' | 'heat' | 'cold', number[]>> = {};
+  /* Anomaly = this week vs the previous 8 weeks in the same town, so normal
+     seasonal drift (winter to summer) is not mistaken for a heatwave or cold snap. */
+  const trailing = (arr: number[], i: number, minSd: number) => {
+    const prev = arr.slice(Math.max(0, i - 8), i);
+    if (prev.length < 3) return 0;
+    return (arr[i] - mean(prev)) / Math.max(sd(prev), minSd);
+  };
   for (const [town, v] of Object.entries(w.byTown)) {
-    const zt = (x: number) => (x - mean(v.tmax)) / (sd(v.tmax) || 1);
-    const rm = mean(v.rain); const rs = sd(v.rain) || 1;
+    const heat = v.tmax.map((_, i) => round(trailing(v.tmax, i, 1.5), 2));
+    const rainZ = v.rain.map((_, i) => trailing(v.rain, i, 6));
     out[town] = {
-      heat: v.tmax.map((x) => round(zt(x), 2)),
-      cold: v.tmax.map((x) => round(-zt(x), 2)),
-      rain: v.rain.map((x, i) => round(((v.rain[i - 2] ?? x) - rm) / rs, 2)), // malaria lags rain by ~2 weeks
+      heat,
+      cold: heat.map((x) => round(-x, 2)),
+      rain: rainZ.map((_, i) => round(rainZ[i - 2] ?? 0, 2)), // malaria lags rain by ~2 weeks
     };
   }
   return out;
@@ -286,7 +293,7 @@ export function simulate(o: SimOptions): SeriesMap {
           if (k >= 0 && k < o.inject.ramp.length) mult *= o.inject.ramp[k];
         }
         const c = poisson(base * mult, r);
-        s[town.id][g][i] = { c, u: binom(c, Math.min(0.95, ushare), r) };
+        s[town.id][g][i] = { c, u: binom(c, Math.min(0.95, ushare), r), m: mult };
       }
     }
   }
@@ -332,7 +339,7 @@ export function backtest(weeks: string[], anomalies: ReturnType<typeof climateAn
     for (const sim of baselines) {
       for (const town of bigTowns) for (const g of GROUPS) for (let t = minT; t < n; t++) {
         const d = detect(sim[town.id][g.id], t, anomalies[town.id]?.[g.climate ?? 'heat'] ?? null, g, { multiSignal: multi });
-        cells++; if (d.level === 'alert') { fa++; alerts++; }
+        cells++; if (d.level === 'alert') { alerts++; if ((sim[town.id][g.id][t].m ?? 1) < 1.25) fa++; }
       }
     }
     const weeksObs = 6 * (n - minT);
@@ -351,7 +358,7 @@ export function backtest(weeks: string[], anomalies: ReturnType<typeof climateAn
     trials, detected: multi.detected, sensitivity: multi.sensitivity, medianLeadWeeks: multi.medianLeadWeeks, meanLeadWeeks: multi.meanLeadWeeks,
     falseAlertsPerTownMonth: multi.falseAlertsPerTownMonth, alertsPerWeekNational: multi.alertsPerWeekNational,
     demandOnly: { sensitivity: demandOnly.sensitivity, medianLeadWeeks: demandOnly.medianLeadWeeks, falseAlertsPerTownMonth: demandOnly.falseAlertsPerTownMonth },
-    method: `${trials} synthetic outbreaks (peak 1.8–3.2× normal, 5-week curve) injected at random into the 10 largest towns and 8 signal groups, on top of a baseline driven by real weather. Routine reporting is assumed to notice an outbreak one week after its peak. False alerts are counted on outbreak-free simulations.`,
+    method: `${trials} synthetic outbreaks (peak 1.8–3.2× normal, 5-week curve) injected at random into the 10 largest towns and 8 signal groups, on top of a baseline driven by real weather. Routine reporting is assumed to notice an outbreak one week after its peak. An alert on an outbreak-free simulation counts as false when true demand that week was within 25% of normal (weather-driven rises of more than 25% are real increases, not false alarms).`,
   };
 }
 
