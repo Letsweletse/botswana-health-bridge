@@ -382,7 +382,7 @@ export default function Pulse() {
                 <div className="pl-bt">
                   <div><b>{rv.delivered} / {rv.total}</b><span>alerts delivered to officers</span></div>
                   <div><b>{rv.reviewed}</b><span>reviewed{rv.pending ? ` · ${rv.pending} awaiting` : ''}</span></div>
-                  <div><b>{rv.confirmed + rv.checked}</b><span>confirmed or checked ({rv.confirmed} / {rv.checked})</span></div>
+                  <div><b>{rv.confirmed + rv.checked}</b><span>found real: {rv.checked} checked, {rv.confirmed} confirmed</span></div>
                   <div><b>{rv.falseAlarm}</b><span>marked false alarm</span></div>
                   {rv.medianHoursToReview != null && <div><b>{rv.medianHoursToReview < 1 ? `${Math.round(rv.medianHoursToReview * 60)} min` : `${rv.medianHoursToReview} h`}</b><span>median time from alert to review</span></div>}
                 </div>
