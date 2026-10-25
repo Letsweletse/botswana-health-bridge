@@ -245,6 +245,8 @@ const CSS = `
 @media (max-width:760px){.pb-bar button{margin:6px 6px 0 0}.pb-page{padding:22px 16px;margin:0;border-radius:0}.pb table{min-width:520px}.pb-kpis{grid-template-columns:repeat(2,1fr)}.pb-two{grid-template-columns:1fr}.pb table{font-size:.78rem}}
 @media print{
   @page{size:A4;margin:12mm}
+  html,body,#root{background:#fff!important}
+  body > *:not(#root){display:none!important}
   .no-print{display:none!important}
   .pb{background:#fff}
   .pb-page{box-shadow:none;margin:0;padding:0;max-width:none}
