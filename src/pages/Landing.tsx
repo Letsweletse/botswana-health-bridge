@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Check, ShieldCheck, Smartphone } from 'lucide-react';
 import SiteHeader from '@/components/SiteHeader';
@@ -6,8 +6,6 @@ import SiteHeader from '@/components/SiteHeader';
 const WhatsAppDemo = lazy(() => import('@/components/landing/WhatsAppDemo'));
 const Moments = lazy(() => import('@/components/landing/Moments'));
 const PharmacyCarousel = lazy(() => import('@/components/landing/PharmacyCarousel'));
-
-const PHARMACY_VIDEO = 'https://res.cloudinary.com/dyfecybo0/video/upload/q_auto/v1792925034/website_hero_kztntf.mp4';
 
 const WA_SEARCH = 'https://wa.me/26771424486?text=' + encodeURIComponent('Hi ChekaMeds, I am looking for a medicine. Please help me find a pharmacy with availability.');
 
@@ -29,6 +27,15 @@ const stats = [
 ];
 
 export default function Landing() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  /* React does not write the muted attribute, which iOS needs for autoplay. */
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = true;
+    v.play().catch(() => { /* autoplay blocked: the poster stays */ });
+  }, []);
+
   return (
     <div className="cms cm-home">
       <style>{`
@@ -47,6 +54,8 @@ export default function Landing() {
         .cm-ghero{position:relative;isolation:isolate;min-height:100vh;min-height:100svh;display:flex;flex-direction:column;overflow:hidden;background:#080a19}
         .cm-ghero-bg{position:absolute;inset:0;z-index:-1}
         .cm-ghero-bg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:68% 30%}
+        .cm-ghero-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% 40%}
+        @media(prefers-reduced-motion:reduce){.cm-ghero-video{display:none}}
         .cm-pvid{position:relative;border-radius:33px;overflow:hidden;border:1px solid rgba(255,255,255,.1);background:#0c0f24;aspect-ratio:16/9;margin-bottom:16px}
         .cm-pvid video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
         .cm-pvid-tag{position:absolute;left:18px;top:18px;padding:8px 12px;border-radius:11px;background:rgba(10,7,7,.45);backdrop-filter:blur(17px);font-size:13px;color:#fff}
@@ -114,6 +123,10 @@ export default function Landing() {
             <source media="(max-width: 700px)" srcSet="/media/hero-elder-sm.webp" />
             <img src="/media/hero-elder.webp" alt="" width="2100" height="1179" fetchPriority="high" decoding="async" />
           </picture>
+          <video ref={videoRef} className="cm-ghero-video" autoPlay muted loop playsInline preload="auto" poster="/media/hero-loop-poster.jpg" disablePictureInPicture>
+            <source src="/media/hero-loop-960.mp4" type="video/mp4" media="(max-width: 760px)" />
+            <source src="/media/hero-loop.mp4" type="video/mp4" />
+          </video>
         </div>
 
         <SiteHeader overlay />
@@ -195,10 +208,6 @@ export default function Landing() {
           <div className="cms-head">
             <h2 className="cms-h2">For pharmacies and partners</h2>
             <p className="cms-sub">Patients are already searching. Make sure they find you, or bring ChekaMeds to your country.</p>
-          </div>
-          <div className="cm-pvid">
-            <video src={PHARMACY_VIDEO} poster="/media/pharm-poster.webp" autoPlay muted loop playsInline preload="metadata" aria-label="Video: customers search on ChekaMeds and find the pharmacy that has their medicine" />
-            <span className="cm-pvid-tag">ChekaMeds for pharmacies</span>
           </div>
           <div className="cm-split">
             <div className="cm-panel">
