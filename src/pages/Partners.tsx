@@ -439,7 +439,7 @@ export default function Partners() {
                   <button type="submit" className="cm-pt-btn cm-pt-btn-p" disabled={status === 'sending'}>
                     {status === 'sending' ? <><Loader2 size={16} className="animate-spin" /> Sending…</> : <>Send enquiry <ArrowUpRight size={16} /></>}
                   </button>
-                  <span style={{ fontSize: '.8rem', color: '#60766a' }}>We only use your details to reply to this enquiry.</span>
+                  <span style={{ fontSize: '.8rem', color: 'rgba(255,255,255,.55)' }}>We only use your details to reply to this enquiry. <Link to="/privacy" style={{ color: '#fff', textDecoration: 'underline' }}>Privacy Policy</Link></span>
                 </div>
                 {status === 'error' && (
                   <p className="cm-pt-err" role="alert">

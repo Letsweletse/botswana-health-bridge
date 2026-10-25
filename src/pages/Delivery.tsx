@@ -157,7 +157,8 @@ const Delivery = () => {
                 <button disabled={isSubmitting} className="cms-btn cms-btn-p cms-btn-block" style={{ marginTop: 18, minHeight: 52 }}>
                   {isSubmitting ? <Loader2 size={17} className="cms-spin" /> : <MapPin size={17} />} Send delivery request
                 </button>
-                <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 16 }} className="cms-fine">
+                <p className="cms-fine" style={{ marginTop: 14 }}>By sending this request you agree to our <Link to="/terms" style={{ color: '#fff', textDecoration: 'underline' }}>Terms</Link> and <Link to="/privacy" style={{ color: '#fff', textDecoration: 'underline' }}>Privacy Policy</Link>. We share your details with the pharmacy only to arrange delivery.</p>
+                <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 12 }} className="cms-fine">
                   <span style={{ display: 'inline-flex', gap: 6 }}><ShieldCheck size={14} /> Pharmacy reviewed</span>
                   <span style={{ display: 'inline-flex', gap: 6 }}><PackageCheck size={14} /> PIN hand-over</span>
                   <span style={{ display: 'inline-flex', gap: 6 }}><Phone size={14} /> WhatsApp updates</span>

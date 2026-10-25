@@ -251,7 +251,7 @@ export default function Landing() {
         </section>
         <p className="cms-fine" style={{ margin: '18px 0 80px', display: 'flex', gap: 8 }}>
           <ShieldCheck size={15} style={{ flexShrink: 0, marginTop: 2 }} />
-          Availability is reported by participating pharmacies and can change. Always contact the pharmacy to confirm stock, price and opening hours before travelling. ChekaMeds does not replace professional medical advice.
+          <span>Availability is reported by participating pharmacies and can change. Always contact the pharmacy to confirm stock, price and opening hours before travelling. ChekaMeds does not replace professional medical advice. <Link to="/privacy" style={{ color: '#fff', textDecoration: 'underline' }}>Privacy Policy</Link> · <Link to="/terms" style={{ color: '#fff', textDecoration: 'underline' }}>Terms of Use</Link></span>
         </p>
       </div>
     </div>

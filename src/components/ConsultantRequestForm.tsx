@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Shield, Upload } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -38,6 +39,7 @@ const ConsultantRequestForm = () => {
   const [form, setForm] = useState(initialForm);
   const [emergencyFlags, setEmergencyFlags] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [consent, setConsent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [facilities, setFacilities] = useState<string[]>([]);
 
@@ -77,6 +79,15 @@ const ConsultantRequestForm = () => {
       toast({
         title: 'Missing details',
         description: 'Please add your name, phone number, location, and symptoms.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!consent) {
+      toast({
+        title: 'Please confirm consent',
+        description: 'Tick the consent box so we can share your details with a healthcare provider.',
         variant: 'destructive',
       });
       return;
@@ -123,6 +134,7 @@ const ConsultantRequestForm = () => {
     setSubmitted(true);
     setForm(initialForm);
     setEmergencyFlags([]);
+    setConsent(false);
   };
 
   if (submitted) {
@@ -244,6 +256,15 @@ const ConsultantRequestForm = () => {
             <Upload className="h-4 w-4 text-white/80" />
             <input value={form.prescription_url} onChange={(e) => updateField('prescription_url', e.target.value)} className="cms-bare w-full text-sm text-white outline-none" placeholder="Paste file/image link" />
           </div>
+        </label>
+
+        <label className="mt-5 flex cursor-pointer items-start gap-3 text-sm leading-6 text-white/75">
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 h-4 w-4 flex-shrink-0" style={{ accentColor: '#e9e9e9' }} />
+          <span>
+            I agree that ChekaMeds may use the health details above and share them with a participating healthcare provider to handle my request, as set out in the{' '}
+            <Link to="/privacy" style={{ color: "#fff", textDecoration: "underline", textUnderlineOffset: 3 }}>Privacy Policy</Link>. I have read the{' '}
+            <Link to="/terms" style={{ color: "#fff", textDecoration: "underline", textUnderlineOffset: 3 }}>Terms of Use</Link> and understand ChekaMeds is not for emergencies.
+          </span>
         </label>
 
         <button disabled={submitting} className="cms-btn cms-btn-p cms-btn-block mt-6" style={{ minHeight: 52 }}>
