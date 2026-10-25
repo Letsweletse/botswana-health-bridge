@@ -1,4 +1,13 @@
-// ChekaMeds WhatsApp webhook — v200
+// ChekaMeds WhatsApp webhook — v201
+//
+// v201 (25 Oct 2026). Changes from v200 (nothing else touched):
+//   • When a search names no town, search_logs records the last town that
+//     number gave earlier. Search results and wording are unchanged by this.
+//   • Results and "could not find" replies add one line asking for the town,
+//     only when no town or location is known. A bare town reply is already
+//     routed back into the search (FILLER_ONLY, unchanged).
+//   • Bug fix: "Call pharmacy" (reply CALL) crashed in v200 because the sender's
+//     phone parameter shadowed the phone() helper. Now uses displayPhone().
 //
 // What changed from v119 and why:
 //   • Matching moved into Postgres (search_inventory RPC). No more %infix%
@@ -199,6 +208,10 @@ const cp = (r: string): string => {
 };
 // Display helper: never print a number we could not make sense of.
 const phone = (v?: string | null) => { const p = cp(String(v || "")); return p.length >= 10 ? `+${p}` : null; };
+// v201: alias for use inside handle(), where the parameter `phone` (the sender's
+// number) shadows this helper. Calling phone(...) there threw "not a function",
+// so the "Call pharmacy" reply crashed and the patient got no answer.
+const displayPhone = phone;
 const money = (v: number|null|undefined) => v != null ? `P${Number(v).toFixed(2)}` : null;
 const realLink = (v?: string|null) => { const s=String(v||"").trim(); return (/^https:\/\//i.test(s) && !/example|placeholder|fake|test/i.test(s)) ? s : ""; };
 const hasLoc = (v?: string|null) => { const s=ct(v); return !!(s && !["botswana","unknown","not listed","n a"].includes(s)); };
@@ -361,7 +374,7 @@ function consultPage(): WA {
     buttons: [{ id:"find_medicine", text:"🔍 Search medicine" }] };
 }
 
-function resultsMsg(term: string, opts: Opt[], byDistance: boolean, note?: string): WA {
+function resultsMsg(term: string, opts: Opt[], byDistance: boolean, note?: string, askTown = false): WA {
   const n = opts.length;
   // No ordering claim in the header. The old version printed "sorted by
   // nearest" while pinning partners, which was false and therefore needed a
@@ -390,7 +403,7 @@ function resultsMsg(term: string, opts: Opt[], byDistance: boolean, note?: strin
 `${note ? note + "\n\n" : ""}✅ Good news — ${b(tital(term))} is listed at ${b(String(n))} ${n === 1 ? "pharmacy" : "pharmacies"} 🇧🇼
 
 ${lines}
-
+${askTown ? `\n📍 ${it("Tip: reply with your town (e.g. Maun) to see pharmacies near you.")}\n` : ""}
 ${DIV}
 👇 Reply ${b("1")}–${b(String(n))} to see the phone number, hours and directions.`,
     buttons: [{ id:"find_medicine", text:"🔍 New search" }] };
@@ -440,7 +453,18 @@ function waText(p: WA): string {
 
 // ─── Analytics (unchanged behaviour, tidier) ────────────────────────────────
 async function logSearch(o: Record<string, unknown>) {
-  try { const { error } = await sb().from("search_logs").insert(o); if (error) console.error("LOG_SEARCH:", error.message); }
+  try {
+    // v201: no town on this search -> reuse the last town this number gave.
+    if (!o.location && o.user_phone && o.user_phone !== "GET") {
+      try {
+        const { data: prev } = await sb().from("search_logs").select("location")
+          .eq("user_phone", o.user_phone as string).not("location", "is", null).neq("location", "")
+          .order("created_at", { ascending: false }).limit(1);
+        if (prev?.[0]?.location) o = { ...o, location: prev[0].location };
+      } catch { /* logging must never break a search */ }
+    }
+    const { error } = await sb().from("search_logs").insert(o); if (error) console.error("LOG_SEARCH:", error.message);
+  }
   catch (e) { console.error("LOG_SEARCH_EX:", String(e)); }
 }
 async function logImpressions(searchId: string, query: string, opts: Opt[], phone: string, loc: string|null) {
@@ -589,7 +613,8 @@ async function doSearch(phone: string, sess: Session, rawTerm: string, loc: stri
         user_lat:sess.user_lat, user_lng:sess.user_lng });
       await logImpressions(searchId, term, opts, cPhone, loc||null);
       return resultsMsg(shownTerm, opts, sess.user_lat != null,
-        widened ? `Nothing in ${tital(loc)} — showing the rest of Botswana.` : undefined);
+        widened ? `Nothing in ${tital(loc)} — showing the rest of Botswana.` : undefined,
+        !loc && sess.user_lat == null);
     }
     // fell through: everything was too weak to show
   }
@@ -674,7 +699,7 @@ Reply ${b("1")}–${b(String(opts.length))} for details.`,
 `😔 Sorry — I could not find ${b(tital(term))} at any pharmacy on ChekaMeds right now.
 ${DIV}
 🔔 Tap ${b("Notify me")} and I will message you the moment it comes in.
-
+${!loc && sess.user_lat == null ? `\n📍 Reply with your town (e.g. ${b("Francistown")}) so pharmacies near you know it is needed.\n` : ""}
 💡 You can also try the brand name, or a different spelling.`,
     buttons: [{ id:"notify_me", text:"🔔 Notify me" }, { id:"find_medicine", text:"🔍 Try again" }] };
 }
@@ -737,7 +762,7 @@ async function handle(message: string, phone: string, raw: Record<string, unknow
   if (txt === "call_pharmacy" || /^(call|phone|number)$/.test(txt)) {
     if (sess.state !== "has_selected" || !sess.selected) return askMed("Pick a result first.");
     const s2 = sess.selected;
-    const ph = phone(s2.contact);
+    const ph = displayPhone(s2.contact);
     return { text: ph
       ? `📞 ${b(s2.clinic_name)}\n\n${ph}\n\n${it("Tap the number to call, or message them on WhatsApp.")}`
       : `${b(s2.clinic_name)} has no phone number on file yet.\n\n${it("Try the directions link, or reserve and we will notify them.")}` };
@@ -831,7 +856,7 @@ serve(async (req: Request) => {
   try {
     if (req.method === "GET") {
       const q = url.searchParams.get("query");
-      if (!q) return new Response(JSON.stringify({ status:"ok", version:"v200",
+      if (!q) return new Response(JSON.stringify({ status:"ok", version:"v201",
         search:"postgres_rpc", form_guard:true, alternatives:"removed", gemini:"normalise_only" }),
         { headers: { ...cors, "Content-Type":"application/json" } });
       return new Response(JSON.stringify({ reply: await handle(q, "GET", {}) }),
