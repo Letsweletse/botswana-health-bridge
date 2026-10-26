@@ -183,7 +183,7 @@ export function computeBusiness(ctx: ReportContext, business: string) {
   /* ---- Recommendations, from the numbers above ---- */
   const recs: string[] = [];
   if (stale.length) recs.push(`Refresh stock at ${stale.length === league.length ? 'all' : stale.length} branch${stale.length === 1 ? '' : 'es'}: the latest update was ${lastAny ? `${Math.floor((Date.now() - lastAny) / DAY)} days ago` : 'never'}. Fresh stock ranks higher and turns more searches into visits.`);
-  if (lostTop.length) recs.push(`${lost.length} searches were for medicines you carry but showed other pharmacies instead (top: ${lostTop.slice(0, 3).map((x) => x.name).join(', ')}). Check these are in stock and listed at the branches nearest the demand.`);
+  if (lostTop.length) recs.push(`${lost.length} search${lost.length === 1 ? ' was' : 'es were'} for medicines you carry but showed other pharmacies instead (top: ${lostTop.slice(0, 3).map((x) => x.name).join(', ')}). Check these are in stock and listed at the branches nearest the demand.`);
   if (unmetTop.length) recs.push(`Consider adding ${unmetTop.slice(0, 3).map((x) => x.name).join(', ')}: searched ${unmetTop.slice(0, 3).reduce((a, x) => a + x.searches, 0)} times and found at no pharmacy on ChekaMeds.`);
   const quiet = league.filter((b) => b.shown === 0);
   if (quiet.length && quiet.length < league.length) recs.push(`${quiet.length} branch${quiet.length === 1 ? '' : 'es'} did not appear in any results this month (${quiet.slice(0, 4).map((b) => b.branch).join(', ')}${quiet.length > 4 ? '…' : ''}). Few searches name those towns yet; local promotion of the ChekaMeds WhatsApp number would bring them in.`);
