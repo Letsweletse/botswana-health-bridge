@@ -16,6 +16,9 @@ export type ReportData = {
   medicines: { rank: number; name: string; searches: number; change: number | null; unfilledShare: number; youList: boolean; youInStock: boolean; pharmaciesInTown: number; yourPrice: number | null; townMedian: number | null }[];
   rising: { name: string; n: number; p: number }[]; missed: { name: string; searches: number; notFound: number }[]; restock: { name: string; searches: number }[];
   signals: { label: string; level: string; place: string; action: string }[];
+  national?: boolean;
+  network?: { pharmacies: number; listings: number; inStockShare: number; freshShare: number; uniqueSearchers: number; returningShare: number; underserved: string[];
+    towns: { name: string; searches: number; change: number | null; notFoundShare: number; pharmacies: number; listings: number; inStockShare: number; freshShare: number; perPharmacy: number | null }[] } | null;
 };
 
 // Validated categorical steps for the dark surface (dataviz validator: all six checks pass).
@@ -70,6 +73,7 @@ function Heat({ heat }: { heat: number[][] }) {
 
 export default function PharmacyReport({ data, months, onMonth, compact }: { data: ReportData; months?: { value: string; label: string }[]; onMonth?: (m: string) => void; compact?: boolean }) {
   const h = data.headline;
+  const nat = !!data.national; const net = data.network;
   const place = data.townName ? `in ${data.townName}` : 'across Botswana';
   const chChannels = useMemo(() => {
     const total = Math.max(1, data.channels.reduce((a, c) => a + c.n, 0));
@@ -84,8 +88,8 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
 
       <div className="gn-hero">
         <div>
-          <p className="gn-kicker">ChekaMeds market report</p>
-          <h1>{data.clinic}</h1>
+          <p className="gn-kicker">{nat ? 'ChekaMeds Pulse · national monthly bulletin' : 'ChekaMeds market report'}</p>
+          <h1>{nat ? 'Medicine demand in Botswana' : data.clinic}</h1>
           <p className="gn-sub">{data.monthLabel}{data.partial ? ` · first ${data.daysCovered} days` : ''}{data.townName ? ` · ${data.townName}` : ''} · compared with {data.prevMonthLabel}</p>
         </div>
         {months && onMonth && (
@@ -97,15 +101,20 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
 
       <section className="gn-kpis">
         <div className="gn-glass kpi hero"><span>Medicine searches {place}</span><b>{n(h.townSearches)}</b><Delta v={h.townSearchesChange} vs={data.prevMonthLabel} /></div>
-        <div className="gn-glass kpi"><span>Searches for medicines you list</span><b>{n(h.yourSearches)}</b><Delta v={h.yourSearchesChange} /><em>{n(h.yourSearchesNational)} across Botswana</em></div>
-        <div className="gn-glass kpi"><span>Your shelf match</span><b>{h.coverage}%</b><em>of searches {place} were for something you list</em></div>
+        {nat && net ? (<>
+          <div className="gn-glass kpi"><span>Pharmacies sharing stock</span><b>{n(net.pharmacies)}</b><em>{n(net.listings)} medicine listings, {net.inStockShare}% in stock</em></div>
+          <div className="gn-glass kpi"><span>Stock kept fresh</span><b>{net.freshShare}%</b><em>of pharmacies updated in the last 14 days</em></div>
+        </>) : (<>
+          <div className="gn-glass kpi"><span>Searches for medicines you list</span><b>{n(h.yourSearches)}</b><Delta v={h.yourSearchesChange} /><em>{n(h.yourSearchesNational)} across Botswana</em></div>
+          <div className="gn-glass kpi"><span>Your shelf match</span><b>{h.coverage}%</b><em>of searches {place} were for something you list</em></div>
+        </>)}
         <div className="gn-glass kpi"><span>People searching</span><b>{n(h.uniqueSearchers)}</b><em>{h.returningShare}% came back from earlier months</em></div>
         <div className="gn-glass kpi warn"><span>Searches that found nothing</span><b>{n(h.notFound)}</b><em>{h.notFoundShare}% of searches {place}: demand nobody met</em></div>
-        <div className="gn-glass kpi"><span>Orders and reservations</span><b>{n(h.orders)}</b><em>through ChekaMeds</em></div>
+        <div className="gn-glass kpi"><span>{nat ? 'Orders and reservations nationally' : 'Orders and reservations'}</span><b>{n(h.orders)}</b><em>through ChekaMeds</em></div>
       </section>
 
       <section className="gn-glass gn-card">
-        <div className="gn-card-h"><h2>Demand day by day</h2><div className="gn-legend"><span><i style={{ background: C.teal }} />All searches {place}</span><span><i style={{ background: C.gold }} />For medicines you list</span></div></div>
+        <div className="gn-card-h"><h2>Demand day by day</h2><div className="gn-legend"><span><i style={{ background: C.teal }} />All searches {place}</span>{!nat && <span><i style={{ background: C.gold }} />For medicines you list</span>}</div></div>
         <div style={{ height: 240 }}>
           <ResponsiveContainer>
             <AreaChart data={daily} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
@@ -118,11 +127,28 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
               <YAxis tick={{ fill: 'rgba(255,255,255,.5)', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip contentStyle={{ background: 'rgba(14,16,38,.92)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 12, color: '#fff' }} labelFormatter={(l) => `${data.monthLabel.split(' ')[0]} ${l}`} formatter={(v: number, k: string) => [v, k === 'searches' ? `All searches ${place}` : 'For your medicines']} cursor={{ stroke: 'rgba(255,255,255,.25)' }} />
               <Area type="monotone" dataKey="searches" stroke={C.teal} strokeWidth={2} fill="url(#gnA)" />
-              <Area type="monotone" dataKey="yours" stroke={C.gold} strokeWidth={2} fill="url(#gnB)" />
+              {!nat && <Area type="monotone" dataKey="yours" stroke={C.gold} strokeWidth={2} fill="url(#gnB)" />}
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </section>
+
+      {nat && net && (
+        <section className="gn-glass gn-card">
+          <div className="gn-card-h"><h2>Town by town</h2><span className="gn-muted">Searches placed in a town · pharmacies sharing stock there</span></div>
+          <div className="gn-table-wrap">
+            <table className="gn-table">
+              <thead><tr><th>Town</th><th>Searches</th><th>Change</th><th>Found nothing</th><th>Pharmacies</th><th>Searches per pharmacy</th><th>Listings in stock</th><th>Stock fresh</th></tr></thead>
+              <tbody>{net.towns.map((t) => (
+                <tr key={t.name}><td><b>{t.name}</b></td><td>{n(t.searches)}</td><td><Delta v={t.change} /></td>
+                  <td className={t.notFoundShare >= 35 ? 'gn-hi' : ''}>{t.notFoundShare}%</td><td>{t.pharmacies}</td><td>{t.perPharmacy ?? '–'}</td>
+                  <td>{t.listings ? `${t.inStockShare}% of ${n(t.listings)}` : '–'}</td><td className={t.pharmacies && t.freshShare < 50 ? 'gn-hi' : ''}>{t.pharmacies ? `${t.freshShare}%` : '–'}</td></tr>
+              ))}</tbody>
+            </table>
+          </div>
+          {net.underserved.length > 0 && <p className="gn-nudge" style={{ marginTop: 14 }}>Underserved this month: <b>{net.underserved.join(', ')}</b>, with real demand but few pharmacies sharing stock or many searches finding nothing. These are the best places to recruit pharmacies and check supply.</p>}
+        </section>
+      )}
 
       <section className="gn-two">
         <div className="gn-glass gn-card">
@@ -149,9 +175,9 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
 
       <section className="gn-two">
         <div className="gn-glass gn-card">
-          <div className="gn-card-h"><h2>{data.areas.length ? `Where in ${data.townName} people search` : 'Where people search'}</h2></div>
-          {data.areas.length ? <Bars rows={data.areas} color={C.violet} /> : <p className="gn-muted">Not enough searches named a neighbourhood this month.</p>}
-          <h3>Busiest towns in Botswana</h3>
+          <div className="gn-card-h"><h2>{nat ? 'Busiest towns' : data.areas.length ? `Where in ${data.townName} people search` : 'Where people search'}</h2></div>
+          {!nat && (data.areas.length ? <Bars rows={data.areas} color={C.violet} /> : <p className="gn-muted">Not enough searches named a neighbourhood this month.</p>)}
+          {!nat && <h3>Busiest towns in Botswana</h3>}
           <Bars rows={data.towns} highlight />
         </div>
         <div className="gn-glass gn-card">
@@ -166,10 +192,10 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
       </section>
 
       <section className="gn-glass gn-card">
-        <div className="gn-card-h"><h2>Top medicines searched {place}, and your shelf</h2><span className="gn-muted">Most searched first · medicines with fewer than 3 searches are not shown</span></div>
+        <div className="gn-card-h"><h2>Top medicines searched {place}{nat ? '' : ', and your shelf'}</h2><span className="gn-muted">Most searched first · medicines with fewer than 3 searches are not shown</span></div>
         <div className="gn-table-wrap">
           <table className="gn-table">
-            <thead><tr><th>#</th><th>Medicine</th><th>Searches</th><th>Change</th><th>Not found</th><th>Your shelf</th><th>Pharmacies {data.townName ? `in ${data.townName}` : ''} with it</th><th>Your price vs town</th></tr></thead>
+            <thead><tr><th>#</th><th>Medicine</th><th>Searches</th><th>Change</th><th>Not found</th>{!nat && <th>Your shelf</th>}<th>Pharmacies {data.townName ? `in ${data.townName}` : ''} with it in stock</th><th>{nat ? 'Typical price' : 'Your price vs town'}</th></tr></thead>
             <tbody>
               {data.medicines.map((m) => (
                 <tr key={m.rank}>
@@ -178,29 +204,29 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
                   <td>{m.searches}</td>
                   <td><Delta v={m.change} /></td>
                   <td>{m.unfilledShare}%</td>
-                  <td><span className={`gn-chip ${m.youInStock ? 'ok' : m.youList ? 'out' : 'no'}`}>{m.youInStock ? 'In stock' : m.youList ? 'Out of stock' : 'Not listed'}</span></td>
-                  <td>{m.pharmaciesInTown}</td>
-                  <td>{m.yourPrice != null && m.townMedian != null ? <span className={m.yourPrice > m.townMedian * 1.1 ? 'gn-hi' : m.yourPrice < m.townMedian * 0.9 ? 'gn-lo' : ''}>P{m.yourPrice.toFixed(2)} vs P{m.townMedian.toFixed(2)}</span> : <span className="gn-muted">–</span>}</td>
+                  {!nat && <td><span className={`gn-chip ${m.youInStock ? 'ok' : m.youList ? 'out' : 'no'}`}>{m.youInStock ? 'In stock' : m.youList ? 'Out of stock' : 'Not listed'}</span></td>}
+                  <td className={nat && m.pharmaciesInTown <= 2 ? 'gn-hi' : ''}>{m.pharmaciesInTown}</td>
+                  <td>{nat ? (m.townMedian != null ? `P${m.townMedian.toFixed(2)}` : <span className="gn-muted">–</span>) : m.yourPrice != null && m.townMedian != null ? <span className={m.yourPrice > m.townMedian * 1.1 ? 'gn-hi' : m.yourPrice < m.townMedian * 0.9 ? 'gn-lo' : ''}>P{m.yourPrice.toFixed(2)} vs P{m.townMedian.toFixed(2)}</span> : <span className="gn-muted">–</span>}</td>
                 </tr>
               ))}
               {data.medicines.length === 0 && <tr><td colSpan={8} className="gn-muted">Not enough searches {place} yet this month.</td></tr>}
             </tbody>
           </table>
         </div>
-        <p className="gn-fine">"Your price vs town" compares your lowest listed price with the middle price of other pharmacies {place}, shown only when at least 3 of them list a price. Other pharmacies are never named.</p>
+        {nat ? <p className="gn-fine">"Typical price" is the middle of the lowest prices listed by each pharmacy, shown when at least 3 pharmacies list one. Pharmacies are never named.</p> : <p className="gn-fine">"Your price vs town" compares your lowest listed price with the middle price of other pharmacies {place}, shown only when at least 3 of them list a price. Other pharmacies are never named.</p>}
       </section>
 
-      <section className="gn-three">
+      <section className={nat ? 'gn-two' : 'gn-three'}>
         <div className="gn-glass gn-card opp">
-          <h2>Add to your shelf</h2><p className="gn-muted">Searched {place}, found nowhere, and not on your list.</p>
+          <h2>{nat ? 'Unmet demand' : 'Add to your shelf'}</h2><p className="gn-muted">{nat ? `Searched ${place} and found at no pharmacy on ChekaMeds.` : `Searched ${place}, found nowhere, and not on your list.`}</p>
           <ol>{data.missed.map((m) => <li key={m.name}><span>{m.name}</span><b>{m.notFound}</b></li>)}</ol>
           {data.missed.length === 0 && <p className="gn-muted">Nothing missing this month. 🎉</p>}
         </div>
-        <div className="gn-glass gn-card opp">
+        {!nat && <div className="gn-glass gn-card opp">
           <h2>Restock</h2><p className="gn-muted">You list these, but they show as out of stock while people search for them.</p>
           <ol>{data.restock.map((m) => <li key={m.name}><span>{m.name}</span><b>{m.searches}</b></li>)}</ol>
           {data.restock.length === 0 && <p className="gn-muted">Everything people searched for that you list is in stock.</p>}
-        </div>
+        </div>}
         <div className="gn-glass gn-card opp">
           <h2>Rising fast</h2><p className="gn-muted">Searches up sharply on {data.prevMonthLabel}.</p>
           <ol>{data.rising.map((m) => <li key={m.name}><span>{m.name}</span><b>{m.p} → {m.n}</b></li>)}</ol>
@@ -215,6 +241,18 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
             <div key={i} className={`gn-signal ${s.level}`}><b>{s.label} · {s.place}</b><span>{s.action}</span></div>
           )) : <p className="gn-muted">No unusual health signals right now.</p>}
         </div>
+        {nat && net ? (
+          <div className="gn-glass gn-card">
+            <div className="gn-card-h"><h2>The ChekaMeds network</h2></div>
+            <div className="gn-callouts">
+              <div><b>{n(net.pharmacies)}</b><span>pharmacies sharing stock</span></div>
+              <div><b>{n(net.listings)}</b><span>medicine listings</span></div>
+              <div><b>{net.inStockShare}%</b><span>listed items in stock</span></div>
+              <div className={net.freshShare < 50 ? 'bad' : ''}><b>{net.freshShare}%</b><span>updated in 14 days</span></div>
+            </div>
+            <p className="gn-muted">{n(net.uniqueSearchers)} people searched in {data.monthLabel}; {net.returningShare}% had used ChekaMeds before.</p>
+          </div>
+        ) : (
         <div className="gn-glass gn-card">
           <div className="gn-card-h"><h2>Your listing</h2></div>
           <div className="gn-callouts">
@@ -226,6 +264,7 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
           {(data.shelf.staleDays ?? 99) > 14 && <p className="gn-nudge">Your stock is more than two weeks old. Pharmacies with fresh stock appear first and convert more searches.</p>}
           {!compact && <a className="gn-cta" href="/dashboard">Update your stock</a>}
         </div>
+        )}
       </section>
 
       <div className="gn-foot">

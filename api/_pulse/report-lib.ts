@@ -11,6 +11,9 @@ import { env, SITE } from './notify-lib.js';
 
 const TZ = 2 * 3600e3;
 const MIN_NAMED = 3;
+export const NATIONAL = '__national__';
+// Demo listings and pharmacies ChekaMeds no longer works with are left out of comparisons.
+const HIDE = /chekameds|demo|phase\s*-?\s*4|kganya/i;
 const STOP = new Set(['tablet', 'tablets', 'tabs', 'syrup', 'cream', 'capsule', 'capsules', 'injection', 'drops', 'suspension', 'solution', 'medicine', 'medicines', 'pharmacy', 'where', 'need', 'have', 'with', 'from', 'available', 'price', 'please', 'want', 'looking', 'find', 'there', 'does', 'anyone']);
 const TOWN_WORDS = new Set(TOWNS.flatMap((t) => [t.id, ...(t.aliases || [])]).flatMap((a) => a.split(/\s+/)));
 const norm = (s: string | null | undefined) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -78,10 +81,11 @@ export async function buildReport(sb: any, clinicIn: string, monthParam?: string
 export function computeReport(ctx: ReportContext, clinicIn: string) {
   const { B, stock, logs, pulse, orderReq, delivery, cmOrders } = ctx;
 
-  /* ---- The pharmacy and its shelf ---- */
-  const key = norm(clinicIn);
-  const mine = stock.filter((s: any) => norm(s.clinic_name) === key);
-  const clinic = mine[0]?.clinic_name?.trim() || clinicIn.trim();
+  /* ---- The pharmacy and its shelf (national mode: no pharmacy, all of Botswana) ---- */
+  const isNational = clinicIn === NATIONAL;
+  const key = isNational ? '' : norm(clinicIn);
+  const mine = isNational ? [] : stock.filter((s: any) => norm(s.clinic_name) === key);
+  const clinic = isNational ? 'Botswana' : mine[0]?.clinic_name?.trim() || clinicIn.trim();
   const townVotes: Record<string, number> = {};
   for (const it of mine) { const t = townFor(it.location); if (t) townVotes[t] = (townVotes[t] || 0) + 1; }
   const town = Object.entries(townVotes).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
@@ -101,7 +105,7 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
   // Other pharmacies in the same town (never named in the report).
   const others = new Map<string, any[]>();
   for (const s of stock) {
-    const k = norm(s.clinic_name); if (!k || k === key) continue;
+    const k = norm(s.clinic_name); if (!k || k === key || HIDE.test(k)) continue;
     if (town && townFor(s.location) !== town) continue;
     (others.get(k) || others.set(k, []).get(k)!).push(s);
   }
@@ -218,10 +222,46 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
   /* ---- Health signals from Pulse ---- */
   const signals: { label: string; level: string; place: string; action: string }[] = [];
   for (const a of pulse?.live?.alerts || []) {
-    if (a.town === town || a.town === 'national') signals.push({ label: a.label, level: a.level, place: a.townName, action: a.action });
+    if (isNational || a.town === town || a.town === 'national') signals.push({ label: a.label, level: a.level, place: a.townName, action: a.action });
   }
 
-  const orders = [orderReq, delivery, cmOrders].reduce((n, list: any[]) => n + list.filter((o: any) => norm(o.pharmacy || o.pharmacy_name) === key).length, 0);
+  const orders = [orderReq, delivery, cmOrders].reduce((n, list: any[]) => n + list.filter((o: any) => isNational || norm(o.pharmacy || o.pharmacy_name) === key).length, 0);
+  /* ---- National network view (consolidated bulletin only) ---- */
+  let network: any = null;
+  if (isNational) {
+    const ph = new Map<string, { town: string | null; listings: number; inStock: number; last: number }>();
+    for (const it of stock) {
+      const k = norm(it.clinic_name); if (!k || HIDE.test(k)) continue;
+      const e = ph.get(k) || { town: townFor(it.location), listings: 0, inStock: 0, last: 0 };
+      e.listings++; if ((it.quantity ?? 0) > 0) e.inStock++;
+      for (const d of [it.updated_at, it.last_verified_at]) { const ms = d ? Date.parse(d) : 0; if (ms > e.last) e.last = ms; }
+      ph.set(k, e);
+    }
+    const all = [...ph.values()];
+    const fresh = (e: { last: number }) => e.last && Date.now() - e.last <= 14 * DAY;
+    const townsTable = TOWNS.map((t) => {
+      const c = cur.filter((x) => x.town === t.id); const pv = prev.filter((x) => x.town === t.id);
+      const pts = all.filter((e) => e.town === t.id);
+      const L = pts.reduce((a, e) => a + e.listings, 0); const I = pts.reduce((a, e) => a + e.inStock, 0);
+      return {
+        name: t.name.replace('Greater ', ''), searches: c.length, change: pctChange(c.length, pv.length),
+        notFoundShare: c.length ? Math.round((c.filter((x) => x.unfilled).length / c.length) * 100) : 0,
+        pharmacies: pts.length, listings: L, inStockShare: L ? Math.round((I / L) * 100) : 0,
+        freshShare: pts.length ? Math.round((pts.filter(fresh).length / pts.length) * 100) : 0,
+        perPharmacy: pts.length ? Math.round(c.length / pts.length) : null,
+      };
+    }).sort((a, b) => b.searches - a.searches);
+    const L = all.reduce((a, e) => a + e.listings, 0); const I = all.reduce((a, e) => a + e.inStock, 0);
+    const natPhones = new Set(cur.map((x) => x.phone).filter(Boolean) as string[]);
+    const natReturning = [...natPhones].filter((p) => phonesBefore.has(p)).length;
+    network = {
+      pharmacies: all.length, listings: L, inStockShare: L ? Math.round((I / L) * 100) : 0,
+      freshShare: all.length ? Math.round((all.filter(fresh).length / all.length) * 100) : 0,
+      towns: townsTable, uniqueSearchers: natPhones.size, returningShare: natPhones.size ? Math.round((natReturning / natPhones.size) * 100) : 0,
+      underserved: townsTable.filter((t) => t.searches >= 20 && (t.pharmacies <= 1 || t.notFoundShare >= 35)).slice(0, 5).map((t) => t.name),
+    };
+  }
+
   const monthLabel = new Date(`${B.month}-01T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
   return {
@@ -241,7 +281,7 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
     areas: Object.entries(areas).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([a, n]) => ({ name: title(a), n })),
     towns: Object.entries(townsNat).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t, n]) => ({ name: TOWNS.find((x) => x.id === t)?.name.replace('Greater ', '') || t, n, you: t === town })),
     categories: Object.entries(cats).filter(([, v]) => v.n > 0).sort((a, b) => b[1].n - a[1].n).slice(0, 8).map(([g, v]) => ({ name: groupLabel(g), n: v.n, change: pctChange(v.n, v.p), unnamed: g === 'srh' })),
-    medicines, rising, missed, restock, signals: signals.slice(0, 4),
+    medicines, rising, missed, restock, signals: signals.slice(0, 4), national: isNational, network,
   };
 }
 export type Report = ReturnType<typeof computeReport>;

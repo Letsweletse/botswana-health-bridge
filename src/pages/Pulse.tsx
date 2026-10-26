@@ -156,7 +156,7 @@ export default function Pulse() {
           <>
             <section className="pl-grid">
               <div className="pl-panel pl-mapwrap">
-                <div className="pl-panel-h"><h2>Botswana, week of {fmtWeek(data.week)}</h2><div className="pl-key"><span><i className="a" />Alert</span><span><i className="w" />Watch</span><span><i className="n" />Normal</span></div></div>
+                <div className="pl-panel-h"><h2>Botswana · last full week, {fmtWeek(data.week)}–{fmtWeek(new Date(Date.parse(data.week + 'T00:00:00Z') + 6 * 864e5).toISOString().slice(0, 10))}</h2><div className="pl-key"><span><i className="a" />Alert</span><span><i className="w" />Watch</span><span><i className="n" />Normal</span></div></div>
                 <PulseMap towns={mapTowns} selected={townFilter} onSelect={onSelectTown} />
                 {townFilter && (() => {
                   const t = townsById[townFilter]; const mt = mapTowns.find((m) => m.id === townFilter);
@@ -226,7 +226,7 @@ export default function Pulse() {
             <button role="tab" aria-selected={mode === 'live'} className={mode === 'live' ? 'on' : ''} onClick={() => setMode('live')}>Live</button>
             <button role="tab" aria-selected={mode === 'sim'} className={mode === 'sim' ? 'on' : ''} onClick={() => setMode('sim')}>Scenario test</button>
           </div>
-          <Link to="/pulse/bulletin" className="pl-bulletin">Weekly bulletin ↗</Link>
+          <Link to="/pulse/bulletin" className="pl-bulletin">Weekly bulletin ↗</Link><Link to="/pulse/monthly" className="pl-bulletin">National monthly bulletin ↗</Link>
         </section>
 
         {error && <div className="cms-card pl-note">Pulse could not load right now ({error}). Please refresh in a minute.</div>}
@@ -337,7 +337,7 @@ export default function Pulse() {
             </section>
 
             <section className="pl-panel">
-              <div className="pl-panel-h"><h2>Signals by illness group</h2><span className="pl-dim">week of {fmtWeek(data.week)}</span></div>
+              <div className="pl-panel-h"><h2>Signals by illness group</h2><span className="pl-dim">last full week, from {fmtWeek(data.week)} · {data.live.totals.thisWeek.searches} searches so far this week</span></div>
               <table className="pl-table pl-signals">
                 <thead><tr><th>Group</th><th>Last 12 weeks</th><th>Last 4 weeks</th><th>Unfilled</th><th>Status</th></tr></thead>
                 <tbody>

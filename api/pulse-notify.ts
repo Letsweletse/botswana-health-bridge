@@ -136,5 +136,46 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     }
   }
 
+  // Consolidated national monthly bulletin on the 1st (Gaborone time), once per subscriber per month.
+  const gab = new Date(Date.now() + 2 * 3600e3);
+  if (gab.getUTCDate() === 1 || String(req.query?.monthly || '') === '1') {
+    report.monthly_sent = 0;
+    const nat = await fetch(`${SITE}/api/pulse-monthly`).then((r) => r.json()).catch(() => null);
+    if (nat?.headline) {
+      const period = `${nat.month}-01`;
+      const h = nat.headline; const net = nat.network || {};
+      const chg = (v: number | null) => (v == null ? '' : ` (${v > 0 ? '▲' : '▼'} ${Math.abs(v)}% on ${nat.prevMonthLabel})`);
+      const body = [
+        `📊 *ChekaMeds Pulse: national monthly bulletin*`,
+        nat.monthLabel,
+        '',
+        `• ${h.townSearches.toLocaleString('en-GB')} medicine searches across Botswana${chg(h.townSearchesChange)}`,
+        `• ${h.notFoundShare}% found nothing at any pharmacy`,
+        net.pharmacies ? `• ${net.pharmacies} pharmacies sharing stock, ${net.freshShare}% updated in the last 14 days` : null,
+        nat.medicines?.length ? `• Most searched: ${nat.medicines.slice(0, 3).map((m: any) => m.name).join(', ')}` : null,
+        nat.missed?.length ? `• Unmet demand: ${nat.missed.slice(0, 3).map((m: any) => m.name).join(', ')}` : null,
+        net.underserved?.length ? `• Underserved towns: ${net.underserved.join(', ')}` : null,
+        '',
+        `Full bulletin (town by town, top medicines, when people search):`,
+        `${SITE}/pulse/monthly?m=${nat.month}`,
+      ].filter((l) => l !== null).join('\n');
+      const useEmailM = emailEnabled();
+      for (const s of subs.filter((x) => x.weekly_bulletin && (x.whatsapp || (useEmailM && x.email)))) {
+        if (dry) { report.deliveries.push({ monthly: true, to: s.role, preview: body }); continue; }
+        // Reserve once per subscriber per month (shared send log; unique on name + period + kind).
+        const ins = await sb.from('pharmacy_digest_log').insert({ clinic_name: `pulse-sub:${s.id}`, week: period, kind: 'pulse_monthly' }).select('id').single();
+        if (ins.error) continue;
+        let ok = false;
+        if (s.whatsapp) ok = (await sendWhatsApp(s.whatsapp, body)).ok || ok;
+        if (useEmailM && s.email) {
+          const html = emailHtml(`Pulse national bulletin: ${nat.monthLabel}`, body.split('\n').slice(2, -3).filter(Boolean).map((l) => l.replace(/^• /, '')), { label: 'Open the full bulletin', url: `${SITE}/pulse/monthly?m=${nat.month}` });
+          ok = (await sendEmail(s.email, `ChekaMeds Pulse national bulletin: ${nat.monthLabel}`, html, body.replace(/\*/g, ''))).ok || ok;
+        }
+        await sb.from('pharmacy_digest_log').update({ whatsapp_ok: ok }).eq('id', ins.data.id);
+        if (ok) report.monthly_sent++;
+      }
+    }
+  }
+
   return res.status(200).json({ ok: true, ...report });
 }
