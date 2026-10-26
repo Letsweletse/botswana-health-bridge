@@ -29,7 +29,7 @@ const fmtH = (h: number) => `${String(h).padStart(2, '0')}:00`;
 const n = (x: number) => x.toLocaleString('en-GB');
 
 function Delta({ v, vs }: { v: number | null; vs?: string }) {
-  if (v == null) return <span className="gn-delta flat">new this month</span>;
+  if (v == null) return <span className="gn-delta flat" title="Too few searches last month to compare">–</span>;
   const cls = v > 2 ? 'up' : v < -2 ? 'down' : 'flat';
   return <span className={`gn-delta ${cls}`}>{v > 0 ? '▲' : v < 0 ? '▼' : '•'} {Math.abs(v)}%{vs ? ` vs ${vs}` : ''}</span>;
 }
