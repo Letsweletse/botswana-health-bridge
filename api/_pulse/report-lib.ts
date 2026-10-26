@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { noiseReason, isSensitive, DAY } from './engine.js';
-import { TOWNS, GROUPS, townFor, groupFor } from './reference.js';
+import { TOWNS, GROUPS, townFor, groupFor, stockTownFor } from './reference.js';
 import { env, SITE } from './notify-lib.js';
 
 /* ChekaMeds monthly market report for one partner pharmacy.
@@ -87,7 +87,7 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
   const mine = isNational ? [] : stock.filter((s: any) => norm(s.clinic_name) === key);
   const clinic = isNational ? 'Botswana' : mine[0]?.clinic_name?.trim() || clinicIn.trim();
   const townVotes: Record<string, number> = {};
-  for (const it of mine) { const t = townFor(it.location); if (t) townVotes[t] = (townVotes[t] || 0) + 1; }
+  for (const it of mine) { const t = stockTownFor(it.clinic_name, it.location); if (t) townVotes[t] = (townVotes[t] || 0) + 1; }
   const town = Object.entries(townVotes).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
   const townObj = TOWNS.find((t) => t.id === town) || null;
 
@@ -106,7 +106,7 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
   const others = new Map<string, any[]>();
   for (const s of stock) {
     const k = norm(s.clinic_name); if (!k || k === key || HIDE.test(k)) continue;
-    if (town && townFor(s.location) !== town) continue;
+    if (town && stockTownFor(s.clinic_name, s.location) !== town) continue;
     (others.get(k) || others.set(k, []).get(k)!).push(s);
   }
   const otherVocabs = [...others.values()].map(vocabOf);
@@ -142,7 +142,7 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
     bucket.push({
       raw, w: words(raw), town: townFor(r.location, r.user_lat, r.user_lng) || (r.user_phone ? phoneTown[r.user_phone] : null) || null,
       area: areaOf(r.location), unfilled: !r.results_count || r.found === false, t, phone: r.user_phone || null,
-      channel: /whatsapp|wa/i.test(r.source || '') ? 'WhatsApp' : /web|site|search/i.test(r.source || '') ? 'Web' : r.source ? title(String(r.source)) : 'Other',
+      channel: String(r.source || 'web').startsWith('whatsapp') ? 'WhatsApp' : 'Web', // same rule as Pulse
       sensitive, group: sensitive ? 'srh' : groupFor(raw),
     });
   }
@@ -232,7 +232,7 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
     const ph = new Map<string, { town: string | null; listings: number; inStock: number; last: number }>();
     for (const it of stock) {
       const k = norm(it.clinic_name); if (!k || HIDE.test(k)) continue;
-      const e = ph.get(k) || { town: townFor(it.location), listings: 0, inStock: 0, last: 0 };
+      const e = ph.get(k) || { town: stockTownFor(it.clinic_name, it.location), listings: 0, inStock: 0, last: 0 };
       e.listings++; if ((it.quantity ?? 0) > 0) e.inStock++;
       for (const d of [it.updated_at, it.last_verified_at]) { const ms = d ? Date.parse(d) : 0; if (ms > e.last) e.last = ms; }
       ph.set(k, e);

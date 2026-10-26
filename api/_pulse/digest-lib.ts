@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { weekKey, lastCompleteWeek, noiseReason, isSensitive, DAY } from './engine.js';
-import { TOWNS, townFor } from './reference.js';
+import { TOWNS, townFor, stockTownFor } from './reference.js';
 import { env, SITE } from './notify-lib.js';
 import { reportUrl } from './report-lib.js';
 
@@ -117,7 +117,7 @@ export async function buildDigests(sb: any, week = lastCompleteWeek()): Promise<
     for (const it of items) {
       for (const f of [it.med_name, it.generic_name, it.brand_name]) for (const w of words(f || '')) { vocab.add(w); label[w] ||= title(norm(f).split(' ').slice(0, 2).join(' ')); }
       if ((it.quantity ?? 0) > 0) inStock++;
-      const t = townFor(it.location); if (t) townVotes[t] = (townVotes[t] || 0) + 1;
+      const t = stockTownFor(it.clinic_name, it.location); if (t) townVotes[t] = (townVotes[t] || 0) + 1;
       for (const d of [it.updated_at, it.last_verified_at]) { const ms = d ? new Date(d).getTime() : 0; if (ms > last) last = ms; }
     }
     const town = Object.entries(townVotes).sort((a, b) => b[1] - a[1])[0]?.[0] || null;

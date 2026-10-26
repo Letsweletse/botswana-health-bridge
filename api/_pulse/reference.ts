@@ -85,7 +85,7 @@ export type Town = { id: string; name: string; lat: number; lng: number; distric
 
 /* Suburbs and nearby villages fold into their main town so small numbers are pooled. */
 export const TOWNS: Town[] = [
-  { id: 'gaborone', name: 'Greater Gaborone', lat: -24.6282, lng: 25.9231, district: 'South-East', pop: 520000, aliases: ['gaborone', 'gabs', 'mogoditshane', 'tlokweng', 'gabane', 'mmopane', 'phakalane', 'broadhurst', 'g-west', 'game city', 'riverwalk', 'kgale', 'bontleng', 'naledi', 'white city', 'airport junction', 'sebele', 'mmamashia', 'oodi', 'metsimotlhabe', 'mmokolodi', 'kopong', 'tsholofelo'] },
+  { id: 'gaborone', name: 'Greater Gaborone', lat: -24.6282, lng: 25.9231, district: 'South-East', pop: 520000, aliases: ['gaborone', 'gabs', 'mogoditshane', 'tlokweng', 'gabane', 'mmopane', 'phakalane', 'broadhurst', 'g-west', 'game city', 'riverwalk', 'kgale', 'bontleng', 'naledi', 'white city', 'airport junction', 'sebele', 'mmamashia', 'oodi', 'metsimotlhabe', 'mmokolodi', 'kopong', 'tsholofelo', 'fairgrounds', 'fairground', 'block 10', 'block 8', 'block 9', 'block 6', 'extension'] },
   { id: 'francistown', name: 'Francistown', lat: -21.17, lng: 27.5078, district: 'North-East', pop: 105000, aliases: ['francistown', 'f/town', 'ftown', 'tonota', 'tati'] },
   { id: 'maun', name: 'Maun', lat: -19.9833, lng: 23.4167, district: 'Ngamiland', pop: 85000, north: true, aliases: ['maun', 'shakawe', 'gumare', 'sehithwa'] },
   { id: 'molepolole', name: 'Molepolole', lat: -24.4066, lng: 25.4951, district: 'Kweneng', pop: 75000, aliases: ['molepolole', 'thamaga', 'letlhakeng'] },
@@ -119,4 +119,10 @@ export function townFor(location: string | null | undefined, lat?: number | null
     if (best && Math.sqrt(bd) * 111 < 60) return best.id; // within ~60 km
   }
   return null;
+}
+
+/** Town of a stock listing. Chains often put head-office addresses on every branch's stock,
+    so the branch name ("Pulse Pharmacy Maun") wins over the address. */
+export function stockTownFor(clinicName: string | null | undefined, location: string | null | undefined): string | null {
+  return townFor(clinicName) || townFor(location);
 }

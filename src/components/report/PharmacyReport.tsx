@@ -102,7 +102,7 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
       <section className="gn-kpis">
         <div className="gn-glass kpi hero"><span>Medicine searches {place}</span><b>{n(h.townSearches)}</b><Delta v={h.townSearchesChange} vs={data.prevMonthLabel} /></div>
         {nat && net ? (<>
-          <div className="gn-glass kpi"><span>Pharmacies sharing stock</span><b>{n(net.pharmacies)}</b><em>{n(net.listings)} medicine listings, {net.inStockShare}% in stock</em></div>
+          <div className="gn-glass kpi"><span>Pharmacies sharing stock</span><b>{n(net.pharmacies)}</b><em>{n(net.listings)} medicine listings shared</em></div>
           <div className="gn-glass kpi"><span>Stock kept fresh</span><b>{net.freshShare}%</b><em>of pharmacies updated in the last 14 days</em></div>
         </>) : (<>
           <div className="gn-glass kpi"><span>Searches for medicines you list</span><b>{n(h.yourSearches)}</b><Delta v={h.yourSearchesChange} /><em>{n(h.yourSearchesNational)} across Botswana</em></div>
@@ -138,11 +138,11 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
           <div className="gn-card-h"><h2>Town by town</h2><span className="gn-muted">Searches placed in a town · pharmacies sharing stock there</span></div>
           <div className="gn-table-wrap">
             <table className="gn-table">
-              <thead><tr><th>Town</th><th>Searches</th><th>Change</th><th>Found nothing</th><th>Pharmacies</th><th>Searches per pharmacy</th><th>Listings in stock</th><th>Stock fresh</th></tr></thead>
+              <thead><tr><th>Town</th><th>Searches</th><th>Change</th><th>Found nothing</th><th>Pharmacies</th><th>Searches per pharmacy</th><th>Medicine listings</th><th>Stock fresh</th></tr></thead>
               <tbody>{net.towns.map((t) => (
                 <tr key={t.name}><td><b>{t.name}</b></td><td>{n(t.searches)}</td><td><Delta v={t.change} /></td>
                   <td className={t.notFoundShare >= 35 ? 'gn-hi' : ''}>{t.notFoundShare}%</td><td>{t.pharmacies}</td><td>{t.perPharmacy ?? '–'}</td>
-                  <td>{t.listings ? `${t.inStockShare}% of ${n(t.listings)}` : '–'}</td><td className={t.pharmacies && t.freshShare < 50 ? 'gn-hi' : ''}>{t.pharmacies ? `${t.freshShare}%` : '–'}</td></tr>
+                  <td>{t.listings ? n(t.listings) : '–'}</td><td className={t.pharmacies && t.freshShare < 50 ? 'gn-hi' : ''}>{t.pharmacies ? `${t.freshShare}%` : '–'}</td></tr>
               ))}</tbody>
             </table>
           </div>
@@ -247,7 +247,6 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
             <div className="gn-callouts">
               <div><b>{n(net.pharmacies)}</b><span>pharmacies sharing stock</span></div>
               <div><b>{n(net.listings)}</b><span>medicine listings</span></div>
-              <div><b>{net.inStockShare}%</b><span>listed items in stock</span></div>
               <div className={net.freshShare < 50 ? 'bad' : ''}><b>{net.freshShare}%</b><span>updated in 14 days</span></div>
             </div>
             <p className="gn-muted">{n(net.uniqueSearchers)} people searched in {data.monthLabel}; {net.returningShare}% had used ChekaMeds before.</p>

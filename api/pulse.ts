@@ -4,7 +4,7 @@ import {
   detect, explain, fetchWeather, climateAnomalies, simulate, backtest, STORIES, SIM_GROUPS,
   SMALL_CELL, THRESHOLDS, type Cell,
 } from './_pulse/engine.js';
-import { OTHER_GROUP, townFor } from './_pulse/reference.js';
+import { OTHER_GROUP, townFor, stockTownFor } from './_pulse/reference.js';
 
 /* ChekaMeds Pulse API.
    Reads raw searches and stock with the service role, and returns ONLY aggregated,
@@ -123,7 +123,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     /* real stock by town × group */
     const stockTown: Record<string, { listings: number; inStock: number; pharmacies: Set<string>; groups: Record<string, number> }> = {};
     for (const s of stock) {
-      const town = townFor(s.location); if (!town) continue;
+      const town = stockTownFor(s.clinic_name, s.location); if (!town) continue;
       const st = (stockTown[town] ??= { listings: 0, inStock: 0, pharmacies: new Set(), groups: {} });
       st.listings++; st.pharmacies.add(s.clinic_name);
       if ((s.quantity ?? 0) > 0) {
