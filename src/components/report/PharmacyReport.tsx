@@ -7,7 +7,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianG
 export type ReportData = {
   clinic: string; month: string; monthLabel: string; partial: boolean; daysCovered: number; prevMonthLabel: string;
   town: string | null; townName: string | null; generatedAt: string;
-  headline: { townSearches: number; townSearchesChange: number | null; yourSearches: number; yourSearchesChange: number | null; yourSearchesNational: number; coverage: number; uniqueSearchers: number; returningShare: number; notFound: number; notFoundShare: number; orders: number; nationalSearches: number; locatedShare: number };
+  headline: { townSearches: number; townSearchesChange: number | null; yourSearches: number; yourSearchesChange: number | null; yourSearchesNational: number; coverage: number; uniqueSearchers: number; returningShare: number; notFound: number; notFoundShare: number; orders: number; nationalSearches: number; locatedShare: number; appeared?: number; appearedChange?: number | null; taps?: number; reserves?: number };
   shelf: { listings: number; inStock: number; inStockShare: number; lastUpdate: string | null; staleDays: number | null; pharmaciesInTown: number };
   daily: { day: number; searches: number; yours: number }[];
   heat: number[][]; peakDay: string | null; peakHour: number | null; afterHoursShare: number;
@@ -17,8 +17,9 @@ export type ReportData = {
   rising: { name: string; n: number; p: number }[]; missed: { name: string; searches: number; notFound: number }[]; restock: { name: string; searches: number }[];
   signals: { label: string; level: string; place: string; action: string }[];
   national?: boolean;
+  appearedFrom?: { name: string; n: number; you: boolean }[];
   network?: { pharmacies: number; listings: number; inStockShare: number; freshShare: number; uniqueSearchers: number; returningShare: number; underserved: string[];
-    towns: { name: string; searches: number; change: number | null; notFoundShare: number; pharmacies: number; listings: number; inStockShare: number; freshShare: number; perPharmacy: number | null }[] } | null;
+    towns: { name: string; searches: number; change: number | null; shownHere?: number; shownChange?: number | null; notFoundShare: number; pharmacies: number; listings: number; inStockShare: number; freshShare: number; perPharmacy: number | null }[] } | null;
 };
 
 // Validated categorical steps for the dark surface (dataviz validator: all six checks pass).
@@ -110,7 +111,8 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
         </>)}
         <div className="gn-glass kpi"><span>People searching</span><b>{n(h.uniqueSearchers)}</b><em>{h.returningShare}% came back from earlier months</em></div>
         <div className="gn-glass kpi warn"><span>Searches that found nothing</span><b>{n(h.notFound)}</b><em>{h.notFoundShare}% of searches {place}: demand nobody met</em></div>
-        <div className="gn-glass kpi"><span>{nat ? 'Orders and reservations nationally' : 'Orders and reservations'}</span><b>{n(h.orders)}</b><em>through ChekaMeds</em></div>
+        {nat ? <div className="gn-glass kpi"><span>Orders and reservations nationally</span><b>{n(h.orders)}</b><em>through ChekaMeds</em></div>
+          : <div className="gn-glass kpi hero2"><span>Your pharmacy shown in search results</span><b>{n(h.appeared || 0)}</b><Delta v={h.appearedChange ?? null} /><em>{n(h.taps || 0)} tapped for details · {n(h.reserves || 0)} reserved · {n(h.orders)} orders</em></div>}
       </section>
 
       <section className="gn-glass gn-card">
@@ -135,18 +137,27 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
 
       {nat && net && (
         <section className="gn-glass gn-card">
-          <div className="gn-card-h"><h2>Town by town</h2><span className="gn-muted">Searches placed in a town · pharmacies sharing stock there</span></div>
+          <div className="gn-card-h"><h2>Town by town</h2><span className="gn-muted">"From here": searches by people in that town · "Showed pharmacies here": searches anywhere whose results included a pharmacy in that town</span></div>
           <div className="gn-table-wrap">
             <table className="gn-table">
-              <thead><tr><th>Town</th><th>Searches</th><th>Change</th><th>Found nothing</th><th>Pharmacies</th><th>Searches per pharmacy</th><th>Medicine listings</th><th>Stock fresh</th></tr></thead>
+              <thead><tr><th>Town</th><th>Searches from here</th><th>Change</th><th>Showed pharmacies here</th><th>Found nothing</th><th>Pharmacies</th><th>Searches per pharmacy</th><th>Medicine listings</th><th>Stock fresh</th></tr></thead>
               <tbody>{net.towns.map((t) => (
-                <tr key={t.name}><td><b>{t.name}</b></td><td>{n(t.searches)}</td><td><Delta v={t.change} /></td>
+                <tr key={t.name}><td><b>{t.name}</b></td><td>{n(t.searches)}</td><td><Delta v={t.change} /></td><td><b style={{ color: '#f5d36b' }}>{n(t.shownHere || 0)}</b></td>
                   <td className={t.notFoundShare >= 35 ? 'gn-hi' : ''}>{t.notFoundShare}%</td><td>{t.pharmacies}</td><td>{t.perPharmacy ?? '–'}</td>
                   <td>{t.listings ? n(t.listings) : '–'}</td><td className={t.pharmacies && t.freshShare < 50 ? 'gn-hi' : ''}>{t.pharmacies ? `${t.freshShare}%` : '–'}</td></tr>
               ))}</tbody>
             </table>
           </div>
+          <p className="gn-fine">{100 - h.locatedShare}% of searches didn't say where the person was, so "searches from here" undercounts every town. "Showed pharmacies here" doesn't depend on that.</p>
           {net.underserved.length > 0 && <p className="gn-nudge" style={{ marginTop: 14 }}>Underserved this month: <b>{net.underserved.join(', ')}</b>, with real demand but few pharmacies sharing stock or many searches finding nothing. These are the best places to recruit pharmacies and check supply.</p>}
+        </section>
+      )}
+
+      {!nat && data.appearedFrom && data.appearedFrom.length > 0 && (
+        <section className="gn-glass gn-card">
+          <div className="gn-card-h"><h2>Who saw your pharmacy</h2><span className="gn-muted">Where people were when your pharmacy came up in their results</span></div>
+          <Bars rows={data.appearedFrom} color={C.gold} highlight />
+          <p className="gn-fine">"Town not given" means the person didn't share a town or location. Many WhatsApp users search without one.</p>
         </section>
       )}
 
@@ -297,6 +308,7 @@ const CSS = `
 .gn .kpi em{font-style:normal;font-size:.78rem;color:rgba(238,240,255,.55)}
 .gn .kpi.hero{background:linear-gradient(150deg,rgba(125,108,242,.28),rgba(31,158,147,.12));border-color:rgba(160,150,255,.3)}
 .gn .kpi.warn b{color:#fda4af}
+.gn .kpi.hero2{background:linear-gradient(150deg,rgba(184,134,0,.26),rgba(125,108,242,.1));border-color:rgba(232,177,11,.35)}
 .gn-delta{font-size:.76rem;font-weight:600}.gn-delta.up{color:#5eeaa8}.gn-delta.down{color:#fda4af}.gn-delta.flat{color:rgba(238,240,255,.5)}
 .gn-card{padding:20px;margin-top:14px;min-width:0}
 .gn-card-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}

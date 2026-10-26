@@ -126,3 +126,13 @@ export function townFor(location: string | null | undefined, lat?: number | null
 export function stockTownFor(clinicName: string | null | undefined, location: string | null | undefined): string | null {
   return townFor(clinicName) || townFor(location);
 }
+
+/** Town named inside free text (e.g. "panado jwaneng"), matched on whole words only,
+    so "statin" never matches "tati" and "disease" never matches "sese". */
+const TOWN_RX: [RegExp, string][] = TOWNS.flatMap((t) => (t.aliases || [t.id]).map((a) => [new RegExp(`(^|[^a-z])${a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z]|$)`), t.id] as [RegExp, string]));
+export function textTownFor(text: string | null | undefined): string | null {
+  const t = (text || '').toLowerCase();
+  if (!t) return null;
+  for (const [rx, id] of TOWN_RX) if (rx.test(t)) return id;
+  return null;
+}

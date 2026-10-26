@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { noiseReason, isSensitive, DAY } from './engine.js';
-import { TOWNS, GROUPS, townFor, groupFor, stockTownFor } from './reference.js';
+import { TOWNS, GROUPS, townFor, groupFor, stockTownFor, textTownFor } from './reference.js';
 import { env, SITE } from './notify-lib.js';
 
 /* ChekaMeds monthly market report for one partner pharmacy.
@@ -55,22 +55,23 @@ async function fetchAll(sb: any, table: string, cols: string, filter?: (q: any) 
 }
 async function safe<T>(p: Promise<T>, fallback: T): Promise<T> { try { return await p; } catch { return fallback; } }
 
-type Search = { raw: string; w: string[]; town: string | null; area: string | null; unfilled: boolean; t: number; phone: string | null; channel: string; sensitive: boolean; group: string };
+type Search = { raw: string; w: string[]; shown: string[]; town: string | null; area: string | null; unfilled: boolean; t: number; phone: string | null; channel: string; sensitive: boolean; group: string };
 
 export async function loadReportContext(sb: any, monthParam?: string) {
   const B = monthBounds(monthParam);
   const since = new Date(B.prevStart - 60 * DAY).toISOString(); // extra history to place searchers in a town
   const iso = (t: number) => new Date(t).toISOString();
 
-  const [stock, logs, pulse, orderReq, delivery, cmOrders] = await Promise.all([
+  const [stock, logs, pulse, orderReq, delivery, cmOrders, impressions] = await Promise.all([
     fetchAll(sb, 'active_pharmacy_inventory', 'clinic_name,med_name,generic_name,brand_name,location,quantity,price_bwp,updated_at,last_verified_at'),
-    fetchAll(sb, 'search_logs', 'normalized_query,query,results_count,found,source,location,user_lat,user_lng,user_phone,created_at', (q) => q.gte('created_at', since).lt('created_at', iso(B.end))),
+    fetchAll(sb, 'search_logs', 'normalized_query,query,results_count,found,source,location,user_lat,user_lng,user_phone,created_at,matched_pharmacies', (q) => q.gte('created_at', since).lt('created_at', iso(B.end)).order('created_at', { ascending: true })),
     safe(fetch(`${SITE}/api/pulse`).then((r) => r.json()), null as any),
     safe(fetchAll(sb, 'order_requests', 'pharmacy,created_at', (q) => q.gte('created_at', iso(B.start)).lt('created_at', iso(B.end))), [] as any[]),
     safe(fetchAll(sb, 'medicine_delivery_requests', 'pharmacy_name,created_at', (q) => q.gte('created_at', iso(B.start)).lt('created_at', iso(B.end))), [] as any[]),
     safe(fetchAll(sb, 'chekameds_orders', 'pharmacy_name,created_at', (q) => q.gte('created_at', iso(B.start)).lt('created_at', iso(B.end))), [] as any[]),
+    safe(fetchAll(sb, 'search_impressions', 'pharmacy_name,selected,reserved,created_at', (q) => q.gte('created_at', iso(B.start)).lt('created_at', iso(B.end))), [] as any[]),
   ]);
-  return { B, stock, logs, pulse, orderReq, delivery, cmOrders };
+  return { B, stock, logs, pulse, orderReq, delivery, cmOrders, impressions };
 }
 export type ReportContext = Awaited<ReturnType<typeof loadReportContext>>;
 
@@ -79,7 +80,7 @@ export async function buildReport(sb: any, clinicIn: string, monthParam?: string
 }
 
 export function computeReport(ctx: ReportContext, clinicIn: string) {
-  const { B, stock, logs, pulse, orderReq, delivery, cmOrders } = ctx;
+  const { B, stock, logs, pulse, orderReq, delivery, cmOrders, impressions } = ctx;
 
   /* ---- The pharmacy and its shelf (national mode: no pharmacy, all of Botswana) ---- */
   const isNational = clinicIn === NATIONAL;
@@ -124,7 +125,9 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
     const l = norm(loc);
     return (townObj.aliases || []).find((a) => l.includes(a)) || null;
   };
-  for (const r of logs) { const t = townFor(r.location, r.user_lat, r.user_lng); if (t && r.user_phone) phoneTown[r.user_phone] = t; }
+  // A town from the search's location, GPS, or the words typed ("panado jwaneng", or a bare "Jwaneng" reply to the bot's town question).
+  const placeOf = (r: any) => townFor(r.location, r.user_lat, r.user_lng) || textTownFor(r.query) || textTownFor(r.normalized_query);
+  for (const r of logs) { const t = placeOf(r); if (t && r.user_phone) phoneTown[r.user_phone] = t; }
   const cur: Search[] = []; const prev: Search[] = [];
   const seen = new Set<string>();
   const phonesBefore = new Set<string>();
@@ -140,7 +143,8 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
     if (seen.has(dk)) continue; seen.add(dk);
     const sensitive = isSensitive(raw);
     bucket.push({
-      raw, w: words(raw), town: townFor(r.location, r.user_lat, r.user_lng) || (r.user_phone ? phoneTown[r.user_phone] : null) || null,
+      raw, w: words(raw), shown: Array.isArray(r.matched_pharmacies) ? r.matched_pharmacies.map((x: any) => norm(String(x))) : [],
+      town: placeOf(r) || (r.user_phone ? phoneTown[r.user_phone] : null) || null,
       area: areaOf(r.location), unfilled: !r.results_count || r.found === false, t, phone: r.user_phone || null,
       channel: String(r.source || 'web').startsWith('whatsapp') ? 'WhatsApp' : 'Web', // same rule as Pulse
       sensitive, group: sensitive ? 'srh' : groupFor(raw),
@@ -157,6 +161,13 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
   const returning = [...phonesT].filter((p) => phonesBefore.has(p)).length;
   const unfilledT = T.filter((s) => s.unfilled);
   const located = cur.filter((s) => s.town).length;
+  // Appearances: searches (anywhere in Botswana) whose results showed this pharmacy.
+  const appeared = isNational ? 0 : cur.filter((s) => s.shown.includes(key)).length;
+  const appearedP = isNational ? 0 : prev.filter((s) => s.shown.includes(key)).length;
+  const appearedFrom: Record<string, number> = {};
+  if (!isNational) for (const s of cur) if (s.shown.includes(key)) { const k2 = s.town || 'unknown'; appearedFrom[k2] = (appearedFrom[k2] || 0) + 1; }
+  const imp = impressions.filter((i: any) => isNational || norm(i.pharmacy_name) === key);
+  const taps = imp.filter((i: any) => i.selected).length; const reserves = imp.filter((i: any) => i.reserved).length;
 
   /* ---- Daily trend ---- */
   const days = Math.max(1, Math.ceil((B.end - B.start) / DAY));
@@ -239,18 +250,21 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
     }
     const all = [...ph.values()];
     const fresh = (e: { last: number }) => e.last && Date.now() - e.last <= 14 * DAY;
+    const phTown = new Map([...ph.entries()].map(([k2, e]) => [k2, e.town]));
+    const shownIn = (x: Search, tid: string) => x.shown.some((k2) => phTown.get(k2) === tid);
     const townsTable = TOWNS.map((t) => {
       const c = cur.filter((x) => x.town === t.id); const pv = prev.filter((x) => x.town === t.id);
+      const shownHere = cur.filter((x) => shownIn(x, t.id)).length; const shownHereP = prev.filter((x) => shownIn(x, t.id)).length;
       const pts = all.filter((e) => e.town === t.id);
       const L = pts.reduce((a, e) => a + e.listings, 0); const I = pts.reduce((a, e) => a + e.inStock, 0);
       return {
-        name: t.name.replace('Greater ', ''), searches: c.length, change: pctChange(c.length, pv.length),
+        name: t.name.replace('Greater ', ''), searches: c.length, change: pctChange(c.length, pv.length), shownHere, shownChange: pctChange(shownHere, shownHereP),
         notFoundShare: c.length ? Math.round((c.filter((x) => x.unfilled).length / c.length) * 100) : 0,
         pharmacies: pts.length, listings: L, inStockShare: L ? Math.round((I / L) * 100) : 0,
         freshShare: pts.length ? Math.round((pts.filter(fresh).length / pts.length) * 100) : 0,
         perPharmacy: pts.length ? Math.round(c.length / pts.length) : null,
       };
-    }).sort((a, b) => b.searches - a.searches);
+    }).sort((a, b) => (b.searches + b.shownHere) - (a.searches + a.shownHere));
     const L = all.reduce((a, e) => a + e.listings, 0); const I = all.reduce((a, e) => a + e.inStock, 0);
     const natPhones = new Set(cur.map((x) => x.phone).filter(Boolean) as string[]);
     const natReturning = [...natPhones].filter((p) => phonesBefore.has(p)).length;
@@ -274,6 +288,7 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
       uniqueSearchers: phonesT.size, returningShare: phonesT.size ? Math.round((returning / phonesT.size) * 100) : 0,
       notFound: unfilledT.length, notFoundShare: T.length ? Math.round((unfilledT.length / T.length) * 100) : 0,
       orders, nationalSearches: cur.length, locatedShare: cur.length ? Math.round((located / cur.length) * 100) : 0,
+      appeared, appearedChange: pctChange(appeared, appearedP), taps, reserves,
     },
     shelf: { listings: mine.length, inStock, inStockShare: mine.length ? Math.round((inStock / mine.length) * 100) : 0, lastUpdate: lastUpdate ? new Date(lastUpdate).toISOString() : null, staleDays: lastUpdate ? Math.floor((Date.now() - lastUpdate) / DAY) : null, pharmaciesInTown: others.size + 1 },
     daily, heat, peakDay, peakHour, afterHoursShare: T.length ? Math.round((afterHours / T.length) * 100) : 0,
@@ -282,6 +297,7 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
     towns: Object.entries(townsNat).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t, n]) => ({ name: TOWNS.find((x) => x.id === t)?.name.replace('Greater ', '') || t, n, you: t === town })),
     categories: Object.entries(cats).filter(([, v]) => v.n > 0).sort((a, b) => b[1].n - a[1].n).slice(0, 8).map(([g, v]) => ({ name: groupLabel(g), n: v.n, change: pctChange(v.n, v.p), unnamed: g === 'srh' })),
     medicines, rising, missed, restock, signals: signals.slice(0, 4), national: isNational, network,
+    appearedFrom: Object.entries(appearedFrom).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t, n]) => ({ name: t === 'unknown' ? 'Town not given' : TOWNS.find((x) => x.id === t)?.name.replace('Greater ', '') || t, n, you: t === town })),
   };
 }
 export type Report = ReturnType<typeof computeReport>;
