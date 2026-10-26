@@ -10,7 +10,7 @@ const pctOf = (rows: { n: number }[]) => { const t = Math.max(1, rows.reduce((a,
 
 export type BusinessData = {
   business: string; month: string; monthLabel: string; partial: boolean; daysCovered: number; prevMonthLabel: string; generatedAt: string;
-  headline: { branches: number; listings: number; towns: number; shown: number; shownChange: number | null; people: number; shareOfVoice: number; nationalSearches: number; trackedSearches: number; taps: number; reserves: number; orders: number; lost: number; unmet: number; staleBranches: number; lastUpdateDays: number | null };
+  headline: { branches: number; listings: number; towns: number; shown: number; shownChange: number | null; people: number; shareOfVoice: number; nationalSearches: number; trackedSearches: number; taps: number; reserves: number; orders: number; lost: number; unmet: number; staleBranches: number; lastUpdateDays: number | null; joined?: string | null };
   league: { branch: string; town: string; shown: number; change: number | null; taps: number; reserves: number; listings: number; staleDays: number | null }[];
   daily: { day: number; label: string; searches: number; yours: number }[];
   heat: number[][]; peakDay: string | null; peakHour: number | null;
@@ -27,6 +27,8 @@ export type BusinessData = {
 export default function BusinessReport({ data, months, onMonth }: { data: BusinessData; months?: { value: string; label: string }[]; onMonth?: (m: string) => void }) {
   const h = data.headline;
   const maxShown = Math.max(1, ...data.league.map((b) => b.shown));
+  const one = h.branches === 1; const unit = one ? 'your pharmacy' : 'your branches';
+  const joined = h.joined ? new Date(h.joined).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : null;
   return (
     <div className="gn">
       <style>{CSS + EXTRA}</style>
@@ -38,7 +40,7 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
           {LOGOS[data.business.toLowerCase()] && <div className="bz-logo"><img src={LOGOS[data.business.toLowerCase()]} alt={`${data.business} logo`} /></div>}
           <p className="gn-kicker">ChekaMeds · business engagement report{LOGOS[data.business.toLowerCase()] ? ` · prepared for ${data.business}` : ''}</p>
           <h1>{data.business}</h1>
-          <p className="gn-sub">{data.monthLabel}{data.partial ? ` · first ${data.daysCovered} days` : ''} · {h.branches} branches in {h.towns} towns · {n(h.listings)} medicines listed · compared with {data.prevMonthLabel}</p>
+          <p className="gn-sub">{data.monthLabel}{data.partial ? ` · first ${data.daysCovered} days` : ''} · {one ? data.league[0]?.town : `${h.branches} branches in ${h.towns} towns`} · {n(h.listings)} medicines listed · compared with {data.prevMonthLabel}</p>
         </div>
         {months && onMonth && (
           <label className="gn-month">Month
@@ -48,12 +50,14 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
       </div>
 
       <section className="gn-kpis">
-        <div className="gn-glass kpi hero"><span>Times your branches appeared in search results</span><b>{n(h.shown)}</b><Delta v={h.shownChange} vs={data.prevMonthLabel} /></div>
+        <div className="gn-glass kpi hero"><span>Times {unit} appeared in search results</span><b>{n(h.shown)}</b>{joined ? <span className="gn-delta flat">on ChekaMeds since {joined}</span> : <Delta v={h.shownChange} vs={data.prevMonthLabel} />}</div>
         <div className="gn-glass kpi"><span>Share of searches that showed you</span><b>{h.shareOfVoice}%</b><em>of {n(h.trackedSearches)} searches with results logged on ChekaMeds</em></div>
-        <div className="gn-glass kpi"><span>People who saw your branches</span><b>{n(h.people)}</b><em>different phone numbers, counted privately</em></div>
+        <div className="gn-glass kpi"><span>People who saw {unit}</span><b>{n(h.people)}</b><em>different phone numbers, counted privately</em></div>
         <div className="gn-glass kpi hero2"><span>Customer actions</span><b>{n(h.taps + h.reserves + h.orders)}</b><em>{n(h.taps)} tapped for details · {n(h.reserves)} reserved · {n(h.orders)} orders</em></div>
-        <div className="gn-glass kpi warn"><span>Searches lost to other pharmacies</span><b>{n(h.lost)}</b><em>for medicines you list, but your branches weren't shown</em></div>
-        <div className={`gn-glass kpi ${h.staleBranches ? 'warn' : ''}`}><span>Branches with stock older than 14 days</span><b>{h.staleBranches} of {h.branches}</b><em>{h.lastUpdateDays != null ? `latest update ${h.lastUpdateDays} days ago` : 'no updates yet'}</em></div>
+        <div className="gn-glass kpi warn"><span>Searches lost to other pharmacies</span><b>{n(h.lost)}</b><em>for medicines you list, but {unit} {one ? "wasn't" : "weren't"} shown</em></div>
+        {one
+          ? <div className={`gn-glass kpi ${h.staleBranches ? 'warn' : ''}`}><span>Stock last updated</span><b>{h.lastUpdateDays == null ? 'never' : h.lastUpdateDays === 0 ? 'today' : `${h.lastUpdateDays} days ago`}</b><em>{h.staleBranches ? 'older than 14 days: customers may see out-of-date stock' : 'fresh'}</em></div>
+          : <div className={`gn-glass kpi ${h.staleBranches ? 'warn' : ''}`}><span>Branches with stock older than 14 days</span><b>{h.staleBranches} of {h.branches}</b><em>{h.lastUpdateDays != null ? `latest update ${h.lastUpdateDays} days ago` : 'no updates yet'}</em></div>}
       </section>
 
       {data.recs.length > 0 && (
@@ -63,7 +67,7 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
         </section>
       )}
 
-      <section className="gn-glass gn-card">
+      {!one && <section className="gn-glass gn-card">
         <div className="gn-card-h"><h2>Branch league</h2><span className="gn-muted">Ranked by how often each branch appeared in results</span></div>
         <div className="gn-table-wrap">
           <table className="gn-table">
@@ -78,14 +82,14 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
             ))}</tbody>
           </table>
         </div>
-      </section>
+      </section>}
 
       {data.searched && data.searched.length > 0 && (
         <section className="gn-glass gn-card">
           <div className="gn-card-h"><h2>What people searched on ChekaMeds</h2><span className="gn-muted">All of Botswana, most searched first, against your shelf</span></div>
           <div className="gn-table-wrap">
             <table className="gn-table">
-              <thead><tr><th>#</th><th>Medicine</th><th>Searches</th><th>Change</th><th>Showed your branches</th><th>On your shelf</th><th>Found nowhere</th></tr></thead>
+              <thead><tr><th>#</th><th>Medicine</th><th>Searches</th><th>Change</th><th>Showed {unit}</th><th>On your shelf</th><th>Found nowhere</th></tr></thead>
               <tbody>{data.searched.map((m, i) => (
                 <tr key={m.name}><td className="rk">{i + 1}</td><td><b>{m.name}</b></td><td>{m.searches}</td><td><Delta v={m.change} /></td>
                   <td><b style={{ color: m.showedYou ? '#f5d36b' : 'rgba(238,240,255,.4)' }}>{m.showedYou}</b></td>
@@ -101,7 +105,7 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
       {data.who && (() => { const w = data.who!; const py = pctOf(w.channelsYou); const pa = pctOf(w.channelsAll); const col = [C.teal, C.violet, C.gold];
         return (
         <section className="gn-glass gn-card">
-          <div className="gn-card-h"><h2>Who is searching</h2><span className="gn-muted">People who saw your branches, compared with everyone on ChekaMeds</span></div>
+          <div className="gn-card-h"><h2>Who is searching</h2><span className="gn-muted">People who saw {unit}, compared with everyone on ChekaMeds</span></div>
           <div className="bz-who">
             <div>
               <h3>How they reach you</h3>
@@ -173,13 +177,13 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
       </section>
 
       <section className="gn-glass gn-card">
-        <div className="gn-card-h"><h2>Medicines that brought customers to you</h2><span className="gn-muted">Searches that showed one of your branches</span></div>
+        <div className="gn-card-h"><h2>Medicines that brought customers to you</h2><span className="gn-muted">Searches that showed {unit}</span></div>
         <div className="gn-table-wrap">
           <table className="gn-table">
-            <thead><tr><th>Medicine</th><th>Searches</th><th>Your branches stocking</th><th>Other pharmacies stocking</th><th>Your price</th><th>Market price</th></tr></thead>
+            <thead><tr><th>Medicine</th><th>Searches</th><th>{one ? 'You stock it' : 'Your branches stocking'}</th><th>Other pharmacies stocking</th><th>Your price</th><th>Market price</th></tr></thead>
             <tbody>
               {data.drivers.map((d) => (
-                <tr key={d.name}><td><b>{d.name}</b></td><td>{d.searches}</td><td>{d.branchesStocking} of {h.branches}</td><td>{d.competitors}</td>
+                <tr key={d.name}><td><b>{d.name}</b></td><td>{d.searches}</td><td>{one ? (d.branchesStocking ? 'Yes' : 'No') : `${d.branchesStocking} of ${h.branches}`}</td><td>{d.competitors}</td>
                   <td>{d.yourPrice != null ? `P${d.yourPrice.toFixed(2)}` : '–'}</td>
                   <td>{d.marketPrice != null ? <span className={d.yourPrice != null && d.yourPrice > d.marketPrice * 1.1 ? 'gn-hi' : d.yourPrice != null && d.yourPrice < d.marketPrice * 0.9 ? 'gn-lo' : ''}>P{d.marketPrice.toFixed(2)}</span> : <span className="gn-muted">–</span>}</td></tr>
               ))}
@@ -209,7 +213,7 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
       </section>
 
       <div className="gn-foot">
-        Based on {n(h.nationalSearches)} cleaned medicine searches on ChekaMeds (WhatsApp and web) in {data.monthLabel}. Adverts, greetings and repeat searches by the same person on the same day are removed. "Appeared in results" counts searches whose results listed one of your branches.
+        Based on {n(h.nationalSearches)} cleaned medicine searches on ChekaMeds (WhatsApp and web) in {data.monthLabel}. Adverts, greetings and repeat searches by the same person on the same day are removed. "Appeared in results" counts searches whose results listed {unit}.
         This report contains no customer names, phone numbers or individual searches. © IBLIM Enterprises (Pty) Ltd.
       </div>
     </div>

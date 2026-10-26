@@ -21,7 +21,8 @@ export function listBusinesses(stock: any[]): { name: string; branches: number }
   const names = [...new Set(stock.map((s: any) => String(s.clinic_name || '').trim()).filter((n) => n && !HIDE.test(n)))];
   const groups: Record<string, string[]> = {};
   for (const n of names) { const k = n.split(/\s+/).slice(0, 2).join(' '); (groups[k.toLowerCase()] ||= []).push(n); }
-  return Object.values(groups).filter((g) => g.length >= 2).map((g) => ({ name: g[0].split(/\s+/).slice(0, 2).join(' '), branches: g.length })).sort((a, b) => b.branches - a.branches);
+  return Object.values(groups).map((g) => ({ name: g.length >= 2 ? g[0].split(/\s+/).slice(0, 2).join(' ') : g[0], branches: g.length }))
+    .sort((a, b) => b.branches - a.branches || a.name.localeCompare(b.name));
 }
 
 export function computeBusiness(ctx: ReportContext, business: string) {
@@ -30,7 +31,7 @@ export function computeBusiness(ctx: ReportContext, business: string) {
   const isMine = (name: string) => norm(name).startsWith(bkey);
 
   /* ---- Branches ---- */
-  type Branch = { key: string; name: string; short: string; town: string | null; listings: number; meds: Set<string>; last: number; prices: Map<string, number> };
+  type Branch = { key: string; name: string; short: string; town: string | null; listings: number; meds: Set<string>; last: number; first: number; prices: Map<string, number> };
   const branches = new Map<string, Branch>();
   const competitorVocab = new Map<string, { pharmacies: Set<string>; prices: Map<string, number> }>();
   for (const it of stock) {
@@ -38,9 +39,9 @@ export function computeBusiness(ctx: ReportContext, business: string) {
     if (!k || HIDE.test(k)) continue;
     const ws = new Set<string>(); for (const f of [it.med_name, it.generic_name, it.brand_name]) for (const w of words(f || '')) ws.add(w);
     if (isMine(name)) {
-      const b = branches.get(k) || { key: k, name, short: name.slice(business.length).trim() || name, town: stockTownFor(name, it.location), listings: 0, meds: new Set(), last: 0, prices: new Map() };
+      const b = branches.get(k) || { key: k, name, short: name.slice(business.length).trim() || name, town: stockTownFor(name, it.location), listings: 0, meds: new Set(), last: 0, first: Infinity, prices: new Map() };
       b.listings++; ws.forEach((w) => b.meds.add(w));
-      for (const d of [it.updated_at, it.last_verified_at]) { const ms = d ? Date.parse(d) : 0; if (ms > b.last) b.last = ms; }
+      for (const d of [it.updated_at, it.last_verified_at]) { const ms = d ? Date.parse(d) : 0; if (ms > b.last) b.last = ms; if (ms && ms < b.first) b.first = ms; }
       if (it.price_bwp > 0) for (const w of ws) { const p = b.prices.get(w); if (p == null || it.price_bwp < p) b.prices.set(w, Number(it.price_bwp)); }
       branches.set(k, b);
     } else if ((it.quantity ?? 0) > 0) {
@@ -77,6 +78,8 @@ export function computeBusiness(ctx: ReportContext, business: string) {
     });
   }
   const showsUs = (s: S) => s.shown.some((k) => myKeys.has(k));
+  const firstSeen = Math.min(...[...branches.values()].map((b) => b.first));
+  const joinedRecently = Number.isFinite(firstSeen) && firstSeen > B.prevStart + 7 * DAY; // too little of last month to compare
   const seenCur = cur.filter(showsUs); const seenPrev = prev.filter(showsUs);
   const trackedCur = cur.filter((s) => s.shown.length > 0 || s.unfilled); // searches where results were logged
   const shareOfVoice = trackedCur.length ? Math.round((seenCur.length / trackedCur.length) * 100) : 0;
@@ -96,7 +99,7 @@ export function computeBusiness(ctx: ReportContext, business: string) {
     const bi = imp.filter((i: any) => norm(i.pharmacy_name) === b.key);
     return {
       branch: b.short, town: b.town ? TOWNS.find((t) => t.id === b.town)?.name.replace('Greater ', '') || b.town : '–',
-      shown: n, change: pctChange(n, p), taps: bi.filter((i: any) => i.selected).length, reserves: bi.filter((i: any) => i.reserved).length,
+      shown: n, change: b.first > B.prevStart + 7 * DAY ? null : pctChange(n, p), taps: bi.filter((i: any) => i.selected).length, reserves: bi.filter((i: any) => i.reserved).length,
       listings: b.listings, staleDays: b.last ? Math.floor((Date.now() - b.last) / DAY) : null,
     };
   }).sort((a, b) => b.shown - a.shown || b.listings - a.listings);
@@ -118,7 +121,9 @@ export function computeBusiness(ctx: ReportContext, business: string) {
     for (const s of list) { if (s.sensitive || !s.w.length) continue; const k = s.w.find((w) => chainVocab.has(w)) || s.w[0]; const e = m.get(k) || { n: 0, names: {} }; e.n++; e.names[s.raw] = (e.names[s.raw] || 0) + 1; m.set(k, e); }
     return m;
   };
-  const disp = (e: { names: Record<string, number> }) => title(Object.entries(e.names).sort((a, b) => b[1] - a[1])[0][0]).slice(0, 36);
+  const FILLER = /\b(good|morning|afternoon|evening|hi|hie|hey|hello|dumela|please|pls|kindly|i|am|need|looking|for|want|do|you|have|is|there|any|this|the|a)\b/g;
+  const clean = (raw: string) => raw.replace(FILLER, ' ').replace(/\s+/g, ' ').trim() || raw;
+  const disp = (e: { names: Record<string, number> }) => title(clean(Object.entries(e.names).sort((a, b) => b[1] - a[1])[0][0])).slice(0, 36);
   const top = (m: ReturnType<typeof tally>, k = 10) => [...m.entries()].filter(([, e]) => e.n >= MIN_NAMED).sort((a, b) => b[1].n - a[1].n).slice(0, k);
   const drivers = top(tally(seenCur), 15).map(([w, e]) => {
     const ours = [...branches.values()].map((b) => b.prices.get(w)).filter((x): x is number => x != null);
@@ -182,8 +187,9 @@ export function computeBusiness(ctx: ReportContext, business: string) {
 
   /* ---- Recommendations, from the numbers above ---- */
   const recs: string[] = [];
-  if (stale.length) recs.push(`Refresh stock at ${stale.length === league.length ? 'all' : stale.length} branch${stale.length === 1 ? '' : 'es'}: the latest update was ${lastAny ? `${Math.floor((Date.now() - lastAny) / DAY)} days ago` : 'never'}. Fresh stock ranks higher and turns more searches into visits.`);
-  if (lostTop.length) recs.push(`${lost.length} search${lost.length === 1 ? ' was' : 'es were'} for medicines you carry but showed other pharmacies instead (top: ${lostTop.slice(0, 3).map((x) => x.name).join(', ')}). Check these are in stock and listed at the branches nearest the demand.`);
+  const single = branches.size === 1;
+  if (stale.length) recs.push(`${single ? 'Refresh your stock' : `Refresh stock at ${stale.length === league.length ? 'all' : stale.length} branch${stale.length === 1 ? '' : 'es'}`}: the latest update was ${lastAny ? `${Math.floor((Date.now() - lastAny) / DAY)} days ago` : 'never'}. Fresh stock ranks higher and turns more searches into visits.`);
+  if (lostTop.length) recs.push(`${lost.length} search${lost.length === 1 ? ' was' : 'es were'} for medicines you carry but showed other pharmacies instead (top: ${lostTop.slice(0, 3).map((x) => x.name).join(', ')}). Check these are in stock and listed${single ? '' : ' at the branches nearest the demand'}.`);
   if (unmetTop.length) recs.push(`Consider adding ${unmetTop.slice(0, 3).map((x) => x.name).join(', ')}: searched ${unmetTop.slice(0, 3).reduce((a, x) => a + x.searches, 0)} times and found at no pharmacy on ChekaMeds.`);
   const quiet = league.filter((b) => b.shown === 0);
   if (quiet.length && quiet.length < league.length) recs.push(`${quiet.length} branch${quiet.length === 1 ? '' : 'es'} did not appear in any results this month (${quiet.slice(0, 4).map((b) => b.branch).join(', ')}${quiet.length > 4 ? '…' : ''}). Few searches name those towns yet; local promotion of the ChekaMeds WhatsApp number would bring them in.`);
@@ -196,7 +202,8 @@ export function computeBusiness(ctx: ReportContext, business: string) {
     prevMonthLabel: new Date(`${B.prev}-01T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', timeZone: 'UTC' }), generatedAt: new Date().toISOString(),
     headline: {
       branches: league.length, listings: league.reduce((a, b) => a + b.listings, 0), towns: myTowns.size,
-      shown: seenCur.length, shownChange: pctChange(seenCur.length, seenPrev.length), people: people.size,
+      shown: seenCur.length, shownChange: joinedRecently ? null : pctChange(seenCur.length, seenPrev.length),
+      joined: joinedRecently ? new Date(firstSeen).toISOString() : null, people: people.size,
       shareOfVoice, nationalSearches: cur.length, trackedSearches: trackedCur.length, taps, reserves, orders,
       lost: lost.length, unmet: unmet.length, staleBranches: stale.length, lastUpdateDays: lastAny ? Math.floor((Date.now() - lastAny) / DAY) : null,
     },
