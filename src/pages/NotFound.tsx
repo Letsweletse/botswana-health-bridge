@@ -15,12 +15,18 @@ const NotFound = () => {
     try {
       if (!sessionStorage.getItem(key) && "serviceWorker" in navigator) {
         sessionStorage.setItem(key, "1");
-        navigator.serviceWorker.getRegistration().then(async (reg) => {
-          if (!reg) return finish();
-          await reg.update().catch(() => {});
+        // Drop the old saved copy completely (service worker + its caches), then load fresh from the server.
+        (async () => {
+          const regs = await navigator.serviceWorker.getRegistrations().catch(() => []);
+          if (!regs.length) return finish();
+          await Promise.all(regs.map((r) => r.unregister().catch(() => false)));
+          if ("caches" in window) {
+            const keys = await caches.keys().catch(() => [] as string[]);
+            await Promise.all(keys.map((k) => caches.delete(k).catch(() => false)));
+          }
           window.location.reload();
-        }).catch(finish);
-        setTimeout(finish, 4000);
+        })().catch(finish);
+        setTimeout(finish, 6000);
         return;
       }
     } catch { /* storage blocked */ }
