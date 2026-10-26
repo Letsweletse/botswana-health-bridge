@@ -122,18 +122,27 @@ export function useAuth() {
     });
 
     // Then: only handle future auth changes (login, logout, token refresh)
+    // Never await Supabase calls inside this callback: supabase-js holds its auth lock
+    // while the callback runs, so querying from here deadlocks on a token refresh and
+    // the page spins forever. Defer the profile load to the next tick instead.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, newSession) => {
+      (_event, newSession) => {
         if (!mounted || !initialized) return;
         setSession(newSession);
         setUser(newSession?.user ?? null);
-        await loadProfile(newSession?.user ?? null);
-        if (mounted) setLoading(false);
+        setTimeout(async () => {
+          await loadProfile(newSession?.user ?? null);
+          if (mounted) setLoading(false);
+        }, 0);
       }
     );
 
+    // Safety net: never leave the page on a spinner if the session check stalls.
+    const stall = setTimeout(() => { if (mounted) setLoading(false); }, 10000);
+
     return () => {
       mounted = false;
+      clearTimeout(stall);
       subscription.unsubscribe();
     };
   }, []);

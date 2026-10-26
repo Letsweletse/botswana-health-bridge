@@ -92,13 +92,14 @@ export default function Scanner() {
       }
       setAuthLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_e, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       const u = session?.user ?? null;
       setUser(u);
-      if (u) {
+      // Deferred: awaiting Supabase inside this callback deadlocks the auth lock.
+      if (u) setTimeout(async () => {
         const { data: p } = await supabase.from("profiles").select("clinic_name,name,role").eq("id", u.id).single();
         setProfile(p);
-      }
+      }, 0);
     });
     return () => subscription.unsubscribe();
   }, []);
