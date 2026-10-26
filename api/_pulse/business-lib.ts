@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { noiseReason, isSensitive, DAY } from './engine.js';
-import { TOWNS, townFor, stockTownFor, textTownFor } from './reference.js';
+import { TOWNS, GROUPS, townFor, stockTownFor, textTownFor, groupFor } from './reference.js';
 import { env, SITE } from './notify-lib.js';
 import { norm, words, title, pctChange, median, HIDE, type ReportContext } from './report-lib.js';
 
@@ -9,7 +9,8 @@ import { norm, words, title, pctChange, median, HIDE, type ReportContext } from 
    Real data only. Aggregated: no customer names, numbers or individual searches. */
 
 const TZ = 2 * 3600e3;
-const MIN_NAMED = 3;
+// Medicine names are shown from 1 search: lists carry no person, time or place, and sensitive medicines are never named.
+const MIN_NAMED = 1;
 
 const secret = () => env('PULSE_LINK_SECRET') || `business:${env('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_KEY', 'SERVICE_ROLE_KEY') || ''}`;
 export const businessSig = (b: string) => createHmac('sha256', secret()).update(`business.${norm(b)}`).digest('base64url').slice(0, 24);
@@ -55,14 +56,15 @@ export function computeBusiness(ctx: ReportContext, business: string) {
   const chainVocab = new Set<string>(); branches.forEach((b) => b.meds.forEach((w) => chainVocab.add(w)));
 
   /* ---- Searches (deduped: same person, same medicine, same day counts once) ---- */
-  type S = { raw: string; w: string[]; t: number; town: string | null; phone: string | null; unfilled: boolean; shown: string[]; sensitive: boolean };
+  type S = { raw: string; w: string[]; t: number; town: string | null; phone: string | null; unfilled: boolean; shown: string[]; sensitive: boolean; channel: string; group: string };
   const phoneTown: Record<string, string> = {};
   const placeOf = (r: any) => townFor(r.location, r.user_lat, r.user_lng) || textTownFor(r.query) || textTownFor(r.normalized_query);
   for (const r of logs) { const t = placeOf(r); if (t && r.user_phone) phoneTown[r.user_phone] = t; }
-  const cur: S[] = []; const prev: S[] = []; const seen = new Set<string>();
+  const cur: S[] = []; const prev: S[] = []; const seen = new Set<string>(); const phonesBefore = new Set<string>();
   for (const r of logs) {
     const t = Date.parse(r.created_at); const raw = norm(r.normalized_query || r.query);
     if (!raw || noiseReason(raw)) continue;
+    if (t < B.start && r.user_phone) phonesBefore.add(r.user_phone);
     const bucket = t >= B.start && t < B.end ? cur : t >= B.prevStart && t < B.prevEnd ? prev : null;
     if (!bucket) continue;
     const dk = `${r.user_phone || r.created_at}|${raw}|${Math.floor((t + TZ) / DAY)}`;
@@ -70,7 +72,8 @@ export function computeBusiness(ctx: ReportContext, business: string) {
     bucket.push({
       raw, w: words(raw), t, town: placeOf(r) || (r.user_phone ? phoneTown[r.user_phone] : null) || null, phone: r.user_phone || null,
       unfilled: !r.results_count || r.found === false, shown: Array.isArray(r.matched_pharmacies) ? r.matched_pharmacies.map((x: any) => norm(String(x))) : [],
-      sensitive: isSensitive(raw),
+      sensitive: isSensitive(raw), channel: String(r.source || 'web').startsWith('whatsapp') ? 'WhatsApp' : 'Web',
+      group: isSensitive(raw) ? 'srh' : groupFor(raw),
     });
   }
   const showsUs = (s: S) => s.shown.some((k) => myKeys.has(k));
@@ -117,7 +120,7 @@ export function computeBusiness(ctx: ReportContext, business: string) {
   };
   const disp = (e: { names: Record<string, number> }) => title(Object.entries(e.names).sort((a, b) => b[1] - a[1])[0][0]).slice(0, 36);
   const top = (m: ReturnType<typeof tally>, k = 10) => [...m.entries()].filter(([, e]) => e.n >= MIN_NAMED).sort((a, b) => b[1].n - a[1].n).slice(0, k);
-  const drivers = top(tally(seenCur), 12).map(([w, e]) => {
+  const drivers = top(tally(seenCur), 15).map(([w, e]) => {
     const ours = [...branches.values()].map((b) => b.prices.get(w)).filter((x): x is number => x != null);
     const comp = competitorVocab.get(w);
     const compPrices = comp ? [...comp.prices.values()] : [];
@@ -128,6 +131,45 @@ export function computeBusiness(ctx: ReportContext, business: string) {
   });
   const lostTop = top(tally(lost), 8).map(([, e]) => ({ name: disp(e), searches: e.n }));
   const unmetTop = top(tally(unmet), 8).map(([, e]) => ({ name: disp(e), searches: e.n }));
+
+  /* ---- What people searched (all of ChekaMeds), against your shelf ---- */
+  const curT = tally(cur); const prevT = tally(prev);
+  const curShown = tally(seenCur);
+  const searched = [...curT.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 20).map(([w, e]) => {
+    const list = cur.filter((x) => !x.sensitive && (x.w.find((y) => chainVocab.has(y)) || x.w[0]) === w);
+    return {
+      name: disp(e), searches: e.n, change: pctChange(e.n, prevT.get(w)?.n || 0), showedYou: curShown.get(w)?.n || 0,
+      youStock: chainVocab.has(w), foundNowhere: list.length ? Math.round((list.filter((x) => x.unfilled).length / list.length) * 100) : 0,
+    };
+  });
+  const sensitiveCount = cur.filter((x) => x.sensitive).length;
+
+  /* ---- Who is searching ---- */
+  const chan = (list: S[]) => { const c: Record<string, number> = {}; for (const x of list) c[x.channel] = (c[x.channel] || 0) + 1; return Object.entries(c).sort((a, b) => b[1] - a[1]).map(([name, n]) => ({ name, n })); };
+  const peopleAll = new Set(cur.map((x) => x.phone).filter(Boolean) as string[]);
+  const ret = (set: Set<string>) => (set.size ? Math.round(([...set].filter((p) => phonesBefore.has(p)).length / set.size) * 100) : 0);
+  const who = {
+    channelsYou: chan(seenCur), channelsAll: chan(cur),
+    returningYou: ret(people), returningAll: ret(peopleAll), peopleAll: peopleAll.size,
+    perPerson: people.size ? Math.round((seenCur.length / people.size) * 10) / 10 : 0,
+    afterHours: seenCur.length ? Math.round((seenCur.filter((x) => { const hh = new Date(x.t + TZ).getUTCHours(); return hh < 8 || hh >= 18; }).length / seenCur.length) * 100) : 0,
+    weekend: seenCur.length ? Math.round((seenCur.filter((x) => [0, 6].includes(new Date(x.t + TZ).getUTCDay())).length / seenCur.length) * 100) : 0,
+  };
+
+  /* ---- Health outlook: what illness groups people searched for, and Pulse's status for each ---- */
+  const gLabel = (g: string) => (g === 'srh' ? 'Sexual & reproductive health' : GROUPS.find((x) => x.id === g)?.label || 'Other medicines');
+  const gc = (list: S[]) => { const c: Record<string, number> = {}; for (const x of list) c[x.group] = (c[x.group] || 0) + 1; return c; };
+  const gNow = gc(cur); const gPrev = gc(prev); const gYou = gc(seenCur);
+  const sig = new Map<string, any>((pulse?.live?.signals || []).map((x: any) => [x.group, x]));
+  const outlook = Object.keys({ ...gNow, ...gPrev }).filter((g) => g !== 'other').map((g) => {
+    const ps = sig.get(g); const grp = GROUPS.find((x) => x.id === g);
+    return {
+      group: gLabel(g), searches: gNow[g] || 0, change: pctChange(gNow[g] || 0, gPrev[g] || 0), showedYou: gYou[g] || 0,
+      level: ps?.level || 'none', ratio: ps?.ratio != null ? Math.round(ps.ratio * 10) / 10 : null,
+      note: ps?.level && ps.level !== 'none' ? (ps.reasons?.[0] || '') : '', action: ps?.level && ps.level !== 'none' ? grp?.action || '' : '',
+      unnamed: g === 'srh',
+    };
+  }).sort((a, b) => ({ alert: 2, watch: 1, none: 0 } as any)[b.level] - ({ alert: 2, watch: 1, none: 0 } as any)[a.level] || b.searches - a.searches);
 
   /* ---- Stock health ---- */
   const stale = league.filter((b) => b.staleDays == null || b.staleDays > 14);
@@ -160,7 +202,7 @@ export function computeBusiness(ctx: ReportContext, business: string) {
     },
     league, daily, heat, peakDay: dayT.some(Boolean) ? DAYS[dayT.indexOf(Math.max(...dayT))] : null, peakHour: hourT.some(Boolean) ? hourT.indexOf(Math.max(...hourT)) : null,
     origins: Object.entries(origins).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t, n]) => ({ name: t === 'unknown' ? 'Town not given' : TOWNS.find((x) => x.id === t)?.name.replace('Greater ', '') || t, n })),
-    drivers, lostTop, unmetTop, signals, recs,
+    drivers, lostTop, unmetTop, signals, recs, searched, sensitiveCount, who, outlook,
   };
 }
 export type BusinessReport = ReturnType<typeof computeBusiness>;
