@@ -14,7 +14,7 @@ export default function PulseMonthly() {
 
   useEffect(() => {
     let live = true; setLoading(true); setErr(null);
-    fetch(`/api/pulse-monthly${month ? `?m=${month}` : ''}`).then(async (r) => {
+    fetch(`/api/pulse-monthly?v=3${month ? `&m=${month}` : ''}`).then(async (r) => {
       const j = await r.json().catch(() => ({}));
       if (!live) return;
       if (!r.ok) setErr(j.error || 'Could not load the bulletin.'); else setData(j);
