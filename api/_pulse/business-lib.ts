@@ -135,7 +135,7 @@ export function computeBusiness(ctx: ReportContext, business: string) {
 
   /* ---- Health signals in the business's towns ---- */
   const myTowns = new Set([...branches.values()].map((b) => b.town).filter(Boolean));
-  const signals = (pulse?.live?.alerts || []).filter((a: any) => a.town === 'national' || myTowns.has(a.town)).slice(0, 4)
+  const signals = (pulse?.live?.alerts || []).filter((a: any) => (a.town === 'national' || a.town === 'botswana') || myTowns.has(a.town)).slice(0, 4)
     .map((a: any) => ({ label: a.label, level: a.level, place: a.townName, action: a.action }));
 
   /* ---- Recommendations, from the numbers above ---- */

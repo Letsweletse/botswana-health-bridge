@@ -240,7 +240,7 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
   /* ---- Health signals from Pulse ---- */
   const signals: { label: string; level: string; place: string; action: string }[] = [];
   for (const a of pulse?.live?.alerts || []) {
-    if (isNational || a.town === town || a.town === 'national') signals.push({ label: a.label, level: a.level, place: a.townName, action: a.action });
+    if (isNational || a.town === town || (a.town === 'national' || a.town === 'botswana')) signals.push({ label: a.label, level: a.level, place: a.townName, action: a.action });
   }
 
   const orders = [orderReq, delivery, cmOrders].reduce((n, list: any[]) => n + list.filter((o: any) => isNational || norm(o.pharmacy || o.pharmacy_name) === key).length, 0);
