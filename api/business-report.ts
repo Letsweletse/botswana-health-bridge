@@ -28,7 +28,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     const ctx = await loadReportContext(sb, m);
     if (String(req.query?.list || '') === '1') {
-      return res.status(200).json({ businesses: listBusinesses(ctx.stock).map((x) => ({ ...x, url: businessUrl(x.name) })) });
+      return res.status(200).json({ businesses: listBusinesses(ctx.stock).map((x) => ({ ...x, url: businessUrl(x.name, (ctx.B as any).cur) })) });
     }
     if (!b) return res.status(400).json({ error: 'Choose a business.' });
     const r = computeBusiness(ctx, b);
