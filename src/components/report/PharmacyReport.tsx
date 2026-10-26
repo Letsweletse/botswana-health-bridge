@@ -23,18 +23,19 @@ export type ReportData = {
 };
 
 // Validated categorical steps for the dark surface (dataviz validator: all six checks pass).
-const C = { gold: '#b88600', teal: '#1f9e93', violet: '#7d6cf2', pink: '#d6408a' };
+export const C = { gold: '#b88600', teal: '#1f9e93', violet: '#7d6cf2', pink: '#d6408a' };
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const fmtH = (h: number) => `${String(h).padStart(2, '0')}:00`;
+export const fmtH = (h: number) => `${String(h).padStart(2, '0')}:00`;
+export const fmtN = (x: number) => x.toLocaleString('en-GB');
 const n = (x: number) => x.toLocaleString('en-GB');
 
-function Delta({ v, vs }: { v: number | null; vs?: string }) {
+export function Delta({ v, vs }: { v: number | null; vs?: string }) {
   if (v == null) return <span className="gn-delta flat" title="Too few searches last month to compare">–</span>;
   const cls = v > 2 ? 'up' : v < -2 ? 'down' : 'flat';
   return <span className={`gn-delta ${cls}`}>{v > 0 ? '▲' : v < 0 ? '▼' : '•'} {Math.abs(v)}%{vs ? ` vs ${vs}` : ''}</span>;
 }
 
-function Bars({ rows, color = C.teal, highlight }: { rows: { name: string; n: number; you?: boolean }[]; color?: string; highlight?: boolean }) {
+export function Bars({ rows, color = C.teal, highlight }: { rows: { name: string; n: number; you?: boolean }[]; color?: string; highlight?: boolean }) {
   const max = Math.max(1, ...rows.map((r) => r.n));
   return (
     <div className="gn-bars">
@@ -49,7 +50,7 @@ function Bars({ rows, color = C.teal, highlight }: { rows: { name: string; n: nu
   );
 }
 
-function Heat({ heat }: { heat: number[][] }) {
+export function Heat({ heat }: { heat: number[][] }) {
   const max = Math.max(1, ...heat.flat());
   const [tip, setTip] = useState<string | null>(null);
   return (
@@ -285,7 +286,7 @@ export default function PharmacyReport({ data, months, onMonth, compact }: { dat
   );
 }
 
-const CSS = `
+export const CSS = `
 .gn{position:relative;isolation:isolate;overflow:hidden;color:#eef0ff;font-family:Inter,system-ui,sans-serif;background:radial-gradient(1200px 700px at 10% -10%,#1b1f4d 0%,transparent 60%),radial-gradient(900px 600px at 110% 10%,#1a3a4a 0%,transparent 55%),linear-gradient(180deg,#05060f 0%,#0a0d24 55%,#05060f 100%);padding:clamp(18px,4vw,48px);border-radius:0}
 .gn.compact{border-radius:22px}
 .gn-aurora{position:absolute;inset:0;z-index:-1;pointer-events:none}

@@ -36,6 +36,16 @@ export default function DigestAdmin() {
   const [testWa, setTestWa] = useState(''); const [testEmail, setTestEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState('');
+  const [biz, setBiz] = useState<{ name: string; branches: number; url: string }[] | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  useEffect(() => {
+    (async () => {
+      const { data: ss } = await supabase.auth.getSession();
+      const r = await fetch('/api/business-report?list=1', { headers: ss.session ? { Authorization: `Bearer ${ss.session.access_token}` } : {} });
+      const j = await r.json().catch(() => ({})); if (r.ok) setBiz(j.businesses || []);
+    })().catch(() => {});
+  }, []);
+  const copy = async (url: string) => { try { await navigator.clipboard.writeText(url); setCopied(url); setTimeout(() => setCopied(null), 2500); } catch { window.prompt('Copy this link', url); } };
 
   const load = useCallback(async () => {
     try { const j: Resp = await api('GET'); setData(j); setSel((s) => s || j.digests[0]?.clinic || null); setErr(null); }
@@ -112,6 +122,22 @@ export default function DigestAdmin() {
         </section>
         {msg && <div className={`note ${msg.ok ? 'ok' : 'bad'}`}>{msg.text}</div>}
 
+        <section className="card">
+          <h2>Business engagement reports</h2>
+          <p className="muted sm">One report for a whole pharmacy business (all its branches). Open it to check, then copy the link and send it to the owner yourself. The link shows only that business's report.</p>
+          {!biz && <p className="muted sm">Finding businesses…</p>}
+          {biz && biz.length === 0 && <p className="muted sm">No business has 2 or more branches on ChekaMeds yet.</p>}
+          {biz && biz.map((x) => (
+            <div key={x.name} className="bizrow">
+              <div><b>{x.name}</b><span className="muted sm"> · {x.branches} branches</span></div>
+              <div className="acts">
+                <a className="primary-link" href={x.url} target="_blank" rel="noreferrer">Open report ↗</a>
+                <button onClick={() => copy(x.url)}>{copied === x.url ? 'Copied ✓' : 'Copy link to share'}</button>
+              </div>
+            </div>
+          ))}
+        </section>
+
         <section className="grid">
           <div className="card listc">
             <input className="search" placeholder="Find a pharmacy" value={filter} onChange={(e) => setFilter(e.target.value)} />
@@ -179,6 +205,7 @@ const CSS = `
 .dg .card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:18px;margin-top:16px;min-width:0}
 .dg .top{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;align-items:center}
 .dg .stats{display:flex;gap:22px;flex-wrap:wrap;margin-top:8px}.dg .stats div{display:grid}.dg .stats b{font-size:1.5rem;color:#e8b10b}.dg .stats span{font-size:.78rem;color:rgba(255,255,255,.6)}
+.dg .bizrow{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 0;border-top:1px solid rgba(255,255,255,.08)}
 .dg .lives{display:flex;gap:10px;flex-wrap:wrap}.dg .acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.dg .primary-link{padding:7px 12px;border-radius:999px;background:#e8b10b;color:#141a33;font-weight:600;font-size:.82rem;text-decoration:none}
 .dg .live{display:grid;gap:4px;justify-items:start;padding:14px 18px;border-radius:14px;border:1px solid rgba(255,255,255,.15)}
 .dg .live span{font-size:.78rem;color:rgba(255,255,255,.6)}.dg .live b{font-size:1.3rem}.dg .live.on{border-color:rgba(94,234,168,.5)}.dg .live.on b{color:#5eeaa8}

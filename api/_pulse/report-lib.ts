@@ -13,14 +13,16 @@ const TZ = 2 * 3600e3;
 const MIN_NAMED = 3;
 export const NATIONAL = '__national__';
 // Demo listings and pharmacies ChekaMeds no longer works with are left out of comparisons.
-const HIDE = /chekameds|demo|phase\s*-?\s*4|kganya/i;
+/** Chain key: the first two words of a pharmacy name ("pulse pharmacy"), used only when 2+ names share it. */
+export const chainKeyOf = (name: string) => norm(name).replace(/[^a-z0-9 ]/g, '').split(' ').slice(0, 2).join(' ');
+export const HIDE = /chekameds|demo|phase\s*-?\s*4|kganya/i;
 const STOP = new Set(['tablet', 'tablets', 'tabs', 'syrup', 'cream', 'capsule', 'capsules', 'injection', 'drops', 'suspension', 'solution', 'medicine', 'medicines', 'pharmacy', 'where', 'need', 'have', 'with', 'from', 'available', 'price', 'please', 'want', 'looking', 'find', 'there', 'does', 'anyone']);
 const TOWN_WORDS = new Set(TOWNS.flatMap((t) => [t.id, ...(t.aliases || [])]).flatMap((a) => a.split(/\s+/)));
-const norm = (s: string | null | undefined) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
-const words = (s: string) => norm(s).split(/[^a-z0-9]+/).filter((w) => w.length >= 4 && !STOP.has(w) && !TOWN_WORDS.has(w) && !/^\d+$/.test(w));
-const title = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\b(Ors|Arv|Bp|Hiv|Mg|Ml)\b/g, (m) => m.toUpperCase());
-const pctChange = (now: number, prev: number) => (prev >= 5 ? Math.round(((now - prev) / prev) * 100) : null);
-const median = (a: number[]) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+export const norm = (s: string | null | undefined) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+export const words = (s: string) => norm(s).split(/[^a-z0-9]+/).filter((w) => w.length >= 4 && !STOP.has(w) && !TOWN_WORDS.has(w) && !/^\d+$/.test(w));
+export const title = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\b(Ors|Arv|Bp|Hiv|Mg|Ml)\b/g, (m) => m.toUpperCase());
+export const pctChange = (now: number, prev: number) => (prev >= 5 ? Math.round(((now - prev) / prev) * 100) : null);
+export const median = (a: number[]) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 
 const secret = () => env('PULSE_LINK_SECRET') || `report:${env('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_KEY', 'SERVICE_ROLE_KEY') || ''}`;
 export const reportSig = (clinic: string) => createHmac('sha256', secret()).update(`report.${norm(clinic)}`).digest('base64url').slice(0, 24);
@@ -104,9 +106,14 @@ export function computeReport(ctx: ReportContext, clinicIn: string) {
   };
   const myVocab = vocabOf(mine);
   // Other pharmacies in the same town (never named in the report).
+  // Sister branches of the same chain are never treated as competitors.
+  const chainCounts: Record<string, number> = {};
+  for (const n of new Set(stock.map((x: any) => norm(x.clinic_name)))) { const c = chainKeyOf(n as string); chainCounts[c] = (chainCounts[c] || 0) + 1; }
+  const myChain = key && chainCounts[chainKeyOf(key)] >= 2 ? chainKeyOf(key) : null;
   const others = new Map<string, any[]>();
   for (const s of stock) {
     const k = norm(s.clinic_name); if (!k || k === key || HIDE.test(k)) continue;
+    if (myChain && chainKeyOf(k) === myChain) continue;
     if (town && stockTownFor(s.clinic_name, s.location) !== town) continue;
     (others.get(k) || others.set(k, []).get(k)!).push(s);
   }
