@@ -10,6 +10,28 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotBusy, setForgotBusy] = useState(false);
+
+  // Emails a password reset link. The same message shows whether or not the email has an account.
+  const handleForgot = async () => {
+    const addr = email.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) {
+      toast({ title: 'Enter your email', description: 'Type the email you sign in with in the box above, then press Send reset link.', variant: 'destructive' });
+      return;
+    }
+    setForgotBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(addr, { redirectTo: `${window.location.origin}/reset-password` });
+      if (error) throw error;
+      setForgotSent(true);
+    } catch (err: any) {
+      toast({ title: 'Could not send the link', description: err.message || 'Please try again in a few minutes.', variant: 'destructive' });
+    } finally {
+      setForgotBusy(false);
+    }
+  };
   const navigate = useNavigate();
   const location = useLocation();
   const { signInWithGoogle } = useAuth();
@@ -112,6 +134,27 @@ const Login = () => {
                 </button>
               </div>
             </div>
+            <div style={{ margin: '-14px 0 18px', textAlign: 'right' }}>
+              <button type="button" onClick={() => { setForgotOpen(!forgotOpen); setForgotSent(false); }}
+                style={{ background: 'none', border: 'none', color: '#10b981', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                Forgot password?
+              </button>
+            </div>
+            {forgotOpen && (
+              <div style={{ marginBottom: 18, padding: 14, borderRadius: 10, background: '#050d18', border: '1px solid #1e2d3d' }}>
+                {forgotSent ? (
+                  <p style={{ margin: 0, fontSize: 13, color: '#a7f3d0', lineHeight: 1.5 }}>If an account exists for <b>{email.trim()}</b>, a reset link is on its way. Check the inbox (and spam), open the link and choose a new password.</p>
+                ) : (
+                  <>
+                    <p style={{ margin: '0 0 10px', fontSize: 13, color: '#94a3b8', lineHeight: 1.5 }}>Type the email you sign in with in the box above, and we'll email you a link to choose a new password.</p>
+                    <button type="button" onClick={handleForgot} disabled={forgotBusy}
+                      style={{ background: 'transparent', color: '#10b981', border: '1px solid #10b981', borderRadius: 10, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: forgotBusy ? 0.6 : 1 }}>
+                      {forgotBusy ? 'Sending…' : 'Send reset link'}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
             <button type="submit" disabled={isLoading}
               style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', borderRadius: 10, padding: '13px 0', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: isLoading ? 0.7 : 1, marginBottom: 12 }}>
               {isLoading ? 'Signing in…' : 'Sign in'}
