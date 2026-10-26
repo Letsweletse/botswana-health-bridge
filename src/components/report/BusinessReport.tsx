@@ -217,8 +217,8 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
 }
 
 const EXTRA = `
-.bz-logo{display:inline-flex;align-items:center;background:#fff;border-radius:14px;padding:10px 16px;margin-bottom:16px;box-shadow:0 10px 30px -12px rgba(0,0,0,.6)}
-.bz-logo img{height:44px;width:auto;display:block}
+.bz-logo{display:inline-flex;align-items:center;margin-bottom:16px}
+.bz-logo img{height:52px;width:auto;display:block;border-radius:6px}
 .bz-mobile-note{display:none;margin:-6px 0 16px;padding:10px 14px;border-radius:12px;background:rgba(232,177,11,.12);border:1px solid rgba(232,177,11,.3);font-size:.82rem;color:#f5d36b}
 @media (max-width:760px){.bz-mobile-note{display:block}}
 @media print{.bz-mobile-note{display:none}}
