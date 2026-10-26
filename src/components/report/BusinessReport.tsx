@@ -1,6 +1,9 @@
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { C, CSS, Delta, Bars, Heat, fmtH, fmtN as n } from './PharmacyReport';
 
+// Client logos shown on their own report (supplied by the client).
+const LOGOS: Record<string, string> = { 'pulse pharmacy': '/brand/pulse-pharmacy.png' };
+
 const pctOf = (rows: { n: number }[]) => { const t = Math.max(1, rows.reduce((a, r) => a + r.n, 0)); return rows.map((r) => Math.round((r.n / t) * 100)); };
 
 /* ChekaMeds business engagement report (glass night): one report for a whole pharmacy business. */
@@ -29,9 +32,11 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
       <style>{CSS + EXTRA}</style>
       <div className="gn-aurora" aria-hidden="true"><i /><i /><i /></div>
 
+      <div className="bz-mobile-note">For the full report, open this link on a laptop or desktop screen.</div>
       <div className="gn-hero">
         <div>
-          <p className="gn-kicker">ChekaMeds · business engagement report</p>
+          {LOGOS[data.business.toLowerCase()] && <div className="bz-logo"><img src={LOGOS[data.business.toLowerCase()]} alt={`${data.business} logo`} /></div>}
+          <p className="gn-kicker">ChekaMeds · business engagement report{LOGOS[data.business.toLowerCase()] ? ` · prepared for ${data.business}` : ''}</p>
           <h1>{data.business}</h1>
           <p className="gn-sub">{data.monthLabel}{data.partial ? ` · first ${data.daysCovered} days` : ''} · {h.branches} branches in {h.towns} towns · {n(h.listings)} medicines listed · compared with {data.prevMonthLabel}</p>
         </div>
@@ -212,6 +217,11 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
 }
 
 const EXTRA = `
+.bz-logo{display:inline-flex;align-items:center;background:#fff;border-radius:14px;padding:10px 16px;margin-bottom:16px;box-shadow:0 10px 30px -12px rgba(0,0,0,.6)}
+.bz-logo img{height:44px;width:auto;display:block}
+.bz-mobile-note{display:none;margin:-6px 0 16px;padding:10px 14px;border-radius:12px;background:rgba(232,177,11,.12);border:1px solid rgba(232,177,11,.3);font-size:.82rem;color:#f5d36b}
+@media (max-width:760px){.bz-mobile-note{display:block}}
+@media print{.bz-mobile-note{display:none}}
 .bz-who{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:22px}
 .bz-stackrow{display:grid;grid-template-columns:130px 1fr;gap:10px;align-items:center;margin:8px 0;font-size:.8rem;color:rgba(238,240,255,.65)}
 .bz-outlook{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
