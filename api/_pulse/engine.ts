@@ -78,7 +78,7 @@ export function noiseReason(q: string): NoiseReason {
   return null;
 }
 
-const SENSITIVE = /(misoprostol|cytotec|morning after|ellaone|postinor|plan b|condom|priligy|dapoxetine|viagra|sildenafil|cialis|tadalafil|pregnan|abortion|tenofovir|dolutegravir|efavirenz|\barv|hiv|std|sti\b)/;
+const SENSITIVE = /(misoprostol|cytotec|mifepristone|morning after|ellaone|ulipristal|postinor|levonorgestrel|levonelle|norlevo|e-?pill|emergency contracep|contracept|depo[- ]?provera|medroxyprogesterone|nuvaring|plan b|condom|priligy|dapoxetine|viagra|sildenafil|cialis|tadalafil|pregnan|abortion|tenofovir|dolutegravir|efavirenz|\barv|hiv|std|sti\b)/;
 export const isSensitive = (q: string) => SENSITIVE.test((q || '').toLowerCase());
 
 /* ---------- 2. weekly aggregation ---------- */
