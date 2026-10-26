@@ -1,6 +1,8 @@
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { C, CSS, Delta, Bars, Heat, fmtH, fmtN as n } from './PharmacyReport';
 
+const pctOf = (rows: { n: number }[]) => { const t = Math.max(1, rows.reduce((a, r) => a + r.n, 0)); return rows.map((r) => Math.round((r.n / t) * 100)); };
+
 /* ChekaMeds business engagement report (glass night): one report for a whole pharmacy business. */
 
 export type BusinessData = {
@@ -13,6 +15,10 @@ export type BusinessData = {
   drivers: { name: string; searches: number; branchesStocking: number; yourPrice: number | null; marketPrice: number | null; competitors: number }[];
   lostTop: { name: string; searches: number }[]; unmetTop: { name: string; searches: number }[];
   signals: { label: string; level: string; place: string; action: string }[]; recs: string[];
+  searched?: { name: string; searches: number; change: number | null; showedYou: number; youStock: boolean; foundNowhere: number }[];
+  sensitiveCount?: number;
+  who?: { channelsYou: { name: string; n: number }[]; channelsAll: { name: string; n: number }[]; returningYou: number; returningAll: number; peopleAll: number; perPerson: number; afterHours: number; weekend: number };
+  outlook?: { group: string; searches: number; change: number | null; showedYou: number; level: string; ratio: number | null; note: string; action: string; unnamed: boolean }[];
 };
 
 export default function BusinessReport({ data, months, onMonth }: { data: BusinessData; months?: { value: string; label: string }[]; onMonth?: (m: string) => void }) {
@@ -69,6 +75,67 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
         </div>
       </section>
 
+      {data.searched && data.searched.length > 0 && (
+        <section className="gn-glass gn-card">
+          <div className="gn-card-h"><h2>What people searched on ChekaMeds</h2><span className="gn-muted">All of Botswana, most searched first, against your shelf</span></div>
+          <div className="gn-table-wrap">
+            <table className="gn-table">
+              <thead><tr><th>#</th><th>Medicine</th><th>Searches</th><th>Change</th><th>Showed your branches</th><th>On your shelf</th><th>Found nowhere</th></tr></thead>
+              <tbody>{data.searched.map((m, i) => (
+                <tr key={m.name}><td className="rk">{i + 1}</td><td><b>{m.name}</b></td><td>{m.searches}</td><td><Delta v={m.change} /></td>
+                  <td><b style={{ color: m.showedYou ? '#f5d36b' : 'rgba(238,240,255,.4)' }}>{m.showedYou}</b></td>
+                  <td><span className={`gn-chip ${m.youStock ? 'ok' : 'no'}`}>{m.youStock ? 'Yes' : 'Not listed'}</span></td>
+                  <td className={m.foundNowhere >= 50 ? 'gn-hi' : ''}>{m.foundNowhere}%</td></tr>
+              ))}</tbody>
+            </table>
+          </div>
+          {!!data.sensitiveCount && <p className="gn-fine">A further {data.sensitiveCount} searches were for sexual and reproductive health medicines. These are counted but never named.</p>}
+        </section>
+      )}
+
+      {data.who && (() => { const w = data.who!; const py = pctOf(w.channelsYou); const pa = pctOf(w.channelsAll); const col = [C.teal, C.violet, C.gold];
+        return (
+        <section className="gn-glass gn-card">
+          <div className="gn-card-h"><h2>Who is searching</h2><span className="gn-muted">People who saw your branches, compared with everyone on ChekaMeds</span></div>
+          <div className="bz-who">
+            <div>
+              <h3>How they reach you</h3>
+              <div className="bz-stackrow"><span>Your customers</span><div className="gn-stack">{w.channelsYou.map((c, i) => <i key={c.name} style={{ width: `${py[i]}%`, background: col[i % 3] }} title={`${c.name} ${py[i]}%`} />)}</div></div>
+              <div className="bz-stackrow"><span>All of ChekaMeds</span><div className="gn-stack">{w.channelsAll.map((c, i) => <i key={c.name} style={{ width: `${pa[i]}%`, background: col[i % 3] }} title={`${c.name} ${pa[i]}%`} />)}</div></div>
+              <div className="gn-legend" style={{ marginTop: 8 }}>{w.channelsAll.map((c, i) => <span key={c.name}><i style={{ background: col[i % 3] }} />{c.name} {pa[i]}%</span>)}</div>
+              <div className="gn-callouts" style={{ marginTop: 16 }}>
+                <div><b>{w.returningYou}%</b><span>returning customers (ChekaMeds average {w.returningAll}%)</span></div>
+                <div><b>{w.perPerson}</b><span>searches per person that showed you</span></div>
+                <div><b>{w.afterHours}%</b><span>outside 08:00–18:00</span></div>
+                <div><b>{w.weekend}%</b><span>at weekends</span></div>
+              </div>
+            </div>
+            <div>
+              <h3>Where they were</h3>
+              {data.origins.length ? <Bars rows={data.origins} color={C.violet} /> : <p className="gn-muted">No appearances yet this month.</p>}
+            </div>
+          </div>
+          <p className="gn-fine">ChekaMeds does not collect age or gender. People are counted by phone number privately, and no number or name ever leaves ChekaMeds. "Town not given" means the person didn't share a town or location.</p>
+        </section>
+      ); })()}
+
+      {data.outlook && data.outlook.length > 0 && (
+        <section className="gn-glass gn-card">
+          <div className="gn-card-h"><h2>Health outlook</h2><span className="gn-muted">What illnesses people searched for, and ChekaMeds Pulse's status for each</span></div>
+          <div className="bz-outlook">
+            {data.outlook.map((o) => (
+              <div key={o.group} className={`bz-o ${o.level}`}>
+                <div className="top"><b>{o.group}{o.unnamed ? ' *' : ''}</b><span className={`bz-lv ${o.level}`}>{o.level === 'alert' ? 'Alert' : o.level === 'watch' ? 'Watch' : 'Normal'}</span></div>
+                <div className="nums"><span><b>{o.searches}</b> searches</span><Delta v={o.change} /><span><b>{o.showedYou}</b> showed you</span></div>
+                {o.note && <p>{o.note}</p>}
+                {o.action && <p className="act">Suggested: {o.action}</p>}
+              </div>
+            ))}
+          </div>
+          <p className="gn-fine">Pulse compares each illness group's searches with its own recent normal level, and adds weather where it matters (rain, heat, cold). Watch means "keep an eye on it"; alert means a strong, sustained rise. * Counted, never named.</p>
+        </section>
+      )}
+
       <section className="gn-glass gn-card">
         <div className="gn-card-h"><h2>Day by day</h2><div className="gn-legend"><span><i style={{ background: C.teal }} />All searches on ChekaMeds</span><span><i style={{ background: C.gold }} />Searches that showed {data.business}</span></div></div>
         <div style={{ height: 240 }}>
@@ -89,12 +156,7 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
         </div>
       </section>
 
-      <section className="gn-two">
-        <div className="gn-glass gn-card">
-          <div className="gn-card-h"><h2>Where your customers were</h2></div>
-          {data.origins.length ? <Bars rows={data.origins} color={C.violet} /> : <p className="gn-muted">No appearances yet this month.</p>}
-          <p className="gn-fine">"Town not given" means the person didn't share a town or location when searching.</p>
-        </div>
+      <section className="gn-one">
         <div className="gn-glass gn-card">
           <div className="gn-card-h"><h2>When they saw you</h2></div>
           <div className="gn-callouts">
@@ -106,7 +168,7 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
       </section>
 
       <section className="gn-glass gn-card">
-        <div className="gn-card-h"><h2>Medicines that brought customers to you</h2><span className="gn-muted">Searches that showed one of your branches · 3 or more only</span></div>
+        <div className="gn-card-h"><h2>Medicines that brought customers to you</h2><span className="gn-muted">Searches that showed one of your branches</span></div>
         <div className="gn-table-wrap">
           <table className="gn-table">
             <thead><tr><th>Medicine</th><th>Searches</th><th>Your branches stocking</th><th>Other pharmacies stocking</th><th>Your price</th><th>Market price</th></tr></thead>
@@ -150,6 +212,17 @@ export default function BusinessReport({ data, months, onMonth }: { data: Busine
 }
 
 const EXTRA = `
+.bz-who{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:22px}
+.bz-stackrow{display:grid;grid-template-columns:130px 1fr;gap:10px;align-items:center;margin:8px 0;font-size:.8rem;color:rgba(238,240,255,.65)}
+.bz-outlook{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.bz-o{padding:14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:grid;gap:8px;align-content:start}
+.bz-o.watch{border-color:rgba(251,191,90,.45);background:rgba(251,191,90,.07)}.bz-o.alert{border-color:rgba(248,113,113,.5);background:rgba(248,113,113,.08)}
+.bz-o .top{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:.9rem}
+.bz-lv{font-size:.7rem;font-weight:700;padding:3px 8px;border-radius:999px;background:rgba(94,234,168,.12);color:#86efac}
+.bz-lv.watch{background:rgba(251,191,90,.16);color:#fbbf5a}.bz-lv.alert{background:rgba(248,113,113,.16);color:#fca5a5}
+.bz-o .nums{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:.8rem;color:rgba(238,240,255,.65)}.bz-o .nums b{color:#fff}
+.bz-o p{margin:0;font-size:.8rem;color:rgba(238,240,255,.7);line-height:1.4}.bz-o p.act{color:#f5d36b}
+@media (max-width:900px){.bz-who{grid-template-columns:1fr}}
 .gn .kpi.hero2{background:linear-gradient(150deg,rgba(184,134,0,.26),rgba(125,108,242,.1));border-color:rgba(232,177,11,.35)}
 .bz-recs ol{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .bz-recs li{display:grid;grid-template-columns:30px 1fr;gap:12px;align-items:start;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.045);font-size:.9rem;line-height:1.45}
