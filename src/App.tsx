@@ -31,6 +31,7 @@ const Pulse = lazy(() => import("./pages/Pulse"));
 const PulseBulletin = lazy(() => import("./pages/PulseBulletin"));
 const PulseAck = lazy(() => import("./pages/PulseAck"));
 const PulseAdmin = lazy(() => import("./pages/PulseAdmin"));
+const DigestAdmin = lazy(() => import("./pages/DigestAdmin"));
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import SiteFooter from "./components/SiteFooter";
@@ -70,6 +71,7 @@ const AnimatedRoutes = () => {
           <Route path="/dashboard/consultant" element={<ProtectedRoute><ConsultantAdmin /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
           <Route path="/admin/pulse" element={<AdminRoute><PulseAdmin /></AdminRoute>} />
+          <Route path="/admin/digest" element={<AdminRoute><DigestAdmin /></AdminRoute>} />
           <Route path="/admin/campaigns" element={<AdminRoute><CampaignAdmin /></AdminRoute>} />
           <Route path="/admin/delivery" element={<ProtectedRoute><DeliveryAdmin /></ProtectedRoute>} />
           <Route path="/admin/whatsapp" element={<AdminRoute><WhatsAppWebhookAdmin /></AdminRoute>} />

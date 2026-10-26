@@ -82,7 +82,7 @@ export default function PulseAdmin() {
       <style>{CSS}</style>
       <header className="pad-head">
         <div><p className="kicker">ChekaMeds Pulse · admin</p><h1>Alert recipients</h1></div>
-        <div className="links"><Link to="/pulse">Dashboard</Link><Link to="/pulse/bulletin">Bulletin</Link><Link to="/admin">Admin panel</Link></div>
+        <div className="links"><Link to="/pulse">Dashboard</Link><Link to="/pulse/bulletin">Bulletin</Link><Link to="/admin/digest">Pharmacy digest</Link><Link to="/admin">Admin panel</Link></div>
       </header>
 
       <p className="muted">People here receive new Pulse alerts every morning at 08:00 and the weekly bulletin on Tuesdays. WhatsApp is active.
