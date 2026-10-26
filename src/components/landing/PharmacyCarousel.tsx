@@ -12,6 +12,10 @@ type Pharm = { name: string; town: string; live: boolean };
 
 const tidy = (v?: string | null) => (v || '').replace(/\s+/g, ' ').trim();
 const key = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
+// Demo listings and pharmacies ChekaMeds no longer works with are never shown.
+const HIDE = /chekameds|demo|phase\s*-?\s*4|kganya/i;
+// Town for a live-stock pharmacy, from its stock location (first part, tidied).
+const townOf = (loc?: string | null) => tidy((loc || '').split(/[,(/-]/)[0]).replace(/\b\w/g, (c) => c.toUpperCase()).slice(0, 28);
 
 export default function PharmacyCarousel() {
   const { data = [] } = useQuery<Pharm[]>({
@@ -20,19 +24,21 @@ export default function PharmacyCarousel() {
     retry: 0,
     queryFn: async () => {
       const [inv, dir] = await Promise.all([
-        (supabase as any).from('active_pharmacy_inventory').select('clinic_name').ilike('med_name', '%paracetamol%').gt('quantity', 0).limit(400),
+        (supabase as any).from('active_pharmacy_inventory').select('clinic_name, location').ilike('med_name', '%paracetamol%').gt('quantity', 0).limit(1000),
         (supabase as any).from('chekameds_public_facilities_map').select('facility_name, facility_type, city_town').limit(200),
       ]);
       const out = new Map<string, Pharm>();
-      for (const r of (inv.data || []) as { clinic_name: string }[]) {
+      for (const r of (inv.data || []) as { clinic_name: string; location: string | null }[]) {
         const name = tidy(r.clinic_name);
-        if (!name || /chekameds/i.test(name)) continue;
-        if (!out.has(key(name))) out.set(key(name), { name, town: '', live: true });
+        if (!name || HIDE.test(name)) continue;
+        const hit = out.get(key(name));
+        if (!hit) out.set(key(name), { name, town: townOf(r.location), live: true });
+        else if (!hit.town) hit.town = townOf(r.location);
       }
       for (const r of (dir.data || []) as { facility_name: string; facility_type: string | null; city_town: string | null }[]) {
         if ((r.facility_type || '').toLowerCase() !== 'pharmacy') continue;
         const name = tidy(r.facility_name);
-        if (!name) continue;
+        if (!name || HIDE.test(name)) continue;
         const hit = out.get(key(name));
         if (hit) { if (!hit.town) hit.town = tidy(r.city_town); continue; }
         out.set(key(name), { name, town: tidy(r.city_town), live: false });

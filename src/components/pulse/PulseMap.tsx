@@ -14,7 +14,7 @@ const COLOR = { alert: '#f87171', watch: '#fbbf5a', none: '#5eeaa8' } as const;
 const LABEL: Record<string, { side: 'l' | 'r'; dy?: number }> = {
   gaborone: { side: 'r', dy: 2 }, molepolole: { side: 'l', dy: -4 }, mochudi: { side: 'r', dy: -12 },
   kanye: { side: 'l', dy: 4 }, lobatse: { side: 'r', dy: 8 }, palapye: { side: 'r', dy: -2 }, serowe: { side: 'l', dy: -2 },
-  phikwe: { side: 'r', dy: 6 }, mahalapye: { side: 'l', dy: 2 },
+  phikwe: { side: 'l', dy: 6 }, mahalapye: { side: 'l', dy: 2 }, jwaneng: { side: 'l' }, goodhope: { side: 'l', dy: 8 }, bobonong: { side: 'r' },
 };
 
 /* Simplified Botswana border [lat, lng], drawn locally so the map needs no tile provider or API key. */
