@@ -3,15 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Map, Package, BarChart3, MessageCircle, Settings, LogOut,
-  ChevronLeft, ChevronRight, User, Stethoscope, ClipboardList, Brain, QrCode, Phone, CreditCard, Store, Video, ShieldCheck, ScanLine
+  ChevronLeft, ChevronRight, User, Stethoscope, ClipboardList, Brain, QrCode, Phone, CreditCard, Store, Video, ShieldCheck, ScanLine, Sparkles
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import logo from '@/assets/ChekaMeds_Logo.png';
 
-export type TabId = 'dashboard' | 'map' | 'inventory' | 'analytics' | 'consultant' | 'whatsapp' | 'prescriptions' | 'forecasting' | 'qr_codes' | 'sms_ussd' | 'pricing' | 'settings';
+export type TabId = 'dashboard' | 'insights' | 'map' | 'inventory' | 'analytics' | 'consultant' | 'whatsapp' | 'prescriptions' | 'forecasting' | 'qr_codes' | 'sms_ussd' | 'pricing' | 'settings';
 
 const navItems: { label: string; icon: typeof LayoutDashboard; id: TabId }[] = [
   { label: 'Dashboard', icon: LayoutDashboard, id: 'dashboard' },
+  { label: 'Market Insights', icon: Sparkles, id: 'insights' },
   { label: 'Map View', icon: Map, id: 'map' },
   { label: 'My Inventory', icon: Package, id: 'inventory' },
   { label: 'Analytics', icon: BarChart3, id: 'analytics' },

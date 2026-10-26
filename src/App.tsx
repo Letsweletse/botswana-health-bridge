@@ -32,6 +32,7 @@ const PulseBulletin = lazy(() => import("./pages/PulseBulletin"));
 const PulseAck = lazy(() => import("./pages/PulseAck"));
 const PulseAdmin = lazy(() => import("./pages/PulseAdmin"));
 const DigestAdmin = lazy(() => import("./pages/DigestAdmin"));
+const Report = lazy(() => import("./pages/Report"));
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import SiteFooter from "./components/SiteFooter";
@@ -68,6 +69,7 @@ const AnimatedRoutes = () => {
           <Route path="/pulse" element={<Pulse />} />
           <Route path="/pulse/bulletin" element={<PulseBulletin />} />
           <Route path="/pulse/ack" element={<PulseAck />} />
+          <Route path="/report" element={<Report />} />
           <Route path="/dashboard/consultant" element={<ProtectedRoute><ConsultantAdmin /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
           <Route path="/admin/pulse" element={<AdminRoute><PulseAdmin /></AdminRoute>} />
@@ -191,7 +193,7 @@ const RouteFallback = () => (
   </div>
 );
 
-const NO_FOOTER = ["/admin", "/dashboard", "/scanner", "/login", "/register", "/reset-password", "/pulse/bulletin", "/pulse/ack"];
+const NO_FOOTER = ["/admin", "/dashboard", "/scanner", "/login", "/register", "/reset-password", "/pulse/bulletin", "/pulse/ack", "/report"];
 const isPublicPath = (pathname: string) =>
   !NO_FOOTER.some((p) => pathname === p || pathname.startsWith(p + "/"));
 

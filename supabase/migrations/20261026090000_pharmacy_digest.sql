@@ -1,4 +1,4 @@
--- ChekaMeds weekly pharmacy digest.
+-- ChekaMeds pharmacy digests: weekly summary + monthly market report.
 -- Safe to run more than once. Creates three small tables; changes nothing else.
 -- Only the server (service role) reads or writes them; no public access.
 
@@ -10,8 +10,12 @@ create table if not exists public.pharmacy_digest_log (
   email_ok boolean,
   error text,
   sent_at timestamptz not null default now(),
-  unique (clinic_name, week)
+  kind text not null default 'weekly'
 );
+-- Works whether or not an earlier version of this table was created.
+alter table public.pharmacy_digest_log add column if not exists kind text not null default 'weekly';
+alter table public.pharmacy_digest_log drop constraint if exists pharmacy_digest_log_clinic_name_week_key;
+create unique index if not exists pharmacy_digest_log_once on public.pharmacy_digest_log (clinic_name, week, kind);
 
 create table if not exists public.pharmacy_digest_optouts (
   clinic_name text primary key,
@@ -26,7 +30,7 @@ create table if not exists public.pharmacy_digest_settings (
 );
 
 -- Weekly sending starts OFF. Switch it on from /admin/digest after checking the previews.
-insert into public.pharmacy_digest_settings (key, value) values ('live', 'false'::jsonb)
+insert into public.pharmacy_digest_settings (key, value) values ('live', 'false'::jsonb), ('live_monthly', 'false'::jsonb)
 on conflict (key) do nothing;
 
 alter table public.pharmacy_digest_log enable row level security;

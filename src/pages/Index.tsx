@@ -18,11 +18,13 @@ import QRVerification from '@/components/QRVerification';
 import SMSUSSDPanel from '@/components/SMSUSSDPanel';
 import PaymentMethods from '@/components/PaymentMethods';
 import ConsultantDashboard from '@/components/ConsultantDashboard';
+import InsightsPanel from '@/components/report/InsightsPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wrench, Settings as SettingsIcon } from 'lucide-react';
 
 const tabTitles: Record<TabId, { title: string; subtitle: string }> = {
   dashboard: { title: 'National Medicine Stock Dashboard', subtitle: 'Real-time shelf-level visibility across Gaborone District health facilities.' },
+  insights: { title: 'Market Insights', subtitle: 'What people searched on ChekaMeds this month, when and where, and how your shelf matches the demand.' },
   map: { title: 'Clinic Status Map', subtitle: 'Geographic view of all monitored health facilities and their live stock status.' },
   inventory: { title: 'My Clinic Inventory', subtitle: 'Manage your facility\'s medicine stock — add, update quantities, or remove records.' },
   analytics: { title: 'Stock Analytics', subtitle: 'Weekly trends, depletion patterns, and alert history across the district.' },
@@ -38,6 +40,7 @@ const tabTitles: Record<TabId, { title: string; subtitle: string }> = {
 
 const mobileTabs: { id: TabId; label: string }[] = [
   { id: 'dashboard', label: 'Dashboard' },
+  { id: 'insights', label: 'Insights' },
   { id: 'inventory', label: 'Inventory' },
   { id: 'consultant', label: 'Consultant' },
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -91,7 +94,7 @@ const IndexInner = ({ activeTab, setActiveTab }: { activeTab: TabId; setActiveTa
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="glass-night min-h-screen bg-background flex">
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
       <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
         <DashboardHeader />
@@ -204,6 +207,7 @@ const IndexInner = ({ activeTab, setActiveTab }: { activeTab: TabId; setActiveTa
                 </div>
               )}
 
+              {activeTab === 'insights' && <InsightsPanel />}
               {activeTab === 'consultant' && <ConsultantDashboard />}
               {activeTab === 'prescriptions' && <PrescriptionMatcher />}
               {activeTab === 'forecasting' && <StockForecasting />}

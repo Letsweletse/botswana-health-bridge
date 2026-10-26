@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto';
 import { weekKey, lastCompleteWeek, noiseReason, isSensitive, DAY } from './engine.js';
 import { TOWNS, townFor } from './reference.js';
 import { env, SITE } from './notify-lib.js';
+import { reportUrl } from './report-lib.js';
 
 /* ChekaMeds weekly pharmacy digest: what people searched for last week, and how
    each partner pharmacy's listing is doing. Aggregated counts only: no phone
@@ -186,6 +187,7 @@ export function whatsappText(d: Digest): string {
     ...(l.nudge ? ['', `⚠️ ${l.nudge}`] : []),
     '',
     `👉 Update your stock: ${SITE}/dashboard`,
+    `📈 Your full market report: ${reportUrl(d.clinic, 'current')}`,
     '',
     `_Counts only, no customer details._`,
     `Stop these weekly updates: ${unsubUrl(d.clinic)}`,

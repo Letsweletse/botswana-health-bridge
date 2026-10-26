@@ -10,9 +10,9 @@ type D = {
   stock: { listings: number; inStock: number; staleDays: number | null };
   demand: { all: number; town: number | null; national: number };
   missed: { total: number }; orders: number;
-  whatsappText: string; emailSubject: string; emailHtml: string;
+  whatsappText: string; emailSubject: string; emailHtml: string; reportUrl: string;
 };
-type Resp = { week: string; live: boolean; setup_needed: boolean; email_enabled: boolean; digests: D[]; skipped: { clinic: string; reason: string }[]; log: { clinic_name: string; week: string; whatsapp_ok: boolean | null; email_ok: boolean | null; error: string | null; sent_at: string }[] };
+type Resp = { week: string; live: boolean; live_monthly: boolean; setup_needed: boolean; email_enabled: boolean; digests: D[]; skipped: { clinic: string; reason: string }[]; log: { clinic_name: string; week: string; whatsapp_ok: boolean | null; email_ok: boolean | null; error: string | null; sent_at: string }[] };
 
 async function api(method: 'GET' | 'POST', body?: unknown) {
   const { data } = await supabase.auth.getSession();
@@ -58,10 +58,20 @@ export default function DigestAdmin() {
       setMsg({ ok: parts.length > 0 && parts.every((p) => p.includes('sent')), text: parts.length ? `Test of ${cur.clinic}'s digest: ${parts.join(', ')}. Only you received it.` : 'Enter your own WhatsApp number or email first.' });
     } catch (e) { setMsg({ ok: false, text: (e as Error).message }); } finally { setBusy(false); }
   };
-  const setLive = async (value: boolean) => {
-    if (value && !window.confirm(`Switch on weekly sending?\n\nEvery Monday at 08:00, ${reach.total} pharmacies will receive their digest (${reach.wa} by WhatsApp, ${reach.em} by email). Each pharmacy gets it once a week and can unsubscribe from the link in the message.`)) return;
-    try { await api('POST', { action: 'live', value }); setMsg({ ok: true, text: value ? 'Weekly sending is ON. The first digests go out next Monday at 08:00.' : 'Weekly sending is OFF.' }); await load(); }
+  const setLive = async (value: boolean, kind: 'weekly' | 'monthly' = 'weekly') => {
+    const when = kind === 'weekly' ? 'Every Monday at 08:00' : 'On the 1st of every month at 08:00';
+    const what = kind === 'weekly' ? 'their weekly digest' : 'their monthly market report';
+    if (value && !window.confirm(`Switch on ${kind} sending?\n\n${when}, ${reach.total} pharmacies will receive ${what} (${reach.wa} by WhatsApp, ${reach.em} by email). Each can unsubscribe from the link in the message.`)) return;
+    try { await api('POST', { action: 'live', value, kind }); setMsg({ ok: true, text: `${kind === 'weekly' ? 'Weekly' : 'Monthly'} sending is ${value ? 'ON' : 'OFF'}.` }); await load(); }
     catch (e) { setMsg({ ok: false, text: (e as Error).message }); }
+  };
+  const testMonthly = async () => {
+    if (!cur) return; setBusy(true); setMsg(null);
+    try {
+      const j = await api('POST', { action: 'test_monthly', clinic: cur.clinic, whatsapp: testWa || undefined, email: testEmail || undefined });
+      const parts = Object.entries(j.result || {}).map(([k, v]: any) => `${k === 'whatsapp' ? 'WhatsApp' : 'Email'} ${v.ok ? 'sent' : `failed (${v.error || 'error'})`}`);
+      setMsg({ ok: parts.length > 0 && parts.every((p) => p.includes('sent')), text: parts.length ? `Monthly report test for ${cur.clinic}: ${parts.join(', ')}. Only you received it.` : 'Enter your own WhatsApp number or email first.' });
+    } catch (e) { setMsg({ ok: false, text: (e as Error).message }); } finally { setBusy(false); }
   };
   const opt = async (d: D) => {
     try { await api('POST', { action: d.optedOut ? 'optin' : 'optout', clinic: d.clinic }); await load(); }
@@ -72,7 +82,7 @@ export default function DigestAdmin() {
     <div className="dg">
       <style>{CSS}</style>
       <header className="dg-head">
-        <div><p className="kicker">ChekaMeds · admin</p><h1>Weekly pharmacy digest</h1></div>
+        <div><p className="kicker">ChekaMeds · admin</p><h1>Pharmacy digests &amp; reports</h1></div>
         <div className="links"><Link to="/admin/pulse">Pulse recipients</Link><Link to="/admin">Admin panel</Link></div>
       </header>
       {err && <div className="note bad">{err}</div>}
@@ -89,9 +99,15 @@ export default function DigestAdmin() {
               <div><b>{data.skipped.length}</b><span>skipped (see below)</span></div>
             </div>
           </div>
-          <div className={`live ${data.live ? 'on' : ''}`}>
-            <span>Weekly sending</span><b>{data.live ? 'ON' : 'OFF'}</b>
-            <button className={data.live ? '' : 'primary'} disabled={data.setup_needed} onClick={() => setLive(!data.live)}>{data.live ? 'Switch off' : 'Switch on'}</button>
+          <div className="lives">
+            <div className={`live ${data.live ? 'on' : ''}`}>
+              <span>Weekly digest · Mondays</span><b>{data.live ? 'ON' : 'OFF'}</b>
+              <button className={data.live ? '' : 'primary'} disabled={data.setup_needed} onClick={() => setLive(!data.live, 'weekly')}>{data.live ? 'Switch off' : 'Switch on'}</button>
+            </div>
+            <div className={`live ${data.live_monthly ? 'on' : ''}`}>
+              <span>Monthly report · 1st of month</span><b>{data.live_monthly ? 'ON' : 'OFF'}</b>
+              <button className={data.live_monthly ? '' : 'primary'} disabled={data.setup_needed} onClick={() => setLive(!data.live_monthly, 'monthly')}>{data.live_monthly ? 'Switch off' : 'Switch on'}</button>
+            </div>
           </div>
         </section>
         {msg && <div className={`note ${msg.ok ? 'ok' : 'bad'}`}>{msg.text}</div>}
@@ -113,7 +129,7 @@ export default function DigestAdmin() {
             <div className="card prev">
               <div className="prev-h">
                 <div><h2>{cur.clinic}</h2><p className="muted sm">WhatsApp {mask(cur.whatsapp)} · Email {cur.email ? cur.email.replace(/^(.).*(@.*)$/, '$1•••$2') : '–'}</p></div>
-                <button onClick={() => opt(cur)}>{cur.optedOut ? 'Resubscribe' : 'Stop sending to this pharmacy'}</button>
+                <div className="acts"><a className="primary-link" href={cur.reportUrl} target="_blank" rel="noreferrer">Open full monthly report ↗</a><button onClick={() => opt(cur)}>{cur.optedOut ? 'Resubscribe' : 'Stop sending to this pharmacy'}</button></div>
               </div>
               <div className="tabs"><button className={view === 'whatsapp' ? 'on' : ''} onClick={() => setView('whatsapp')}>WhatsApp</button><button className={view === 'email' ? 'on' : ''} onClick={() => setView('email')}>Email</button></div>
               {view === 'whatsapp'
@@ -124,7 +140,8 @@ export default function DigestAdmin() {
                 <div className="row">
                   <input placeholder="Your WhatsApp, e.g. 71234567" value={testWa} onChange={(e) => setTestWa(e.target.value)} inputMode="tel" />
                   <input placeholder="Your email" value={testEmail} onChange={(e) => setTestEmail(e.target.value)} type="email" />
-                  <button className="primary" disabled={busy} onClick={test}>{busy ? 'Sending…' : 'Send test'}</button>
+                  <button className="primary" disabled={busy} onClick={test}>{busy ? 'Sending…' : 'Test weekly'}</button>
+                  <button className="primary" disabled={busy} onClick={testMonthly}>{busy ? 'Sending…' : 'Test monthly'}</button>
                 </div>
                 <p className="muted sm">The test goes only to the number and email you type here, never to the pharmacy.</p>
               </div>
@@ -162,6 +179,7 @@ const CSS = `
 .dg .card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:18px;margin-top:16px;min-width:0}
 .dg .top{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;align-items:center}
 .dg .stats{display:flex;gap:22px;flex-wrap:wrap;margin-top:8px}.dg .stats div{display:grid}.dg .stats b{font-size:1.5rem;color:#e8b10b}.dg .stats span{font-size:.78rem;color:rgba(255,255,255,.6)}
+.dg .lives{display:flex;gap:10px;flex-wrap:wrap}.dg .acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.dg .primary-link{padding:7px 12px;border-radius:999px;background:#e8b10b;color:#141a33;font-weight:600;font-size:.82rem;text-decoration:none}
 .dg .live{display:grid;gap:4px;justify-items:start;padding:14px 18px;border-radius:14px;border:1px solid rgba(255,255,255,.15)}
 .dg .live span{font-size:.78rem;color:rgba(255,255,255,.6)}.dg .live b{font-size:1.3rem}.dg .live.on{border-color:rgba(94,234,168,.5)}.dg .live.on b{color:#5eeaa8}
 .dg button{padding:7px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.25);background:transparent;color:#fff;font:500 .82rem Inter,system-ui,sans-serif;cursor:pointer}

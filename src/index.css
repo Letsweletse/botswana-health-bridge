@@ -328,3 +328,50 @@ img[alt="ChekaMeds"] { filter: brightness(1.1); }
 /* Animate pulse for live indicator */
 @keyframes cheka-pulse { 0%,100%{opacity:1}50%{opacity:.3} }
 .animate-pulse { animation: cheka-pulse 2s cubic-bezier(0.4,0,0.6,1) infinite; }
+
+/* ---------- Glass night: pharmacy dashboard skin ---------- */
+.glass-night {
+  --background: 232 45% 5%;
+  --foreground: 232 60% 96%;
+  --card: 232 38% 11%;
+  --card-foreground: 232 60% 96%;
+  --popover: 232 40% 9%;
+  --popover-foreground: 232 60% 96%;
+  --primary: 160 62% 44%;
+  --primary-foreground: 232 45% 6%;
+  --secondary: 232 30% 16%;
+  --secondary-foreground: 232 60% 96%;
+  --muted: 232 28% 15%;
+  --muted-foreground: 232 18% 68%;
+  --accent: 248 84% 69%;
+  --accent-foreground: 232 45% 6%;
+  --border: 232 30% 20%;
+  --input: 232 30% 20%;
+  --ring: 160 62% 44%;
+  --sidebar-background: 233 45% 6%;
+  --sidebar-foreground: 232 50% 92%;
+  --sidebar-primary: 160 62% 44%;
+  --sidebar-primary-foreground: 232 45% 6%;
+  --sidebar-accent: 232 32% 13%;
+  --sidebar-accent-foreground: 232 50% 94%;
+  --sidebar-border: 232 30% 15%;
+  --shadow-card: inset 0 1px 0 hsl(0 0% 100% / 0.08), 0 20px 50px -24px hsl(0 0% 0% / 0.7);
+  --shadow-glow: 0 0 40px -10px hsl(248 84% 69% / 0.35);
+  color-scheme: dark;
+  background:
+    radial-gradient(1100px 700px at 0% -10%, #1b1f4d 0%, transparent 60%),
+    radial-gradient(900px 600px at 110% 0%, #123845 0%, transparent 55%),
+    linear-gradient(180deg, #05060f 0%, #0a0d24 60%, #05060f 100%) fixed;
+  color: hsl(var(--foreground));
+}
+.glass-night .bg-background { background-color: transparent; }
+.glass-night .bg-card {
+  background: linear-gradient(160deg, hsl(0 0% 100% / 0.075), hsl(0 0% 100% / 0.025));
+  border-color: hsl(0 0% 100% / 0.11);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: var(--shadow-card);
+}
+.glass-night aside, .glass-night header { -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+.glass-night input, .glass-night select, .glass-night textarea { background-color: hsl(0 0% 100% / 0.05); color: hsl(var(--foreground)); }
+.glass-night table thead { background: hsl(0 0% 100% / 0.03); }
