@@ -16,7 +16,10 @@ export const NATIONAL = '__national__';
 /** Chain key: the first two words of a pharmacy name ("pulse pharmacy"), used only when 2+ names share it. */
 export const chainKeyOf = (name: string) => norm(name).replace(/[^a-z0-9 ]/g, '').split(' ').slice(0, 2).join(' ');
 export const HIDE = /chekameds|demo|phase\s*-?\s*4|kganya/i;
-const STOP = new Set(['tablet', 'tablets', 'tabs', 'syrup', 'cream', 'capsule', 'capsules', 'injection', 'drops', 'suspension', 'solution', 'medicine', 'medicines', 'pharmacy', 'where', 'need', 'have', 'with', 'from', 'available', 'price', 'please', 'want', 'looking', 'find', 'there', 'does', 'anyone']);
+const STOP = new Set(['tablet', 'tablets', 'tabs', 'syrup', 'cream', 'capsule', 'capsules', 'injection', 'drops', 'suspension', 'solution', 'medicine', 'medicines', 'pharmacy', 'where', 'need', 'have', 'with', 'from', 'available', 'price', 'please', 'want', 'looking', 'find', 'there', 'does', 'anyone',
+  // greetings and filler that are not medicines
+  'good', 'morning', 'afternoon', 'evening', 'night', 'hello', 'thanks', 'thank', 'this', 'that', 'these', 'those', 'pills', 'pill', 'chekameds', 'cheka', 'meds',
+  'read', 'image', 'images', 'photo', 'picture', 'send', 'check', 'what', 'which', 'your', 'some', 'help', 'kindly', 'urgent', 'today', 'stock', 'something', 'thing', 'name']);
 const TOWN_WORDS = new Set(TOWNS.flatMap((t) => [t.id, ...(t.aliases || [])]).flatMap((a) => a.split(/\s+/)));
 export const norm = (s: string | null | undefined) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
 export const words = (s: string) => norm(s).split(/[^a-z0-9]+/).filter((w) => w.length >= 4 && !STOP.has(w) && !TOWN_WORDS.has(w) && !/^\d+$/.test(w));
