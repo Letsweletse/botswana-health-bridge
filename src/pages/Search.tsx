@@ -428,6 +428,7 @@ const SearchPage = () => {
                       <div className="cm-res-price">
                         {med.price_bwp != null && <b>P {Number(med.price_bwp).toFixed(2)}</b>}
                         <span className={`cms-badge ${st.cls}`} style={{ marginTop: 6 }}>{st.text}</span>
+                        {med.updated_at && <span style={{ display: 'block', fontSize: 11, opacity: 0.6, marginTop: 4 }}>Stock updated {new Date(med.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>}
                       </div>
                     </div>
                   );
