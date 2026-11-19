@@ -239,15 +239,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         for (let k = minT; k < WEEKS; k++) {
           const d = detect(sim[town.id][g.id], k, an, g);
           if (d.level === 'none') continue;
+          const st = STORIES.find((x) => x.town === town.id && x.group === g.id && x.signal && k >= WEEKS - 1 + x.startOffset);
           const item = {
             week: weeks[k], town: town.id, townName: town.name, group: g.id, label: g.label,
             level: d.level, kind: d.kind, score: d.score, count: d.count, expected: d.expected, ratio: d.ratio,
             unfilledShare: d.unfilledShare, unfilledBase: d.unfilledBase,
             contributions: { demand: d.zDemand, unfilled: d.zUnfilled, climate: d.climate },
             reasons: explain(d, g, town.name),
-            signal: d.kind === 'supply' ? 'Supply problem: people are searching and not finding this medicine' : g.signal,
-            action: d.kind === 'supply' ? 'Ask pharmacies and suppliers in the area to restock; check Central Medical Stores supply for this medicine group.' : g.action,
-            owner: d.kind === 'supply' ? 'Pharmacies, suppliers and CMS' : g.owner,
+            signal: d.kind === 'supply' ? 'Supply problem: people are searching and not finding this medicine' : (st?.signal ?? g.signal),
+            action: d.kind === 'supply' ? 'Ask pharmacies and suppliers in the area to restock; check Central Medical Stores supply for this medicine group.' : (st?.action ?? g.action),
+            owner: d.kind === 'supply' ? 'Pharmacies, suppliers and CMS' : (st?.owner ?? g.owner),
             series: sim[town.id][g.id].map((x) => x.c), unfilledSeries: sim[town.id][g.id].map((x) => x.u),
             climateSeries: an,
           };

@@ -253,7 +253,7 @@ const DEFAULT_MIX: Record<string, number> = {
   diarrhoea: 0.05, malaria: 0.015, skin_eye: 0.07, other: 0.185,
 };
 
-export type Story = { town: string; group: string; startOffset: number; ramp: number[]; unfilled?: number; title: string; truth: string };
+export type Story = { town: string; group: string; startOffset: number; ramp: number[]; unfilled?: number; title: string; truth: string; signal?: string; action?: string; owner?: string };
 
 /* Scenario events ending in the latest week, plus one historical wave. */
 export const STORIES: Story[] = [
@@ -261,6 +261,8 @@ export const STORIES: Story[] = [
   { town: 'maun', group: 'malaria', startOffset: -1, ramp: [2.0, 3.2], title: 'Malaria rise, Maun', truth: 'Simulated malaria rise after early rains, starting 2 weeks ago.' },
   { town: 'kanye', group: 'allergy_asthma', startOffset: -1, ramp: [1.6, 1.9], unfilled: 0.85, title: 'Inhaler stock-out, Kanye', truth: 'Simulated salbutamol shortage: normal demand, most searches unfilled.' },
   { town: 'gaborone', group: 'respiratory', startOffset: -17, ramp: [1.3, 1.7, 2.1, 1.8, 1.4], title: 'Winter flu wave, Greater Gaborone', truth: 'Simulated winter influenza wave in June–July.' },
+  { town: 'letlhakane', group: 'diarrhoea', startOffset: -1, ramp: [3.5, 6.0], title: 'Heat stress at mine sites, Letlhakane & Orapa (ORS)', truth: 'Simulated workforce heat episode: rehydration salt searches rise during a hot spell, starting 2 weeks ago.', signal: 'Possible heat-related illness among outdoor and mine workers (dehydration, heat exhaustion)', action: 'Tell mine and contractor occupational health teams: more water and shade, extra rest breaks in the hottest hours, check workers reporting headache or dizziness. Make sure ORS is stocked at site clinics and nearby pharmacies.', owner: 'Mine occupational health and DHMT' },
+  { town: 'letlhakane', group: 'fever_pain', startOffset: -1, ramp: [2.0, 3.2], title: 'Heat stress at mine sites, Letlhakane & Orapa (headache and pain relief)', truth: 'Same simulated heat episode: headache and pain relief searches rise alongside ORS.', signal: 'Possible heat-related illness among outdoor and mine workers (dehydration, heat exhaustion)', action: 'Tell mine and contractor occupational health teams: more water and shade, extra rest breaks in the hottest hours, check workers reporting headache or dizziness. Make sure ORS is stocked at site clinics and nearby pharmacies.', owner: 'Mine occupational health and DHMT' },
   { town: 'serowe', group: 'skin_eye', startOffset: -9, ramp: [1.6, 2.4, 1.7], title: 'Conjunctivitis outbreak, Serowe', truth: 'Simulated school conjunctivitis outbreak in August.' },
 ];
 
