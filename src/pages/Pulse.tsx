@@ -19,7 +19,7 @@ type Alert = {
 };
 type Pulse = {
   generated_at: string; week: string;
-  weather: { source: 'open-meteo' | 'climatology'; byTown: Record<string, { tmax: number[]; rain: number[] }> };
+  weather: { source: 'open-meteo' | 'climatology'; byTown: Record<string, { tmax: number[]; rain: number[] }>; anomalies?: Record<string, { heat: number[]; rain: number[]; cold: number[] }> };
   groups: Group[]; towns: Town[];
   thresholds: { watch: number; alert: number; baselineWeeks: number; guardWeeks: number; smallCell: number };
   live: {
@@ -318,6 +318,29 @@ export default function Pulse() {
               <Kpi value={data.live.totals.pharmacies.toString()} label="Pharmacies reporting stock" sub={`${data.live.totals.stockListings.toLocaleString()} listings`} />
             </div>
 
+            {(() => {
+              const MINES: Record<string, string> = { jwaneng: 'Jwaneng mine', letlhakane: 'Orapa & Letlhakane mines', phikwe: 'former copper mine' };
+              const rows = data.towns.map((t) => {
+                const tm = data.weather.byTown[t.id]?.tmax || []; const z = data.weather.anomalies?.[t.id]?.heat || [];
+                return { id: t.id, name: t.name, tmax: tm[tm.length - 1], z: z[z.length - 1] ?? 0 };
+              }).filter((r) => r.tmax != null).sort((a, b) => b.z - a.z);
+              const lvl = (z: number) => (z >= 1.5 ? { t: 'Hot spell', c: '#ff6b5b' } : z >= 0.75 ? { t: 'Warmer than normal', c: '#ffb547' } : { t: 'Normal', c: 'rgba(255,255,255,.45)' });
+              const hot = rows.filter((r) => r.z >= 0.75).length;
+              return (
+                <section className="pl-panel">
+                  <div className="pl-panel-h"><h2>Heat signal</h2><span className="pl-dim">{data.weather.source === 'open-meteo' ? 'Real Open-Meteo temperatures' : 'Seasonal normals'}, latest week</span></div>
+                  <p className="pl-dim" style={{ margin: '0 0 10px' }}>Each town's daily high this week compared with its own recent normal. A hot spell strengthens rises in ORS, asthma and skin searches, and puts outdoor and mine workers at risk of dehydration and heat exhaustion. Heat alone never raises an alert. {hot ? `${hot} town${hot === 1 ? '' : 's'} warmer than normal this week.` : 'No town is warmer than normal this week.'}</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 8 }}>
+                    {rows.slice(0, 8).map((r) => { const L = lvl(r.z); return (
+                      <div key={r.id} style={{ border: '1px solid rgba(255,255,255,.1)', borderLeft: `4px solid ${L.c}`, borderRadius: 10, padding: '8px 10px' }}>
+                        <div style={{ fontWeight: 700 }}>{r.name}{MINES[r.id] && <span className="pl-dim" style={{ fontWeight: 400, fontSize: 11 }}> · {MINES[r.id]}</span>}</div>
+                        <div style={{ fontSize: 20, fontWeight: 700 }}>{Math.round(r.tmax)}°C</div>
+                        <div style={{ fontSize: 12, color: L.c }}>{L.t} ({r.z >= 0 ? '+' : ''}{r.z.toFixed(1)} SD)</div>
+                      </div>); })}
+                  </div>
+                </section>
+              );
+            })()}
             {board}
 
             <section className="pl-panel">
